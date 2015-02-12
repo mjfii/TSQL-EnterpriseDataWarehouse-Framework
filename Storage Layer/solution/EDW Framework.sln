@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
+Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "debug", "debug\debug.vbproj", "{126386F3-D232-4F5B-BEE9-62FAD6ECD863}"
+	ProjectSection(ProjectDependencies) = postProject
+		{45292527-9B93-4BAF-B4D5-A7B7F4DF72C6} = {45292527-9B93-4BAF-B4D5-A7B7F4DF72C6}
+	EndProjectSection
+EndProject
+Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "Object Definitions", "Object Definitions\Object Definitions.vbproj", "{45292527-9B93-4BAF-B4D5-A7B7F4DF72C6}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Database Definitions", "Database Definitions", "{6DC1A911-9EA8-45D1-8561-960CA0209226}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{126386F3-D232-4F5B-BEE9-62FAD6ECD863}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{126386F3-D232-4F5B-BEE9-62FAD6ECD863}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{126386F3-D232-4F5B-BEE9-62FAD6ECD863}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{126386F3-D232-4F5B-BEE9-62FAD6ECD863}.Release|Any CPU.Build.0 = Release|Any CPU
+		{45292527-9B93-4BAF-B4D5-A7B7F4DF72C6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{45292527-9B93-4BAF-B4D5-A7B7F4DF72C6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{45292527-9B93-4BAF-B4D5-A7B7F4DF72C6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{45292527-9B93-4BAF-B4D5-A7B7F4DF72C6}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

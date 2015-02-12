@@ -1,0 +1,1337 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <!-- 
+    Microsoft ResX Schema 
+    
+    Version 2.0
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
+    associated with the data types.
+    
+    Example:
+    
+    ... ado.net/XML headers & schema ...
+    <resheader name="resmimetype">text/microsoft-resx</resheader>
+    <resheader name="version">2.0</resheader>
+    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
+    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
+    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
+    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
+    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
+        <value>[base64 mime encoded serialized .NET Framework object]</value>
+    </data>
+    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
+        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
+        <comment>This is a comment</comment>
+    </data>
+                
+    There are any number of "resheader" rows that contain simple 
+    name/value pairs.
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
+    mimetype set.
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
+    extensible. For a given mimetype the value must be set accordingly:
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
+    read any of the formats listed below.
+    
+    mimetype: application/x-microsoft.net.object.binary.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
+            : and then encoded with base64 encoding.
+    
+    mimetype: application/x-microsoft.net.object.soap.base64
+    value   : The object must be serialized with 
+            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
+            : and then encoded with base64 encoding.
+
+    mimetype: application/x-microsoft.net.object.bytearray.base64
+    value   : The object must be serialized into a byte array 
+            : using a System.ComponentModel.TypeConverter
+            : and then encoded with base64 encoding.
+    -->
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="PSA_AsIsSecurityDefinition" xml:space="preserve">
+    <value>grant select on [{{{schema}}}].[{{{entity}}}.AsIs] to [psa_abstractreader];</value>
+  </data>
+  <data name="PSA_AsIsTriggerDefinition" xml:space="preserve">
+    <value>create trigger [tr : {{{label}}}.AsIs {Reverse DML}] on [{{{schema}}}].[{{{entity}}}.AsIs]
+instead of insert,update,delete
+as
+-- do not alter/add/extend this trigger, or any psa trigger
+-- authored by slalom consulting 2014
+begin;
+   raiserror(N'DML Statements are not allowed on this AsIs view.  Use the Control Abstraction [{{{schema}}}].[{{{entity}}}.Control] instead.',16,1)
+end;</value>
+  </data>
+  <data name="PSA_AsIsViewDefinition" xml:space="preserve">
+    <value>create view [{{{schema}}}].[{{{entity}}}.AsIs] with schemabinding --,encryption
+as
+select
+   [psa_entity_key] [AbstractEntityKey],
+{{{columnset}}}
+from
+   {{{domain}}}
+where
+   [psa_archive_flag]=0
+   and
+   [psa_active_state]=1
+   and
+   [psa_current_flag]=1;</value>
+  </data>
+  <data name="PSA_AsOfFunctionDefinition" xml:space="preserve">
+    <value>create function [{{{schema}}}].[{{{entity}}}.AsOf]
+ (
+   @AsOfDateTime datetime2(7)
+ ) 
+returns table with schemabinding
+as return
+
+select
+   [psa_entity_key] [AbstractEntityKey],
+{{{columnset}}}
+from
+   {{{domain}}}
+where
+   [psa_archive_flag]=0
+   and
+   [psa_active_state]=1
+   and
+   [psa_start_period]&lt;=@AsOfDateTime
+   and
+   isnull([psa_end_period],'9999-12-31 23:59:59.9999999')&gt;=@AsOfDateTime;</value>
+  </data>
+  <data name="PSA_AsOfSecurityDefinition" xml:space="preserve">
+    <value>grant select on [{{{schema}}}].[{{{entity}}}.AsOf] to [psa_abstractreader];</value>
+  </data>
+  <data name="PSA_AsWasSecurityDefinition" xml:space="preserve">
+    <value>grant select on [{{{schema}}}].[{{{entity}}}.AsWas] to [psa_abstractreader];</value>
+  </data>
+  <data name="PSA_AsWasTriggerDefinition" xml:space="preserve">
+    <value>create trigger [tr : {{{label}}}.AsWas {Reverse DML}] on [{{{schema}}}].[{{{entity}}}.AsWas]
+instead of insert,update,delete
+as
+-- do not alter/add/extend this trigger, or any psa trigger
+-- authored by slalom consulting 2014
+begin;
+   raiserror(N'DML Statements are not allowed on this AsWas view.  Use the Control Abstraction [{{{schema}}}].[{{{entity}}}.Control] instead.',16,1)
+end;</value>
+  </data>
+  <data name="PSA_AsWasViewDefinition" xml:space="preserve">
+    <value>create view [{{{schema}}}].[{{{entity}}}.AsWas] with schemabinding
+as
+select
+   [psa_entity_key] [AbstractEntityKey],
+   [psa_entity_sequence] [AbstractChangeIncrement],
+   [psa_start_period] [AbstractValidFrom],
+   isnull([psa_end_period],'9999-12-31 23:59:59.9999999') [AbstractValidTo],
+   [psa_dml_action] [AbstractChangeAction],
+{{{columnset}}}
+from
+   {{{domain}}}
+where
+   [psa_archive_flag]=0;</value>
+  </data>
+  <data name="PSA_BatchCountSecurityDefinition" xml:space="preserve">
+    <value>grant select on [{{{schema}}}].[{{{entity}}}.BatchCount] to [psa_etl_manager];</value>
+  </data>
+  <data name="PSA_BatchCountTriggerDefinition" xml:space="preserve">
+    <value>create trigger [tr : {{{label}}}.BatchCount {Reverse DML}] on [{{{schema}}}].[{{{entity}}}.BatchCount]
+instead of insert,update,delete
+as
+-- do not alter/add/extend this trigger, or any psa trigger
+-- authored by slalom consulting 2014
+begin;
+   raiserror(N'DML Statements are not allowed on this aggregated BatchCount view.  Use the Control Abstraction [{{{schema}}}].[{{{entity}}}.Control] instead to remove individual records.',16,1)
+end;</value>
+  </data>
+  <data name="PSA_BatchCountViewDefinition" xml:space="preserve">
+    <value>create view [{{{schema}}}].[{{{entity}}}.BatchCount] with schemabinding
+as
+select
+   [psa_batch_id] [BatchUID],
+   isnull(sum(case when [psa_dml_action]=N'I' then 1 else 0 end),0) [Inserted],
+   isnull(sum(case when [psa_dml_action]=N'U' then 1 else 0 end),0) [Updated],
+   isnull(sum(case when [psa_dml_action]=N'D' then 1 else 0 end),0) [Deleted],
+   isnull(count([psa_entity_key]),0) [Total]
+from
+   {{{domain}}}
+where
+   [psa_batch_id] is not null
+group by
+   [psa_batch_id];</value>
+  </data>
+  <data name="PSA_ChangesFunctionDefinition" xml:space="preserve">
+    <value>create function [{{{schema}}}].[{{{entity}}}.Changes]
+ (
+    @CurrentVersion bigint 
+ )
+returns table with schemabinding
+as return
+
+select
+   d.[psa_entity_key] [AbstractEntityKey],
+   [psa_dml_action] [AbstractChangeAction],
+   case when d.[psa_archive_flag]=1 then N'ARCHIVE' else N'ACTIVE' end [AbstractArchiveActive],
+{{{columnset}}}
+from
+   {{{domain}}} d 
+   left join
+   changetable(changes {{{domain}}},@CurrentVersion) c on d.[psa_surrogate_key]=c.[psa_surrogate_key]
+where
+   d.[psa_current_flag]=1
+   and
+   d.[psa_surrogate_key]=case when @CurrentVersion is null then d.[psa_surrogate_key] else c.[psa_surrogate_key] end;</value>
+  </data>
+  <data name="PSA_ChangesSecurityDefinition" xml:space="preserve">
+    <value>grant select on [{{{schema}}}].[{{{entity}}}.Changes] to [psa_abstractreader];</value>
+  </data>
+  <data name="PSA_ChangeTrackingDefinition" xml:space="preserve">
+    <value>if not exists(select * from sys.change_tracking_tables where [object_id]=object_id(N'{{{domain}}}'))
+alter table {{{domain}}} enable change_tracking
+with(track_columns_updated=off);</value>
+  </data>
+  <data name="PSA_ControlViewDefinition" xml:space="preserve">
+    <value>create view [{{{schema}}}].[{{{entity}}}.Control] with schemabinding
+as
+select
+{{{columnset}}}
+from
+   {{{domain}}}
+where
+   [psa_current_flag]=1;</value>
+  </data>
+  <data name="SYS_DatabaseProperties" xml:space="preserve">
+    <value>select
+   db_name() [database_name],
+   [compatibility_level]
+from 
+   sys.databases 
+where 
+   [database_id]=db_id();</value>
+  </data>
+  <data name="PSA_DropRelatedObjects" xml:space="preserve">
+    <value>if object_id('[{{{schema}}}].[{{{entity}}}.AsOf]',N'IF') is not null drop function [{{{schema}}}].[{{{entity}}}.AsOf];
+if object_id('[{{{schema}}}].[{{{entity}}}.Changes]',N'IF') is not null drop function [{{{schema}}}].[{{{entity}}}.Changes];
+
+if object_id('[{{{schema}}}].[{{{entity}}}.ProcessLoad]',N'P') is not null drop procedure [{{{schema}}}].[{{{entity}}}.ProcessLoad];
+if object_id('[{{{schema}}}].[{{{entity}}}.ProcessArchive]',N'P') is not null drop procedure [{{{schema}}}].[{{{entity}}}.ProcessArchive];
+if object_id('[{{{schema}}}].[{{{entity}}}.RehashEntity]',N'P') is not null drop procedure [{{{schema}}}].[{{{entity}}}.RehashEntity];
+
+if object_id('[{{{schema}}}].[{{{entity}}}.AsIs]',N'V') is not null drop view [{{{schema}}}].[{{{entity}}}.AsIs];
+if object_id('[{{{schema}}}].[{{{entity}}}.AsWas]',N'V') is not null drop view [{{{schema}}}].[{{{entity}}}.AsWas];
+if object_id('[{{{schema}}}].[{{{entity}}}.Control]',N'V') is not null drop view [{{{schema}}}].[{{{entity}}}.Control];
+if object_id('[{{{schema}}}].[{{{entity}}}.Archive]',N'V') is not null drop view [{{{schema}}}].[{{{entity}}}.Archive];
+if object_id('[{{{schema}}}].[{{{entity}}}.BatchCount]',N'V') is not null drop view [{{{schema}}}].[{{{entity}}}.BatchCount];
+
+if object_id('[{{{schema}}}].[{{{entity}}}.DeleteQueue]',N'U') is not null drop table [{{{schema}}}].[{{{entity}}}.DeleteQueue];
+if object_id('[{{{schema}}}].[{{{entity}}}.UpsertQueue]',N'U') is not null drop table [{{{schema}}}].[{{{entity}}}.UpsertQueue];
+if object_id('[{{{schema}}}].[{{{entity}}}.ArchiveQueue]',N'U') is not null drop table [{{{schema}}}].[{{{entity}}}.ArchiveQueue];</value>
+  </data>
+  <data name="PSA_DropTemporalGovernorDefinition" xml:space="preserve">
+    <value>if object_id(N'[{{{schema}}}].[tr : {{{label}}} {Temporal Governor}]',N'TR') is not null begin;
+   drop trigger [{{{schema}}}].[tr : {{{label}}} {Temporal Governor}];
+end;</value>
+  </data>
+  <data name="PSA_InstanceProperties" xml:space="preserve">
+    <value>select
+   db_name() [database_name],
+   @@servername [instance_name],
+   serverproperty('productlevel') [product_level],
+   serverproperty('edition') [edition],
+   parsename(convert(nvarchar(50),serverproperty('productversion')),4) [version];</value>
+  </data>
+  <data name="SYS_QueryBehavior" xml:space="preserve">
+    <value>set nocount on;
+set quoted_identifier on;
+set ansi_nulls on;
+set ansi_warnings on;</value>
+  </data>
+  <data name="PSA_RenameDefinition" xml:space="preserve">
+    <value>if object_id(N'{{{domain}}}',N'U') is not null begin;
+
+   exec [sys].[sp_rename] N'{{{domain}}}', N'{{{label}}}.{{{ext}}}';
+   alter schema [dbo] transfer [{{{schema}}}].[{{{label}}}.{{{ext}}}];
+
+   declare @x int;
+
+   select
+      @x=[rows]
+   from
+      sys.partitions
+   where
+      [object_id]=object_id(N'[dbo].[{{{label}}}.{{{ext}}}]',N'U')
+      and
+      [partition_number]=1;
+
+   if @x=0 begin;
+      drop table [dbo].[{{{label}}}.{{{ext}}}];
+   end else begin;
+
+      exec [sys].[sp_rename] N'[dbo].[pk : {{{label}}} {Surrogate Primary Key}]',N'pk : {{{label}}} {Surrogate Primary Key} {{{ext}}}';
+      exec [sys].[sp_rename] N'[dbo].[ak : {{{label}}} {Source Natural Key}]',N'pk : {{{label}}} {Source Natural Key} {{{ext}}}';
+
+      exec [sys].[sp_rename] N'[dbo].[ck : {{{label}}} {Postive Incrementation}]',N'pk : {{{label}}} {Postive Incrementation} {{{ext}}}';
+      exec [sys].[sp_rename] N'[dbo].[ck : {{{label}}} {Temporal Sequence On Current Period}]',N'pk : {{{label}}} {Temporal Sequence On Current Period} {{{ext}}}';
+
+      exec [sys].[sp_rename] N'[dbo].[df : {{{label}}} {Archive Record Flag}]',N'pk : {{{label}}} {Archive Record Flag} {{{ext}}}';
+      exec [sys].[sp_rename] N'[dbo].[df : {{{label}}} {Change Incrementation Sequence Number}]',N'pk : {{{label}}} {Change Incrementation Sequence Number} {{{ext}}}';
+      exec [sys].[sp_rename] N'[dbo].[df : {{{label}}} {New Record State}]',N'pk : {{{label}}} {New Record State} {{{ext}}}';
+      exec [sys].[sp_rename] N'[dbo].[df : {{{label}}} {Parent SPK Sequence Number}]',N'pk : {{{label}}} {Parent SPK Sequence Number} {{{ext}}}';
+      exec [sys].[sp_rename] N'[dbo].[df : {{{label}}} {SPK Sequence Number}]',N'pk : {{{label}}} {SPK Sequence Number} {{{ext}}}';
+
+      drop trigger [dbo].[tr : {{{label}}} {Temporal Governor}]
+
+   end;
+end;</value>
+  </data>
+  <data name="PSA_RoleDefinitions" xml:space="preserve">
+    <value>if not exists(select 1 from sys.sysusers where [name]=N'psa_owner') begin;
+   create role [psa_owner] authorization [db_owner];
+end;
+
+if not exists(select 1 from sys.sysusers where [name]=N'psa_abstractreader') begin;
+   create role [psa_abstractreader] authorization [psa_owner];
+end;
+
+if not exists(select 1 from sys.sysusers where [name]=N'psa_etl_manager') begin;
+   create role [psa_etl_manager] authorization [psa_owner];
+end;</value>
+  </data>
+  <data name="PSA_SchemaDefinition" xml:space="preserve">
+    <value>set nocount on;
+set quoted_identifier on;
+set ansi_nulls on;
+set ansi_warnings on;
+
+if not exists (select * from sys.sysusers where [name]='psa_owner') begin;
+   create role [psa_owner] authorization [db_owner];
+end;
+
+if not exists (select * from sys.sysusers where [name]='psa_etl_manager') begin;
+   create role [psa_etl_manager] authorization [psa_owner];
+end;
+
+if not exists (select * from sys.sysusers where [name]='psa_abstractreader') begin;
+   create role [psa_abstractreader] authorization [psa_owner];
+end;
+
+if not exists (select 1 from sys.schemas where [name]=N'{{{schema}}}') begin;
+   exec sys.sp_executesql N'create schema [{{{schema}}}] authorization [psa_owner];'
+end;</value>
+  </data>
+  <data name="PSA_SequenceDefinition" xml:space="preserve">
+    <value>if not exists (select * from sys.sequences where [name]=N'{{{entity}}}.SPK' and object_schema_name([object_id])=N'{{{schema}}}') begin;
+   exec sys.sp_executesql N'create sequence [{{{schema}}}].[{{{entity}}}.SPK] start with 1 increment by 1 minvalue 1 cycle cache 1000;'
+end;</value>
+  </data>
+  <data name="PSA_TableDefinition" xml:space="preserve">
+    <value>set nocount on;
+set quoted_identifier on;
+set ansi_nulls on;
+set ansi_warnings on;
+
+create table {{{domain}}}
+ (
+   [psa_surrogate_key] bigint not null
+   constraint [df : {{{label}}} {SPK Sequence Number}]
+   default (next value for [{{{schema}}}].[{{{entity}}}.SPK]),
+
+   constraint [pk : {{{label}}} {Surrogate Primary Key}]
+   primary key nonclustered ([psa_surrogate_key])
+   with (data_compression=page,fillfactor=95) on [SPK],
+
+   [psa_entity_key] bigint not null
+   constraint [df : {{{label}}} {Parent SPK Sequence Number}]
+   default (next value for [{{{schema}}}].[{{{entity}}}.SPK]),
+
+   -- BEGIN business identifier from source
+
+{{{bichunk}}}
+   -- END business identifier from source
+
+   [psa_entity_sequence] smallint not null
+   constraint [df : {{{label}}} {Change Incrementation Sequence Number}]
+   default (1)
+   constraint [ck : {{{label}}} {Postive Incrementation}]
+   check ([psa_entity_sequence] between 1 and 32767),
+
+   constraint [ak : {{{label}}} {Source Natural Key}]
+   unique clustered {{{akchunk}}}
+   with (data_compression=page,fillfactor=80) on [SNK],
+   
+   [psa_start_period] datetime2(7) not null,
+   [psa_end_period] datetime2(7) null,
+   constraint [ck : {{{label}}} {Temporal Sequence On Current Period}]
+   check ([psa_start_period]&lt;[psa_end_period]),
+
+   [psa_active_state] bit not null
+   constraint [df : {{{label}}} {New Record State}]
+   default (1),
+
+   [psa_dml_action] as case when [psa_active_state]=0 then N'D' when [psa_entity_sequence]=1 then N'I' else N'U' end persisted not null,
+   [psa_current_flag] as convert(bit,case when [psa_end_period] is null then 1 else 0 end) persisted not null,
+
+   [psa_archive_flag] bit not null
+   constraint [df : {{{label}}} {Archive Record Flag}]
+   default (0),
+
+   [psa_batch_id]	uniqueidentifier null,
+   [psa_hash_id] varbinary(20) not null,
+
+   -- BEGIN attributes from source
+
+{{{attrchunk}}}
+   -- END attributes from source
+ );
+
+create statistics [st : {{{label}}} :: psa_entity_sequence] on {{{domain}}}
+ (
+   [psa_entity_sequence]
+ );
+
+create statistics [st : {{{label}}} :: psa_start_period] on {{{domain}}}
+ (
+   [psa_start_period]
+ );
+
+create statistics [st : {{{label}}} :: psa_end_period] on {{{domain}}}
+ (
+   [psa_end_period]
+ );
+
+create statistics [st : {{{label}}} :: psa_active_state] on {{{domain}}}
+ (
+   [psa_active_state]
+ );
+
+create statistics [st : {{{label}}} :: psa_dml_action] on {{{domain}}}
+ (
+   [psa_dml_action]
+ );
+
+create statistics [st : {{{label}}} :: psa_current_flag] on {{{domain}}}
+ (
+   [psa_current_flag]
+ );
+
+create statistics [st : {{{label}}} :: psa_archive_flag] on {{{domain}}}
+ (
+   [psa_archive_flag]
+ );
+
+create statistics [st : {{{label}}} :: psa_batch_id] on {{{domain}}}
+ (
+   [psa_batch_id]
+ );
+
+create statistics [st : {{{label}}} :: psa_hash_id] on {{{domain}}}
+ (
+   [psa_hash_id]
+ );
+
+create nonclustered index [ie : {{{label}}} :: psa_current_flag] on {{{domain}}}
+ (
+   [psa_current_flag] desc
+ )
+where
+ (
+   [psa_archive_flag]=0
+ ) with (fillfactor=100,data_compression=page);
+
+create nonclustered index [ie : {{{label}}} :: psa_start_period :: psa_end_period] on {{{domain}}}
+ (
+   [psa_start_period] desc,
+   [psa_end_period] desc
+ ) with (fillfactor=100,data_compression=page);</value>
+  </data>
+  <data name="PSA_TemporalGovernorDefinition" xml:space="preserve">
+    <value>create trigger [tr : {{{label}}} {Temporal Governor}] on {{{domain}}}
+after update
+as
+-- do not alter/add/extend this trigger, or any psa trigger
+-- authored by slalom consulting 2014
+begin;
+
+   set nocount on;
+
+   insert {{{domain}}}
+    (
+      [psa_entity_key],
+      [psa_entity_sequence],
+      [psa_start_period],
+      [psa_end_period],
+      [psa_active_state],
+      [psa_batch_id],
+      [psa_archive_flag],
+{{{insertset}}}
+      [psa_hash_id]
+    )
+   select
+      d.[psa_entity_key],
+      d.[psa_entity_sequence],
+      d.[psa_start_period],
+      dateadd(nanosecond,-100,i.[psa_start_period]), -- contiguous time period from prior record
+      d.[psa_active_state],
+      d.[psa_batch_id],
+      d.[psa_archive_flag],
+{{{selectset}}}
+      d.[psa_hash_id]
+   from
+      [deleted] d
+      inner join
+      [inserted] i on d.[psa_surrogate_key]=i.[psa_surrogate_key];
+
+end;</value>
+  </data>
+  <data name="PSA_HashingAlgorithmForPSA" xml:space="preserve">
+    <value>if object_id(N'[dbo].[psa_hash]',N'FN') is null begin;
+
+   exec sys.sp_executesql
+   N'
+   create function [dbo].[psa_hash] 
+    (
+      @string nvarchar(max)
+    ) 
+   returns varbinary(20) with encryption
+   as 
+   begin;
+      return master.dbo.[fn_hash](@string);
+   end;
+   '
+   exec sys.sp_MS_marksystemobject 'psa_hash';
+
+end;</value>
+  </data>
+  <data name="SYS_TableMetadataDefinition" xml:space="preserve">
+    <value>if object_id('[dbo].[sp_manage_table_properties]',N'P') is not null drop procedure [dbo].[sp_manage_table_properties];
+
+exec sys.sp_executesql
+N'
+create procedure [dbo].[sp_manage_table_properties]
+ (
+   @domain_name sysname,
+   @property sysname,
+   @property_value sql_variant
+ ) with encryption
+as
+
+set nocount on;
+
+declare
+   @object_id int;
+
+select
+   @object_id=object_id(@domain_name);
+
+if @object_id is null begin;
+   print N''Domain ''+isnull(@domain_name,N''{NULL}'')+N'' does not exist.  Property was not added.''
+   return 1;
+end;
+
+declare
+   @object_schema sysname,
+   @object_name sysname;
+
+select
+   @object_schema=object_schema_name(@object_id),
+   @object_name=object_name(@object_id);
+
+if exists(select 1 from sys.extended_properties  where [major_id]=@object_id and [class]=1 and [minor_id]=0 and [name]=@property) begin;
+   exec sys.sp_updateextendedproperty
+      @name=@property,
+      @value=@property_value,
+
+      @level0type=N''SCHEMA'',
+      @level0name=@object_schema,
+   
+      @level1type=N''TABLE'',
+      @level1name=@object_name;
+end else begin;
+   exec sys.sp_addextendedproperty
+      @name=@property,
+      @value=@property_value,
+
+      @level0type=N''SCHEMA'',
+      @level0name=@object_schema,
+   
+      @level1type=N''TABLE'',
+      @level1name=@object_name;
+end;
+return 0;
+';
+
+exec sys.sp_MS_marksystemobject 'sp_manage_table_properties';</value>
+  </data>
+  <data name="PSA_TablePropertyDefintion" xml:space="preserve">
+    <value>exec [dbo].[sp_manage_table_properties] N'{{{domain}}}',N'{{{property}}}',N'{{{value}}}';</value>
+  </data>
+  <data name="SYS_ColumnMetadataDefinition" xml:space="preserve">
+    <value>if object_id('[dbo].[sp_manage_column_properties]',N'P') is not null drop procedure [dbo].[sp_manage_column_properties];
+
+exec sys.sp_executesql
+N'
+create procedure [dbo].[sp_manage_column_properties]
+ (
+   @domain_name sysname,
+   @column_name sysname,
+   @property sysname,
+   @property_value sql_variant
+ ) with encryption
+as
+
+set nocount on;
+
+declare
+   @object_id int,
+   @column_id int;
+
+select
+   @object_id=object_id(@domain_name);
+
+if @object_id is null begin;
+   print N''Domain ''+isnull(@domain_name,N''{NULL}'')+N'' does not exist.  Property was not added.''
+   return 1;
+end;
+
+declare
+   @object_schema sysname,
+   @object_name sysname;
+
+select
+   @object_schema=object_schema_name(@object_id),
+   @object_name=object_name(@object_id);
+
+select 
+   @column_id=[column_id] 
+from 
+   sys.columns 
+where 
+   [object_id]=@object_id 
+   and 
+   [name]=@column_name;
+
+if @column_id is null begin;
+   print N''Attribute ''+isnull(@column_name,N''{NULL}'')+N'' does not exist.  Property was not added.''
+   return 1;
+end;
+
+if exists(select 1 from sys.extended_properties  where [major_id]=@object_id and [class]=1 and [minor_id]=@column_id and [name]=@property) begin;
+   exec sys.sp_updateextendedproperty
+      @name=@property,
+      @value=@property_value,
+
+      @level0type=N''SCHEMA'',
+      @level0name=@object_schema,
+   
+      @level1type=N''TABLE'',
+      @level1name=@object_name,
+
+      @level2type=N''COLUMN'',
+      @level2name=@column_name;
+
+end else begin;
+   exec sys.sp_addextendedproperty
+      @name=@property,
+      @value=@property_value,
+
+      @level0type=N''SCHEMA'',
+      @level0name=@object_schema,
+   
+      @level1type=N''TABLE'',
+      @level1name=@object_name,
+
+      @level2type=N''COLUMN'',
+      @level2name=@column_name;
+end;
+
+return 0;
+';
+
+exec sys.sp_MS_marksystemobject 'sp_manage_column_properties';</value>
+  </data>
+  <data name="PSA_ChangeTrackingSystemDefinition" xml:space="preserve">
+    <value>set nocount on;
+set quoted_identifier on;
+set ansi_nulls on;
+
+exec sys.sp_executesql 
+N'
+if object_id(N''[dbo].[psa_change_tracking_entity_version]'',N''U'') is null begin;
+
+create table [dbo].[psa_change_tracking_entity_version]
+ (
+   [psa_object_id] int not null,
+   [psa_activity] nvarchar(2) not null,
+   primary key clustered ([psa_activity],[psa_object_id]),
+
+   [psa_schema] sysname not null,
+   [psa_entity] sysname not null,
+   [psa_domain] as quotename([psa_schema])+N''.''+quotename([psa_entity]) persisted,
+
+   [psa_change_tracking_get] bigint,
+   [psa_change_tracking_set] bigint
+ );
+
+create statistics [st : dbo.psa_change_tracking_entity_version :: psa_schema] on [dbo].[psa_change_tracking_entity_version]
+ (
+   [psa_schema]
+ );
+
+create statistics [st : dbo.psa_change_tracking_entity_version :: psa_entity] on [dbo].[psa_change_tracking_entity_version]
+ (
+   [psa_entity]
+ );
+
+create statistics [st : dbo.psa_change_tracking_entity_version :: psa_domain] on [dbo].[psa_change_tracking_entity_version]
+ (
+   [psa_domain]
+ );
+
+exec sys.sp_ms_marksystemobject N''psa_change_tracking_entity_version'';
+end;
+';
+
+exec sys.sp_executesql 
+N'
+if object_id(N''[dbo].[psa_get_change_tracking_entity_version]'',N''P'') is not null drop procedure [dbo].[psa_get_change_tracking_entity_version];
+';
+
+exec sys.sp_executesql 
+N'
+create procedure [dbo].[psa_get_change_tracking_entity_version] 
+ (
+   @entity sysname,
+   @activity nvarchar(2),
+   @current_version bigint output
+ ) with execute as ''dbo''
+as
+set nocount on;
+
+declare
+   @oid int=null;
+
+select
+   @oid=[object_id]
+from
+   sys.change_tracking_tables ctt
+where
+   [object_id]=object_id(@entity);
+
+if @oid is null return -1;
+
+with merge_source as
+ (
+   select
+      @oid [psa_object_id],
+      @activity [psa_activity],
+      change_tracking_current_version() [psa_change_tracking_set],
+      change_tracking_min_valid_version(@oid) [psa_change_tracking_get],
+      object_schema_name(@oid) [psa_schema],
+      object_name(@oid) [psa_entity]
+ )
+merge
+   [dbo].[psa_change_tracking_entity_version] t
+using
+   merge_source s on t.[psa_object_id]=s.[psa_object_id]
+                 and t.[psa_activity]=s.[psa_activity]
+when matched then
+   update
+      -- [dbo].[psa_change_tracking_entity_version]
+   set
+      [psa_change_tracking_set]=s.[psa_change_tracking_set]
+when not matched by target then
+   insert -- [dbo].[psa_change_tracking_entity_version]
+    (
+      [psa_object_id],
+      [psa_activity],
+      [psa_schema],
+      [psa_entity],
+      [psa_change_tracking_get],
+      [psa_change_tracking_set]
+    )
+   values
+    (
+      s.[psa_object_id],
+      s.[psa_activity],
+      s.[psa_schema],
+      s.[psa_entity],
+      s.[psa_change_tracking_get],
+      s.[psa_change_tracking_set]
+    );
+
+declare
+   @rv bigint;
+
+select
+   @rv=[psa_change_tracking_get]
+from
+   [dbo].[psa_change_tracking_entity_version]
+where
+   [psa_object_id]=@oid
+   and
+   [psa_activity]=@activity;
+
+select
+   @current_version=@rv;
+
+return @rv;
+';
+
+exec sys.sp_executesql 
+N'
+exec sys.sp_ms_marksystemobject N''psa_get_change_tracking_entity_version'';
+';
+
+exec sys.sp_executesql 
+N'
+if object_id(N''[dbo].[psa_set_change_tracking_entity_version]'',N''P'') is not null drop procedure [dbo].[psa_set_change_tracking_entity_version];
+';
+
+exec sys.sp_executesql 
+N'
+create procedure [dbo].[psa_set_change_tracking_entity_version]
+ (
+   @entity sysname,
+   @activity nvarchar(2)
+ )
+as
+set nocount on;
+
+declare
+   @oid int=null;
+
+select
+   @oid=[object_id]
+from
+   sys.change_tracking_tables ctt
+where
+   [object_id]=object_id(@entity);
+
+if @oid is null return -1;
+
+with merge_source as
+ (
+   select
+      @oid [psa_object_id],
+      @activity [psa_activity],
+      change_tracking_min_valid_version(@oid) [psa_change_tracking_get],
+      object_schema_name(@oid) [psa_schema],
+      object_name(@oid) [psa_entity]
+ )
+merge
+   [dbo].[psa_change_tracking_entity_version] t
+using
+   merge_source s on t.[psa_object_id]=s.[psa_object_id]
+                 and t.[psa_activity]=s.[psa_activity]
+when matched then
+   update
+      -- [dbo].[psa_change_tracking_entity_version]
+   set
+      [psa_change_tracking_get]=t.[psa_change_tracking_set]
+when not matched by target then
+   insert -- [dbo].[psa_change_tracking_entity_version]
+    (
+      [psa_object_id],
+      [psa_activity],
+      [psa_schema],
+      [psa_entity],
+      [psa_change_tracking_get],
+      [psa_change_tracking_set]
+    )
+   values
+    (
+      s.[psa_object_id],
+      s.[psa_activity],
+      s.[psa_schema],
+      s.[psa_entity],
+      s.[psa_change_tracking_get],
+      s.[psa_change_tracking_get]
+    );
+
+return @@error;
+';
+
+exec sys.sp_executesql 
+N'
+exec sys.sp_ms_marksystemobject N''psa_set_change_tracking_entity_version'';
+';
+
+grant select,insert,update,delete on [dbo].[psa_change_tracking_entity_version] to [psa_owner];
+grant execute on [dbo].[psa_get_change_tracking_entity_version] to [psa_owner];
+grant execute on [dbo].[psa_set_change_tracking_entity_version] to [psa_owner];
+
+grant select,insert,update,delete on [dbo].[psa_change_tracking_entity_version] to [psa_etl_manager];
+grant execute on [dbo].[psa_get_change_tracking_entity_version] to [psa_etl_manager];
+grant execute on [dbo].[psa_set_change_tracking_entity_version] to [psa_etl_manager];
+
+grant select,insert,update,delete on [dbo].[psa_change_tracking_entity_version] to [psa_abstractreader];
+grant execute on [dbo].[psa_get_change_tracking_entity_version] to [psa_abstractreader];
+grant execute on [dbo].[psa_set_change_tracking_entity_version] to [psa_abstractreader];</value>
+  </data>
+  <data name="PSA_ControlInsertDefinition" xml:space="preserve">
+    <value>create trigger [tr : {{{label}}} {Control Insert}] on [{{{schema}}}].[{{{entity}}}.Control]
+instead of insert
+as
+-- do not alter/add/extend this trigger, or any psa trigger
+-- authored by slalom consulting 2014
+begin;
+
+   set nocount on;
+
+   declare @ts datetime2(7)=sysutcdatetime();
+   declare @batch uniqueidentifier=convert(uniqueidentifier,context_info());
+
+   insert {{{domain}}}
+    (
+{{{columnset}}}
+      [psa_batch_id],
+      [psa_hash_id],
+      [psa_start_period]
+    )
+   select
+{{{columnset}}}
+      @batch,
+      [dbo].[psa_hash]((select {{{hashset}}} for xml raw, binary base64)),
+      @ts
+   from
+      [inserted] i;
+
+end;</value>
+  </data>
+  <data name="PSA_ControlUpdateDefinition" xml:space="preserve">
+    <value>create trigger [tr : {{{label}}} {Control Update}] on [{{{schema}}}].[{{{entity}}}.Control]
+instead of update
+as
+-- do not alter/add/extend this trigger, or any psa trigger
+-- authored by slalom consulting 2014
+begin;
+
+   set nocount on;
+
+   declare @ts datetime2(7)=sysutcdatetime();
+   declare @batch uniqueidentifier=convert(uniqueidentifier,context_info());
+
+{{{updatekeyset}}}
+   with [update_source] as
+    (
+      select
+{{{columnset}}}
+         @batch [psa_batch_id],
+         [dbo].[psa_hash]((select {{{hashset}}} for xml raw, binary base64)) [psa_hash_id]
+      from
+         [inserted] i
+    )
+   update
+      {{{domain}}}
+   set
+{{{updateset}}}
+      [psa_entity_sequence]=t.[psa_entity_sequence]+1,
+      [psa_active_state]=1,
+      [psa_start_period]=@ts,
+      [psa_batch_id]=s.[psa_batch_id],
+      [psa_hash_id]=s.[psa_hash_id]
+   from
+      [update_source] s
+      inner join
+      {{{domain}}} t on s.[psa_hash_id]!=t.[psa_hash_id] and
+{{{joinset}}}                         
+
+end;</value>
+  </data>
+  <data name="PSA_ColumnPropertyDefinition" xml:space="preserve">
+    <value>exec [dbo].[sp_manage_column_properties] N'{{{domain}}}',N'{{{attribute}}}',N'{{{property}}}',N'{{{value}}}';</value>
+  </data>
+  <data name="PSA_ControlDeleteDefinition" xml:space="preserve">
+    <value>create trigger [tr : {{{label}}} {Control Delete}] on [{{{schema}}}].[{{{entity}}}.Control]
+instead of delete
+as
+-- do not alter/add/extend this trigger, or any psa trigger
+-- framework authored by slalom consulting 2014
+begin;
+
+   set nocount on;
+
+   declare @ts datetime2(7)=sysutcdatetime();
+   declare @batch uniqueidentifier=convert(uniqueidentifier,context_info());
+
+   with [delete_source] as
+    (
+      select
+{{{columnset}}}
+         @batch [psa_batch_id],
+         [dbo].[psa_hash]((select {{{hashset}}} for xml raw, binary base64)) [psa_hash_id]
+      from
+         [deleted] i
+    )
+   update
+      {{{domain}}}
+   set
+      [psa_entity_sequence]=t.[psa_entity_sequence]+1,
+      [psa_active_state]=0,
+      [psa_start_period]=@ts,
+      [psa_batch_id]=s.[psa_batch_id],
+      [psa_hash_id]=0x
+   from
+      [delete_source] s
+      inner join
+      {{{domain}}} t on 1=1 and
+{{{joinset}}}           
+
+end;</value>
+  </data>
+  <data name="SYS_PSAAttributeDefinition" xml:space="preserve">
+    <value>select * from [dbo].[psa_attribute_definition] where 1=1</value>
+  </data>
+  <data name="SYS_PSAEntityDefinition" xml:space="preserve">
+    <value>with x as
+ (
+   select
+      [psa_schema],
+      [psa_entity],
+      row_number() over (partition by [psa_schema],[psa_entity] order by [psa_attribute_ordinal],[psa_attribute]) [ord],
+      convert(nvarchar(max),
+      right(convert(nvarchar(42),hashbytes(N'sha1',[psa_attribute]),1),40)+N' : '+
+      right(convert(nvarchar(42),hashbytes(N'sha1',[psa_attribute_datatype]),1),40)+N' : '+
+      right(convert(nvarchar(42),hashbytes(N'sha1',convert(nvarchar(10),[psa_attribute_ordinal])),1),40)+N' : '+
+      right(convert(nvarchar(42),hashbytes(N'sha1',[psa_attribute_sort]),1),40)+N' : '+
+      right(convert(nvarchar(42),hashbytes(N'sha1',[psa_attribute_optional]),1),40)+N' : '+
+      right(convert(nvarchar(42),hashbytes(N'sha1',[psa_attribute_business_identifier]),1),40)) [sig]
+   from
+      [dbo].[psa_attribute_definition]
+ ), [sel] as
+ (
+   select
+      e.[psa_schema],
+      e.[psa_entity],
+      e.[psa_entity_description],
+      e.[psa_source_statement],
+      e.[psa_source_predicate_values],
+      e.[source_schema],
+      e.[source_entity],
+      e.[hash_large_objects],
+      e.[psa_infer_deletions],
+      e.[etl_build_group],
+      right(convert(nvarchar(42),[dbo].[fn_hash](e.[hash_large_objects]),1),40)+N' : '+
+      right(convert(nvarchar(42),[dbo].[fn_hash](e.[psa_infer_deletions]),1),40) [logic_sig],
+      rtrim(ca.ah) [construct_sig],
+      isnull(c.[psa_attribute_count],0) [psa_attribute_count]
+   from
+      dbo.[psa_entity_definition] e
+      cross apply
+       (
+         select
+            convert(nvarchar(max),N'['+[sig]+N'] ')
+         from
+            x
+         where
+            e.[psa_schema]=x.[psa_schema]
+            and
+            e.[psa_entity]=x.[psa_entity]
+         order by
+            [ord]
+         for xml path('')
+       ) ca(ah)
+      left join
+       (
+         select
+            [psa_schema],
+            [psa_entity],
+            count([ord]) [psa_attribute_count]
+         from
+            x
+         group by
+            [psa_schema],
+            [psa_entity]
+       ) c on e.[psa_schema]=c.[psa_schema] and e.[psa_entity]=c.[psa_entity]
+ )
+select
+   [psa_schema],
+   [psa_entity],
+   [psa_entity_description],
+   [psa_source_statement],
+   [psa_source_predicate_values],
+   [source_schema],
+   [source_entity],
+   [hash_large_objects],
+   [psa_infer_deletions],
+   [etl_build_group],
+   isnull(right(convert(nvarchar(42),[dbo].[fn_hash]([logic_sig]),1),40),N'') [psa_logical_signature],
+   isnull(right(convert(nvarchar(42),[dbo].[fn_hash]([construct_sig]),1),40),N'')  [psa_construct_signature],
+   [psa_attribute_count]
+from
+   [sel]
+where
+   1=1</value>
+  </data>
+  <data name="PSA_LogicalSignatureLookup" xml:space="preserve">
+    <value>select
+   convert(nvarchar(40),[value]) [sig]
+from
+   sys.extended_properties
+where
+   [minor_id]=0
+   and
+   [Name]=N'Logical Signature'
+   and
+   object_name([major_id])='{{{entity}}}'
+   and
+   object_schema_name([major_id])='{{{schema}}}';</value>
+  </data>
+  <data name="PSA_ConstructSignatureLookup" xml:space="preserve">
+    <value>select
+   convert(nvarchar(40),[value]) [sig]
+from
+   sys.extended_properties
+where
+   [minor_id]=0
+   and
+   [Name]=N'Construct Signature'
+   and
+   object_name([major_id])='{{{entity}}}'
+   and
+   object_schema_name([major_id])='{{{schema}}}';</value>
+  </data>
+  <data name="SYS_SlalomTextArt1" xml:space="preserve">
+    <value>   ______     __             _____                  ____  _          
+  / __/ /__ _/ /__  __ _    / ___/__  ___  _____ __/ / /_(_)__  ___ _
+ _\ \/ / _ `/ / _ \/  ' \  / /__/ _ \/ _ \(_-&lt; // / / __/ / _ \/ _ `/
+/___/_/\_,_/_/\___/_/_/_/  \___/\___/_//_/___|_,_/_/\__/_/_//_/\_, / 
+                                                              /___/</value>
+  </data>
+  <data name="PSA_DatabaseTemplate" xml:space="preserve">
+    <value>--:SETVAR DatabaseName '[edw_psa]'
+--:SETVAR Path 'A:\SQL\Data\'
+
+use [master];
+go
+
+create database [edw_psa]
+on primary (NAME = N'psa_primary',FILENAME=N'A:\SQL\Data\psa_primary.mdf',SIZE=5120KB,MAXSIZE=UNLIMITED,FILEGROWTH=1024KB), 
+filegroup [SNK] (NAME = N'psa_snk', FILENAME=N'A:\SQL\Data\psa_snk.ndf',SIZE=5120KB,MAXSIZE=UNLIMITED,FILEGROWTH=1024KB),
+filegroup [SPK]
+ (
+   NAME = N'psa_spk', FILENAME = N'A:\SQL\Data\psa_spk.ndf' , SIZE = 5120KB , MAXSIZE = UNLIMITED, FILEGROWTH = 1024KB ), 
+ filegroup [TMP]
+( NAME = N'psa&#x1F;_tmp', FILENAME = N'A:\SQL\Data\psa_tmp.ndf' , SIZE = 5120KB , MAXSIZE = UNLIMITED, FILEGROWTH = 1024KB )
+ LOG ON
+( NAME = N'psa_log', FILENAME = N'A:\SQL\Log\psa_log.ldf' , SIZE = 5120KB , MAXSIZE = 2048GB , FILEGROWTH = 10%)
+
+go
+
+
+ALTER DATABASE [edw_psa] SET COMPATIBILITY_LEVEL = 110
+GO
+
+IF (1 = FULLTEXTSERVICEPROPERTY('IsFullTextInstalled'))
+begin
+EXEC [edw_psa].[dbo].[sp_fulltext_database] @action = 'disable'
+end
+GO
+
+ALTER DATABASE [edw_psa] SET ANSI_NULL_DEFAULT OFF 
+GO
+
+ALTER DATABASE [edw_psa] SET ANSI_NULLS ON 
+GO
+
+ALTER DATABASE [edw_psa] SET ANSI_PADDING OFF 
+GO
+
+ALTER DATABASE [edw_psa] SET ANSI_WARNINGS ON 
+GO
+
+ALTER DATABASE [edw_psa] SET ARITHABORT OFF 
+GO
+
+ALTER DATABASE [edw_psa] SET AUTO_CLOSE OFF 
+GO
+
+ALTER DATABASE [edw_psa] SET AUTO_CREATE_STATISTICS ON 
+GO
+
+ALTER DATABASE [edw_psa] SET AUTO_SHRINK OFF
+GO
+
+ALTER DATABASE [edw_psa] SET AUTO_UPDATE_STATISTICS ON 
+GO
+
+ALTER DATABASE [edw_psa] SET CURSOR_CLOSE_ON_COMMIT OFF 
+GO
+
+ALTER DATABASE [edw_psa] SET CURSOR_DEFAULT  GLOBAL 
+GO
+
+ALTER DATABASE [edw_psa] SET CONCAT_NULL_YIELDS_NULL OFF
+GO
+
+ALTER DATABASE [edw_psa] SET NUMERIC_ROUNDABORT OFF 
+GO
+
+ALTER DATABASE [edw_psa] SET QUOTED_IDENTIFIER ON
+GO
+
+ALTER DATABASE [edw_psa] SET RECURSIVE_TRIGGERS OFF 
+GO
+
+ALTER DATABASE [edw_psa] SET  ENABLE_BROKER 
+GO
+
+ALTER DATABASE [edw_psa] SET AUTO_UPDATE_STATISTICS_ASYNC OFF 
+GO
+
+ALTER DATABASE [edw_psa] SET DATE_CORRELATION_OPTIMIZATION OFF 
+GO
+
+ALTER DATABASE [edw_psa] SET TRUSTWORTHY OFF 
+GO
+
+ALTER DATABASE [edw_psa] SET ALLOW_SNAPSHOT_ISOLATION OFF 
+GO
+
+ALTER DATABASE [edw_psa] SET PARAMETERIZATION SIMPLE 
+GO
+
+ALTER DATABASE [edw_psa] SET READ_COMMITTED_SNAPSHOT OFF 
+GO
+
+ALTER DATABASE [edw_psa] SET HONOR_BROKER_PRIORITY OFF 
+GO
+
+ALTER DATABASE [edw_psa] SET RECOVERY FULL 
+GO
+
+ALTER DATABASE [edw_psa] SET  MULTI_USER 
+GO
+
+ALTER DATABASE [edw_psa] SET PAGE_VERIFY CHECKSUM  
+GO
+
+ALTER DATABASE [edw_psa] SET DB_CHAINING OFF 
+GO
+
+ALTER DATABASE [edw_psa] SET FILESTREAM( NON_TRANSACTED_ACCESS = OFF ) 
+GO
+
+ALTER DATABASE [edw_psa] SET TARGET_RECOVERY_TIME = 0 SECONDS 
+GO
+
+ALTER DATABASE [edw_psa] SET  READ_WRITE 
+GO</value>
+  </data>
+  <data name="PSA_ControlSecurityDefinition" xml:space="preserve">
+    <value>grant select,insert,update,delete on [{{{schema}}}].[{{{entity}}}.Control] to [psa_etl_manager];</value>
+  </data>
+  <data name="PSA_DatabaseChangeTrackingDefinition" xml:space="preserve">
+    <value>if not exists(select 1 from sys.change_tracking_databases where [database_id]=db_id()) begin;
+   alter database [{{{db}}}] set change_tracking=on (change_retention=5 days,auto_cleanup=on);
+end;</value>
+  </data>
+  <data name="PSA_LoadQueueDefinition" xml:space="preserve">
+    <value>-- create 'upsert queue' abstraction
+if object_id(N'[{{{schema}}}].[{{{entity}}}.UpsertQueue]',N'U') is not null drop table [{{{schema}}}].[{{{entity}}}.UpsertQueue];
+   
+create table [{{{schema}}}].[{{{entity}}}.UpsertQueue]
+ (
+   [psa_stage_key] int identity (1,1),
+   constraint [pk : {{{schema}}}.{{{entity}}}.UpsertQueue {PSA Surrogate Key}]
+   primary key clustered ([psa_stage_key])
+   with (data_compression=page,fillfactor=95) on [TMP],
+
+{{{bichunk}}}
+{{{attrchunk}}}
+
+   constraint [ak : {{{schema}}}.{{{entity}}}.UpsertQueue {Source Natural Key}]
+   unique nonclustered {{{akchunk}}}
+   with (data_compression=page,fillfactor=80) on [TMP]
+ );
+
+grant alter,select,insert,update,delete on [{{{schema}}}].[{{{entity}}}.UpsertQueue] to [psa_etl_manager];
+
+-- create 'delete queue' abstraction
+if object_id(N'[{{{schema}}}].[{{{entity}}}.DeleteQueue]',N'U') is not null drop table [{{{schema}}}].[{{{entity}}}.DeleteQueue];
+
+create table [{{{schema}}}].[{{{entity}}}.DeleteQueue]
+ (
+   [psa_stage_key] int identity (1,1),
+   constraint [pk : {{{schema}}}.{{{entity}}}.DeleteQueue {PSA Surrogate Key}]
+   primary key clustered ([psa_stage_key])
+   with (data_compression=page,fillfactor=95) on [TMP],
+
+{{{bichunk}}}
+
+   constraint [ak : {{{schema}}}.{{{entity}}}.DeleteQueue {Source Natural Key}]
+   unique nonclustered {{{akchunk}}}
+   with (data_compression=page,fillfactor=80) on [TMP]
+ );
+
+grant alter,select,insert,delete on [{{{schema}}}].[{{{entity}}}.DeleteQueue] to [psa_etl_manager];</value>
+    <comment>Contains Security Definition too.</comment>
+  </data>
+</root>
