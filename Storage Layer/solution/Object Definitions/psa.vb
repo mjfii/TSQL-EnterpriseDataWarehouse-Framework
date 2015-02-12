@@ -47,7 +47,6 @@ Partial Public Class PSA
                                    ByVal vo As Boolean, _
                                    ByVal del As Boolean)
 
-        'Dim cnn As New SqlConnection("Data Source=mjfii\demo;Initial Catalog=master;Integrated Security=SSPI")
         Dim cnn As New SqlConnection("context connection=true")
         cnn.Open()
 
@@ -72,6 +71,7 @@ Partial Public Class PSA
             End If
 
         Else
+            ' TODO: make this message better OR make the tables?
             PrintClientMessage("error metadata=nothing")
         End If
 
@@ -90,42 +90,45 @@ Partial Public Class PSA
         Dim cmd As New SqlCommand
         Dim ls As String ' logical signature
         Dim cs As String ' construct signature
-        Dim lbl As String = "" ' updating label"
+        Dim lbl As String = "" ' updating label
         Dim plbl As String = "" ' printed label
 
-        Try
+        ' print header information
+        PrintClientMessage("• Process started at " & st.ToString(fmt))
+        PrintClientMessage("• Database Name: " & pc.DatabaseName)
+        PrintClientMessage("• Database Compatibility: " & pc.DatabaseCompatibility.ToString)
 
-            ' print header information
-            PrintClientMessage("• Process started at " & st.ToString(fmt))
-            PrintClientMessage("• Database Name: " & pc.DatabaseName)
-            PrintClientMessage("• Database Compatibility: " & pc.DatabaseCompatibility.ToString)
+        ' execute hashing algorithm needs
+        ExecuteDDLCommand(pc.HashingAlgorithm, SqlCnn)
+        PrintClientMessage("• Hashing algorithms are intact")
 
-            ' execute hashing algorithm needs
-            ExecuteDDLCommand(pc.HashingAlgorithm, SqlCnn)
-            PrintClientMessage("• Hashing algorithms are intact")
-
-            ' get entity count and labels to alert of process taking place
-            If DeleteObjects = True Then
-                lbl = "DELETE"
+        ' get entity count and labels to alert of process taking place
+        If DeleteObjects = True Then
+            lbl = "DELETE"
+        Else
+            If VerifyOnly = True Then
+                lbl = "VERIFY"
             Else
-                If VerifyOnly = True Then
-                    lbl = "VERIFY"
-                Else
-                    lbl = "BUILD"
-                End If
+                lbl = "BUILD"
             End If
+        End If
 
-            Dim i As Integer = pc.EntityCount
-            If i = 1 Then
-                PrintClientMessage("• Begin processing 1 PSA entity for " & lbl & ":" & vbCrLf & vbCrLf)
-            Else
-                PrintClientMessage("• Begin processing " & i.ToString & " PSA entities for " & lbl & ":" & vbCrLf & vbCrLf)
-            End If
+        Dim i As Integer = pc.EntityCount
+        If i = 1 Then
+            PrintClientMessage("• Begin processing 1 PSA entity for " & lbl & ":" & vbCrLf & vbCrLf)
+        Else
+            PrintClientMessage("• Begin processing " & i.ToString & " PSA entities for " & lbl & ":" & vbCrLf & vbCrLf)
+        End If
 
-            lbl = ""
+        lbl = ""
 
-            ' move thru each entity
-            For c = 0 To (i - 1)
+        ' move thru each entity
+        For c = 0 To (i - 1)
+
+            '
+            ExecuteDDLCommand("begin transaction", SqlCnn)
+
+            Try
                 e = pc.Entities(c)
 
                 ' check for no attributes
@@ -191,16 +194,29 @@ nextc:
                 plbl = New String(" ", 4 - Len(plbl)) & plbl
                 plbl += "  " & e.Domain
                 PrintClientMessage(plbl + New String(".", 48 - Len(plbl)) + lbl, 2)
-            Next c
 
-        Catch ex As Exception
+                ExecuteDDLCommand("commit transaction", SqlCnn)
 
-            PrintClientMessage(vbCrLf)
-            PrintClientMessage("There was an error building " & e.Domain & ".")
-            PrintClientMessage(ex.Message)
-            PrintClientMessage("PSA build aborted")
+            Catch ex As Exception
 
-        End Try
+                ' alert completion
+                lbl = "[ERROR]"
+                plbl = (c + 1).ToString
+                plbl = New String(" ", 4 - Len(plbl)) & plbl
+                plbl += "  " & e.Domain
+                PrintClientMessage(plbl + New String(".", 48 - Len(plbl)) + lbl, 2)
+
+                PrintClientMessage("There was an error building " & e.Domain & ".", 8)
+                PrintClientMessage(ex.Message, 8)
+                PrintClientMessage(vbCrLf)
+
+                ExecuteDDLCommand("rollback transaction", SqlCnn)
+
+            Finally
+
+            End Try
+
+        Next c
 
         Dim ed As Date = Now()
         PrintClientMessage(vbCrLf & "• Process ended at " & ed.ToString(fmt))
@@ -1345,11 +1361,11 @@ nextc:
                     End Set
                 End Property
 
-                Property Ordinal As String
+                Property Ordinal As Integer
                     Get
                         Return _ordinal
                     End Get
-                    Set(value As String)
+                    Set(value As Integer)
                         _ordinal = value
                     End Set
                 End Property

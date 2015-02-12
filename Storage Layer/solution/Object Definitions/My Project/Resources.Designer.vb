@@ -68,7 +68,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_AsIsSecurityDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to create trigger [tr : {{{label}}}.AsIs {Reverse DML}] on [{{{schema}}}].[{{{entity}}}.AsIs]
         '''instead of insert,update,delete
@@ -84,7 +84,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_AsIsTriggerDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to create view [{{{schema}}}].[{{{entity}}}.AsIs] with schemabinding --,encryption
         '''as
@@ -105,7 +105,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_AsIsViewDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to create function [{{{schema}}}].[{{{entity}}}.AsOf]
         ''' (
@@ -133,7 +133,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_AsOfFunctionDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to grant select on [{{{schema}}}].[{{{entity}}}.AsOf] to [psa_abstractreader];.
         '''</summary>
@@ -142,7 +142,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_AsOfSecurityDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to grant select on [{{{schema}}}].[{{{entity}}}.AsWas] to [psa_abstractreader];.
         '''</summary>
@@ -151,7 +151,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_AsWasSecurityDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to create trigger [tr : {{{label}}}.AsWas {Reverse DML}] on [{{{schema}}}].[{{{entity}}}.AsWas]
         '''instead of insert,update,delete
@@ -167,7 +167,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_AsWasTriggerDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to create view [{{{schema}}}].[{{{entity}}}.AsWas] with schemabinding
         '''as
@@ -188,7 +188,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_AsWasViewDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to grant select on [{{{schema}}}].[{{{entity}}}.BatchCount] to [psa_etl_manager];.
         '''</summary>
@@ -197,7 +197,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_BatchCountSecurityDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to create trigger [tr : {{{label}}}.BatchCount {Reverse DML}] on [{{{schema}}}].[{{{entity}}}.BatchCount]
         '''instead of insert,update,delete
@@ -213,7 +213,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_BatchCountTriggerDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to create view [{{{schema}}}].[{{{entity}}}.BatchCount] with schemabinding
         '''as
@@ -235,7 +235,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_BatchCountViewDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to create function [{{{schema}}}].[{{{entity}}}.Changes]
         ''' (
@@ -261,7 +261,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_ChangesFunctionDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to grant select on [{{{schema}}}].[{{{entity}}}.Changes] to [psa_abstractreader];.
         '''</summary>
@@ -270,7 +270,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_ChangesSecurityDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to if not exists(select * from sys.change_tracking_tables where [object_id]=object_id(N&apos;{{{domain}}}&apos;))
         '''alter table {{{domain}}} enable change_tracking
@@ -281,7 +281,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_ChangeTrackingDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to set nocount on;
         '''set quoted_identifier on;
@@ -306,7 +306,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_ChangeTrackingSystemDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to exec [dbo].[sp_manage_column_properties] N&apos;{{{domain}}}&apos;,N&apos;{{{attribute}}}&apos;,N&apos;{{{property}}}&apos;,N&apos;{{{value}}}&apos;;.
         '''</summary>
@@ -315,7 +315,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_ColumnPropertyDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to select
         '''   convert(nvarchar(40),[value]) [sig]
@@ -335,7 +335,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_ConstructSignatureLookup", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to create trigger [tr : {{{label}}} {Control Delete}] on [{{{schema}}}].[{{{entity}}}.Control]
         '''instead of delete
@@ -361,7 +361,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_ControlDeleteDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to create trigger [tr : {{{label}}} {Control Insert}] on [{{{schema}}}].[{{{entity}}}.Control]
         '''instead of insert
@@ -390,7 +390,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_ControlInsertDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to grant select,insert,update,delete on [{{{schema}}}].[{{{entity}}}.Control] to [psa_etl_manager];.
         '''</summary>
@@ -399,7 +399,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_ControlSecurityDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to create trigger [tr : {{{label}}} {Control Update}] on [{{{schema}}}].[{{{entity}}}.Control]
         '''instead of update
@@ -426,7 +426,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_ControlUpdateDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to create view [{{{schema}}}].[{{{entity}}}.Control] with schemabinding
         '''as
@@ -442,7 +442,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_ControlViewDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to if not exists(select 1 from sys.change_tracking_databases where [database_id]=db_id()) begin;
         '''   alter database [{{{db}}}] set change_tracking=on (change_retention=5 days,auto_cleanup=on);
@@ -453,7 +453,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_DatabaseChangeTrackingDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to --:SETVAR DatabaseName &apos;[edw_psa]&apos;
         '''--:SETVAR Path &apos;A:\SQL\Data\&apos;
@@ -474,7 +474,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_DatabaseTemplate", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to if object_id(&apos;[{{{schema}}}].[{{{entity}}}.AsOf]&apos;,N&apos;IF&apos;) is not null drop function [{{{schema}}}].[{{{entity}}}.AsOf];
         '''if object_id(&apos;[{{{schema}}}].[{{{entity}}}.Changes]&apos;,N&apos;IF&apos;) is not null drop function [{{{schema}}}].[{{{entity}}}.Changes];
@@ -487,7 +487,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_DropRelatedObjects", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to if object_id(N&apos;[{{{schema}}}].[tr : {{{label}}} {Temporal Governor}]&apos;,N&apos;TR&apos;) is not null begin;
         '''   drop trigger [{{{schema}}}].[tr : {{{label}}} {Temporal Governor}];
@@ -498,7 +498,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_DropTemporalGovernorDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to if object_id(N&apos;[dbo].[psa_hash]&apos;,N&apos;FN&apos;) is null begin;
         '''
@@ -523,7 +523,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_HashingAlgorithmForPSA", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to select
         '''   db_name() [database_name],
@@ -537,7 +537,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_InstanceProperties", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to -- create &apos;upsert queue&apos; abstraction
         '''if object_id(N&apos;[{{{schema}}}].[{{{entity}}}.UpsertQueue]&apos;,N&apos;U&apos;) is not null drop table [{{{schema}}}].[{{{entity}}}.UpsertQueue];
@@ -559,7 +559,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_LoadQueueDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to select
         '''   convert(nvarchar(40),[value]) [sig]
@@ -579,7 +579,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_LogicalSignatureLookup", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to if object_id(N&apos;{{{domain}}}&apos;,N&apos;U&apos;) is not null begin;
         '''
@@ -608,7 +608,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_RenameDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to if not exists(select 1 from sys.sysusers where [name]=N&apos;psa_owner&apos;) begin;
         '''   create role [psa_owner] authorization [db_owner];
@@ -627,7 +627,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_RoleDefinitions", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to set nocount on;
         '''set quoted_identifier on;
@@ -650,7 +650,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_SchemaDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to if not exists (select * from sys.sequences where [name]=N&apos;{{{entity}}}.SPK&apos; and object_schema_name([object_id])=N&apos;{{{schema}}}&apos;) begin;
         '''   exec sys.sp_executesql N&apos;create sequence [{{{schema}}}].[{{{entity}}}.SPK] start with 1 increment by 1 minvalue 1 cycle cache 1000;&apos;
@@ -661,7 +661,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_SequenceDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to set nocount on;
         '''set quoted_identifier on;
@@ -686,7 +686,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_TableDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to exec [dbo].[sp_manage_table_properties] N&apos;{{{domain}}}&apos;,N&apos;{{{property}}}&apos;,N&apos;{{{value}}}&apos;;.
         '''</summary>
@@ -695,7 +695,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_TablePropertyDefintion", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to create trigger [tr : {{{label}}} {Temporal Governor}] on {{{domain}}}
         '''after update
@@ -726,7 +726,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_TemporalGovernorDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to if object_id(&apos;[dbo].[sp_manage_column_properties]&apos;,N&apos;P&apos;) is not null drop procedure [dbo].[sp_manage_column_properties];
         '''
@@ -758,7 +758,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("SYS_ColumnMetadataDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to select
         '''   db_name() [database_name],
@@ -773,7 +773,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("SYS_DatabaseProperties", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to select * from [dbo].[psa_attribute_definition] where 1=1.
         '''</summary>
@@ -782,7 +782,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("SYS_PSAAttributeDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to with x as
         ''' (
@@ -801,7 +801,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("SYS_PSAEntityDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to set nocount on;
         '''set quoted_identifier on;
@@ -813,7 +813,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("SYS_QueryBehavior", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to    ______     __             _____                  ____  _          
         '''  / __/ /__ _/ /__  __ _    / ___/__  ___  _____ __/ / /_(_)__  ___ _
@@ -826,7 +826,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("SYS_SlalomTextArt1", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to if object_id(&apos;[dbo].[sp_manage_table_properties]&apos;,N&apos;P&apos;) is not null drop procedure [dbo].[sp_manage_table_properties];
         '''

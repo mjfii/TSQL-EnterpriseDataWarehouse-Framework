@@ -112,10 +112,10 @@
     <value>2.0</value>
   </resheader>
   <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="PSA_AsIsSecurityDefinition" xml:space="preserve">
     <value>grant select on [{{{schema}}}].[{{{entity}}}.AsIs] to [psa_abstractreader];</value>
@@ -1078,10 +1078,12 @@ end;</value>
       e.[hash_large_objects],
       e.[psa_infer_deletions],
       e.[etl_build_group],
-      right(convert(nvarchar(42),[dbo].[fn_hash](e.[hash_large_objects]),1),40)+N' : '+
+      right(convert(nvarchar(42),[dbo].[fn_hash](e.[etl_max_threads]),1),40)+N' : '+
       right(convert(nvarchar(42),[dbo].[fn_hash](e.[psa_infer_deletions]),1),40) [logic_sig],
       rtrim(ca.ah) [construct_sig],
-      isnull(c.[psa_attribute_count],0) [psa_attribute_count]
+      isnull(c.[psa_attribute_count],0) [psa_attribute_count],
+      e.[etl_max_threads],
+      e.[etl_max_record_count]
    from
       dbo.[psa_entity_definition] e
       cross apply
@@ -1124,7 +1126,9 @@ select
    [etl_build_group],
    isnull(right(convert(nvarchar(42),[dbo].[fn_hash]([logic_sig]),1),40),N'') [psa_logical_signature],
    isnull(right(convert(nvarchar(42),[dbo].[fn_hash]([construct_sig]),1),40),N'')  [psa_construct_signature],
-   [psa_attribute_count]
+   [psa_attribute_count],
+   [etl_max_threads],
+   [etl_max_record_count]
 from
    [sel]
 where

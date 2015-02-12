@@ -50,8 +50,6 @@ Namespace PersistentStagingArea
                                            ByVal DatabaseEntity As String, _
                                            ByVal DatabaseConnection As SqlConnection) As DataSet
 
-            GetMetadata = New DataSet
-
             ' handle null values by flipping them to an empty string
             If IsNothing(DatabaseName) Then DatabaseName = ""
             If IsNothing(DatabaseSchema) Then DatabaseSchema = ""
@@ -59,8 +57,10 @@ Namespace PersistentStagingArea
 
             If Not SystemObjectsInstalled(DatabaseConnection) Then ' test database exists and filegroups exist
                 PrintClientMessage("The existing PSA framework is not valid. Entity Build aborted.")
-                ' message on how to install
+                GetMetadata = Nothing
             Else
+
+                GetMetadata = New DataSet
 
                 Dim EntityString As String = My.Resources.SYS_PSAEntityDefinition
                 Dim AttributeString As String = My.Resources.SYS_PSAAttributeDefinition
@@ -119,7 +119,7 @@ Namespace PersistentStagingArea
 
             ' TODO: install objects if not there
 
-            Dim cmd As New SqlCommand("select [object_id] from sys.objects where [name]=N'psa_attribute_definition' and [schema_id]=1;", SqlCnn)
+            Dim cmd As New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'psa_attribute_definition' and [schema_id]=1;select @x;", SqlCnn)
             Dim oid As Integer = cmd.ExecuteScalar()
 
             If oid = 0 Then
@@ -127,7 +127,7 @@ Namespace PersistentStagingArea
                 Return False
             End If
 
-            cmd = New SqlCommand("select [object_id] from sys.objects where [name]=N'psa_entity_definition' and [schema_id]=1;", SqlCnn)
+            cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'psa_entity_definition' and [schema_id]=1;select @x;", SqlCnn)
             oid = cmd.ExecuteScalar()
 
             If oid = 0 Then
