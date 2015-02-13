@@ -290,9 +290,9 @@ if object_id('[{{{schema}}}].[{{{entity}}}.Control]',N'V') is not null drop view
 if object_id('[{{{schema}}}].[{{{entity}}}.Archive]',N'V') is not null drop view [{{{schema}}}].[{{{entity}}}.Archive];
 if object_id('[{{{schema}}}].[{{{entity}}}.BatchCount]',N'V') is not null drop view [{{{schema}}}].[{{{entity}}}.BatchCount];
 
-if object_id('[{{{schema}}}].[{{{entity}}}.DeleteQueue]',N'U') is not null drop table [{{{schema}}}].[{{{entity}}}.DeleteQueue];
-if object_id('[{{{schema}}}].[{{{entity}}}.UpsertQueue]',N'U') is not null drop table [{{{schema}}}].[{{{entity}}}.UpsertQueue];
-if object_id('[{{{schema}}}].[{{{entity}}}.ArchiveQueue]',N'U') is not null drop table [{{{schema}}}].[{{{entity}}}.ArchiveQueue];</value>
+if object_id('[{{{schema}}}].[{{{entity}}}.DeleteStage]',N'U') is not null drop table [{{{schema}}}].[{{{entity}}}.DeleteStage];
+if object_id('[{{{schema}}}].[{{{entity}}}.UpsertStage]',N'U') is not null drop table [{{{schema}}}].[{{{entity}}}.UpsertStage];
+if object_id('[{{{schema}}}].[{{{entity}}}.ArchiveStage]',N'U') is not null drop table [{{{schema}}}].[{{{entity}}}.ArchiveStage];</value>
   </data>
   <data name="PSA_DropTemporalGovernorDefinition" xml:space="preserve">
     <value>if object_id(N'[{{{schema}}}].[tr : {{{label}}} {Temporal Governor}]',N'TR') is not null begin;
@@ -1298,44 +1298,44 @@ GO</value>
 end;</value>
   </data>
   <data name="PSA_LoadQueueDefinition" xml:space="preserve">
-    <value>-- create 'upsert queue' abstraction
-if object_id(N'[{{{schema}}}].[{{{entity}}}.UpsertQueue]',N'U') is not null drop table [{{{schema}}}].[{{{entity}}}.UpsertQueue];
+    <value>-- create 'upsert stage' abstraction
+if object_id(N'[{{{schema}}}].[{{{entity}}}.UpsertStage]',N'U') is not null drop table [{{{schema}}}].[{{{entity}}}.UpsertStage];
    
-create table [{{{schema}}}].[{{{entity}}}.UpsertQueue]
+create table [{{{schema}}}].[{{{entity}}}.UpsertStage]
  (
    [psa_stage_key] int identity (1,1),
-   constraint [pk : {{{schema}}}.{{{entity}}}.UpsertQueue {PSA Surrogate Key}]
+   constraint [pk : {{{schema}}}.{{{entity}}}.UpsertStage {PSA Surrogate Key}]
    primary key clustered ([psa_stage_key])
    with (data_compression=page,fillfactor=95) on [TMP],
 
 {{{bichunk}}}
 {{{attrchunk}}}
 
-   constraint [ak : {{{schema}}}.{{{entity}}}.UpsertQueue {Source Natural Key}]
+   constraint [ak : {{{schema}}}.{{{entity}}}.UpsertStage {Source Natural Key}]
    unique nonclustered {{{akchunk}}}
    with (data_compression=page,fillfactor=80) on [TMP]
  );
 
-grant alter,select,insert,update,delete on [{{{schema}}}].[{{{entity}}}.UpsertQueue] to [psa_etl_manager];
+grant alter,select,insert,update,delete on [{{{schema}}}].[{{{entity}}}.UpsertStage] to [psa_etl_manager];
 
--- create 'delete queue' abstraction
-if object_id(N'[{{{schema}}}].[{{{entity}}}.DeleteQueue]',N'U') is not null drop table [{{{schema}}}].[{{{entity}}}.DeleteQueue];
+-- create 'delete stage' abstraction
+if object_id(N'[{{{schema}}}].[{{{entity}}}.DeleteStage]',N'U') is not null drop table [{{{schema}}}].[{{{entity}}}.DeleteStage];
 
-create table [{{{schema}}}].[{{{entity}}}.DeleteQueue]
+create table [{{{schema}}}].[{{{entity}}}.DeleteStage]
  (
    [psa_stage_key] int identity (1,1),
-   constraint [pk : {{{schema}}}.{{{entity}}}.DeleteQueue {PSA Surrogate Key}]
+   constraint [pk : {{{schema}}}.{{{entity}}}.DeleteStage {PSA Surrogate Key}]
    primary key clustered ([psa_stage_key])
    with (data_compression=page,fillfactor=95) on [TMP],
 
 {{{bichunk}}}
 
-   constraint [ak : {{{schema}}}.{{{entity}}}.DeleteQueue {Source Natural Key}]
+   constraint [ak : {{{schema}}}.{{{entity}}}.DeleteStage {Source Natural Key}]
    unique nonclustered {{{akchunk}}}
    with (data_compression=page,fillfactor=80) on [TMP]
  );
 
-grant alter,select,insert,delete on [{{{schema}}}].[{{{entity}}}.DeleteQueue] to [psa_etl_manager];</value>
+grant alter,select,insert,update,delete on [{{{schema}}}].[{{{entity}}}.DeleteStage] to [psa_etl_manager];</value>
     <comment>Contains Security Definition too.</comment>
   </data>
 </root>

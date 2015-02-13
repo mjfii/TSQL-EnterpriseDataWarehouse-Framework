@@ -539,13 +539,13 @@ Namespace My.Resources
         End Property
         
         '''<summary>
-        '''  Looks up a localized string similar to -- create &apos;upsert queue&apos; abstraction
-        '''if object_id(N&apos;[{{{schema}}}].[{{{entity}}}.UpsertQueue]&apos;,N&apos;U&apos;) is not null drop table [{{{schema}}}].[{{{entity}}}.UpsertQueue];
+        '''  Looks up a localized string similar to -- create &apos;upsert stage&apos; abstraction
+        '''if object_id(N&apos;[{{{schema}}}].[{{{entity}}}.UpsertStage]&apos;,N&apos;U&apos;) is not null drop table [{{{schema}}}].[{{{entity}}}.UpsertStage];
         '''   
-        '''create table [{{{schema}}}].[{{{entity}}}.UpsertQueue]
+        '''create table [{{{schema}}}].[{{{entity}}}.UpsertStage]
         ''' (
         '''   [psa_stage_key] int identity (1,1),
-        '''   constraint [pk : {{{schema}}}.{{{entity}}}.UpsertQueue {PSA Surrogate Key}]
+        '''   constraint [pk : {{{schema}}}.{{{entity}}}.UpsertStage {PSA Surrogate Key}]
         '''   primary key clustered ([psa_stage_key])
         '''   with (data_compression=page,fillfactor=95) on [TMP],
         '''
