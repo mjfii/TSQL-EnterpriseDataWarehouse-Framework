@@ -996,7 +996,8 @@ begin;
       [psa_active_state]=1,
       [psa_start_period]=@ts,
       [psa_batch_id]=s.[psa_batch_id],
-      [psa_hash_id]=s.[psa_hash_id]
+      [psa_hash_id]=s.[psa_hash_id],
+      [psa_archive_flag]=0
    from
       [update_source] s
       inner join

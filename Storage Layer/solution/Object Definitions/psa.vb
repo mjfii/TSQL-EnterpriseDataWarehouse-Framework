@@ -666,7 +666,7 @@ nextc:
                     sd = Replace(sd, "{{{schema}}}", Schema)
                     sd = Replace(sd, "{{{entity}}}", Entity)
                     sd = Replace(sd, "{{{bichunk}}}", BusinessIdentifierChunk)
-                    sd = Replace(sd, "{{{akchunk}}}", AlternateKeyChunkForQueue)
+                    sd = Replace(sd, "{{{akchunk}}}", AlternateKeyChunk)
                     sd = Replace(sd, "{{{attrchunk}}}", AttributeChunk)
                     Return sd
                 End Get
@@ -1372,7 +1372,20 @@ nextc:
 
                 Property Datatype As String
                     Get
-                        Return _datatype
+                        Select Case _datatype
+                            Case "ntext"
+                                Return "nvarchar(max)"
+                            Case "text"
+                                Return "varchar(max)"
+                            Case "image"
+                                Return "nvarchar(max)"
+                            Case "geography"
+                                Return "varbinary(max)"
+                            Case "geometry"
+                                Return "varbinary(max)"
+                            Case Else
+                                Return _datatype
+                        End Select
                     End Get
                     Set(value As String)
                         _datatype = value
