@@ -5,8 +5,8 @@ Imports System.Data.SqlTypes
 Imports Microsoft.SqlServer.Server
 Imports System.Data.SqlClient
 Imports System.Runtime.InteropServices
-Imports EDW.Common.SqlClientOutbound
-Imports EDW.PersistentStagingArea.FrameworkInstallation
+Imports StorageLayer.Common.SqlClientOutbound
+Imports StorageLayer.PersistentStagingArea.FrameworkInstallation
 
 Partial Public Class PSA
 
@@ -122,7 +122,7 @@ Partial Public Class PSA
 
         lbl = ""
 
-        ' move thru each entity
+        ' move through each entity
         For c = 0 To (i - 1)
 
             '
@@ -145,7 +145,7 @@ Partial Public Class PSA
                     GoTo nextc
                 End If
 
-                ' process schema def and sequence defintion (these never go away)
+                ' process schema def and sequence definition (these never go away)
                 If VerifyOnly = False Then
                     ExecuteDDLCommand(e.SchemaDefinition, SqlCnn)
                     ExecuteDDLCommand(e.SequenceDefinition, SqlCnn)
@@ -155,9 +155,9 @@ Partial Public Class PSA
                 With cmd
                     .Connection = SqlCnn
                     .CommandText = e.LogicalSignatureLookup
-                    ls = .ExecuteScalar
+                    ls = .ExecuteScalar.ToString
                     .CommandText = e.ConstructSignatureLookup
-                    cs = .ExecuteScalar
+                    cs = .ExecuteScalar.ToString
                 End With
 
                 ' check for construct differences
@@ -183,7 +183,7 @@ Partial Public Class PSA
                     End If
                 End If
 
-                ' make sure all the extedned properties are in order
+                ' make sure all the extended properties are in order
                 If VerifyOnly = False Then
                     SyncMetadata(e, SqlCnn)
                 End If
@@ -341,7 +341,9 @@ nextc:
                                    edr("psa_infer_deletions"), _
                                    If(IsDBNull(edr("etl_build_group")), "", edr("etl_build_group")), _
                                    edr("psa_logical_signature"), _
-                                   edr("psa_construct_signature")
+                                   edr("psa_construct_signature"),
+                                   edr("etl_max_threads"),
+                                   edr("etl_max_record_count")
                                    )
 
                     For Each adr In adt.Select("psa_schema = '" & edr("psa_schema") & "' and psa_entity = '" & edr("psa_entity") & "'", "psa_attribute_ordinal")
@@ -441,6 +443,8 @@ nextc:
             Private _buildgroup As String
             Private _logicalsig As String
             Private _constructsig As String
+            Private _maxthreads As Integer
+            Private _maxrecordcount As Integer
             Private _attribute As EntityAttribute()
 #End Region
 
@@ -552,6 +556,24 @@ nextc:
                 End Get
                 Set(ByVal value As String)
                     _constructsig = value
+                End Set
+            End Property
+
+            Property MaxThreads As Integer
+                Get
+                    Return _maxthreads
+                End Get
+                Set(value As Integer)
+                    _maxthreads = value
+                End Set
+            End Property
+
+            Property MaxRecordCount As Integer
+                Get
+                    Return _maxrecordcount
+                End Get
+                Set(value As Integer)
+                    _maxrecordcount = value
                 End Set
             End Property
 
@@ -955,7 +977,6 @@ nextc:
                 End Get
             End Property
 
-
             ReadOnly Property LoadQueueDefinition
                 Get
                     Dim sd As String
@@ -968,7 +989,6 @@ nextc:
                     Return sd
                 End Get
             End Property
-
 
             ReadOnly Property EntityMetadataDefinition As String
                 Get
@@ -1062,6 +1082,18 @@ nextc:
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "Construct Signature")
                     ep = Replace(ep, "{{{value}}}", ConstructSignature)
+                    ep += vbCrLf
+
+                    ep += My.Resources.PSA_TablePropertyDefintion
+                    ep = Replace(ep, "{{{domain}}}", Domain)
+                    ep = Replace(ep, "{{{property}}}", "ETL Max Threads")
+                    ep = Replace(ep, "{{{value}}}", MaxThreads)
+                    ep += vbCrLf
+
+                    ep += My.Resources.PSA_TablePropertyDefintion
+                    ep = Replace(ep, "{{{domain}}}", Domain)
+                    ep = Replace(ep, "{{{property}}}", "ETL Max Records Per Thread")
+                    ep = Replace(ep, "{{{value}}}", MaxRecordCount)
                     ep += vbCrLf
 
                     Return ep
@@ -1308,7 +1340,7 @@ nextc:
                     ByVal NewSourceStatement As String, ByVal NewSourcePredicateValues As String, _
                     ByVal NewSourceSchema As String, ByVal NewSourceEntity As String, ByVal NewHashLargeObjects As String, _
                     ByVal NewInferDeletions As String, ByVal NewBuildGroup As String, ByVal NewLogicalSignature As String, _
-                    ByVal NewConstructSignature As String)
+                    ByVal NewConstructSignature As String, ByVal NewMaxThreads As Integer, ByVal NewMaxRecordCount As Integer)
 
                 Schema = NewSchema
                 Entity = NewEntity
@@ -1322,6 +1354,8 @@ nextc:
                 BuildGroup = NewBuildGroup
                 LogicalSignature = NewLogicalSignature
                 ConstructSignature = NewConstructSignature
+                MaxThreads = NewMaxThreads
+                MaxRecordCount = NewMaxRecordCount
 
             End Sub
 
@@ -1459,6 +1493,6 @@ nextc:
 
         End Class ' Entity
 
-    End Class ' Contruct
+    End Class ' Construct
 
 End Class ' PSA

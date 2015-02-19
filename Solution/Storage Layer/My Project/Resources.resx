@@ -277,7 +277,10 @@ where
    [database_id]=db_id();</value>
   </data>
   <data name="PSA_DropRelatedObjects" xml:space="preserve">
-    <value>if object_id('[{{{schema}}}].[{{{entity}}}.AsOf]',N'IF') is not null drop function [{{{schema}}}].[{{{entity}}}.AsOf];
+    <value>if exists(select 1 from sys.services where [name]=N'//{{{schema}}}/{{{entity}}}/Upsert/Service/Processing') drop service [//{{{schema}}}/{{{entity}}}/Upsert/Service/Processing];
+if exists(select 1 from sys.services where [name]=N'//{{{schema}}}/{{{entity}}}/Upsert/Service/Request') drop service [//{{{schema}}}/{{{entity}}}/Upsert/Service/Request];
+
+if object_id('[{{{schema}}}].[{{{entity}}}.AsOf]',N'IF') is not null drop function [{{{schema}}}].[{{{entity}}}.AsOf];
 if object_id('[{{{schema}}}].[{{{entity}}}.Changes]',N'IF') is not null drop function [{{{schema}}}].[{{{entity}}}.Changes];
 
 if object_id('[{{{schema}}}].[{{{entity}}}.ProcessLoad]',N'P') is not null drop procedure [{{{schema}}}].[{{{entity}}}.ProcessLoad];

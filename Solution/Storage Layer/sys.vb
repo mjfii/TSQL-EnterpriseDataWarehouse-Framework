@@ -2,7 +2,7 @@
 Imports Microsoft.SqlServer.Server
 Imports System.Data.SqlClient
 Imports System.Security.Cryptography.SHA1
-Imports EDW.Common.SqlClientOutbound
+Imports StorageLayer.Common.SqlClientOutbound
 
 Namespace Common
 

@@ -1,4 +1,4 @@
-## **Executive Summary: Enterprise Data Warehouse Framework**
+## **Executive Summary: Enterprise Data Warehouse**
 
 In the current information architecture, there is not a comprehensive and reliable source of information for analytics and reporting.  As a result, significant effort is required each time a business question is asked.  Questions that should takes minutes, or even seconds, to answer, end up taking weeks, or even months, for analysts to research, reply, and react.  This latency inhibits decision making abilities and ultimately generates a significant and unwarranted cost.
 

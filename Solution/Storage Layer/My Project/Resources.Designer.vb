@@ -39,7 +39,7 @@ Namespace My.Resources
         Friend ReadOnly Property ResourceManager() As Global.System.Resources.ResourceManager
             Get
                 If Object.ReferenceEquals(resourceMan, Nothing) Then
-                    Dim temp As Global.System.Resources.ResourceManager = New Global.System.Resources.ResourceManager("EDW.Resources", GetType(Resources).Assembly)
+                    Dim temp As Global.System.Resources.ResourceManager = New Global.System.Resources.ResourceManager("StorageLayer.Resources", GetType(Resources).Assembly)
                     resourceMan = temp
                 End If
                 Return resourceMan
@@ -476,11 +476,11 @@ Namespace My.Resources
         End Property
         
         '''<summary>
-        '''  Looks up a localized string similar to if object_id(&apos;[{{{schema}}}].[{{{entity}}}.AsOf]&apos;,N&apos;IF&apos;) is not null drop function [{{{schema}}}].[{{{entity}}}.AsOf];
-        '''if object_id(&apos;[{{{schema}}}].[{{{entity}}}.Changes]&apos;,N&apos;IF&apos;) is not null drop function [{{{schema}}}].[{{{entity}}}.Changes];
+        '''  Looks up a localized string similar to if exists(select 1 from sys.services where [name]=N&apos;//{{{schema}}}/{{{entity}}}/Upsert/Service/Processing&apos;) drop service [//{{{schema}}}/{{{entity}}}/Upsert/Service/Processing];
+        '''if exists(select 1 from sys.services where [name]=N&apos;//{{{schema}}}/{{{entity}}}/Upsert/Service/Request&apos;) drop service [//{{{schema}}}/{{{entity}}}/Upsert/Service/Request];
         '''
-        '''if object_id(&apos;[{{{schema}}}].[{{{entity}}}.ProcessLoad]&apos;,N&apos;P&apos;) is not null drop procedure [{{{schema}}}].[{{{entity}}}.ProcessLoad];
-        '''if object_id(&apos;[{{{schema}}}].[{{{entity}}}.ProcessArchive]&apos;,N&apos;P&apos;) is not null drop procedure [{{{schema}}}].[{{{entity}}}.ProcessA [rest of string was truncated]&quot;;.
+        '''if object_id(&apos;[{{{schema}}}].[{{{entity}}}.AsOf]&apos;,N&apos;IF&apos;) is not null drop function [{{{schema}}}].[{{{entity}}}.AsOf];
+        '''if object_id(&apos;[{{{schema}}}].[{{{entit [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property PSA_DropRelatedObjects() As String
             Get

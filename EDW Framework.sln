@@ -1,9 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
-Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "Object Definitions", "Object Definitions\Object Definitions.vbproj", "{45292527-9B93-4BAF-B4D5-A7B7F4DF72C6}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Database Definitions", "Database Definitions", "{6DC1A911-9EA8-45D1-8561-960CA0209226}"
+Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "Storage Layer", "Solution\Storage Layer\Storage Layer.vbproj", "{45292527-9B93-4BAF-B4D5-A7B7F4DF72C6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
