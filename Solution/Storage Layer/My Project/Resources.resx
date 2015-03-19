@@ -277,13 +277,24 @@ where
    [database_id]=db_id();</value>
   </data>
   <data name="PSA_DropRelatedObjects" xml:space="preserve">
-    <value>if exists(select 1 from sys.services where [name]=N'//{{{schema}}}/{{{entity}}}/Upsert/Service/Processing') drop service [//{{{schema}}}/{{{entity}}}/Upsert/Service/Processing];
+    <value>-- service broker drops
+if exists(select 1 from sys.services where [name]=N'//{{{schema}}}/{{{entity}}}/Upsert/Service/Processing') drop service [//{{{schema}}}/{{{entity}}}/Upsert/Service/Processing];
 if exists(select 1 from sys.services where [name]=N'//{{{schema}}}/{{{entity}}}/Upsert/Service/Request') drop service [//{{{schema}}}/{{{entity}}}/Upsert/Service/Request];
+if object_id(N'[{{{schema}}}].[{{{entity}}}.RequestUpsert]',N'SQ') is not null drop queue [{{{schema}}}].[{{{entity}}}.RequestUpsert];
+if object_id(N'[{{{schema}}}].[{{{entity}}}.ProcessingUpsert]',N'SQ') is not null drop queue [{{{schema}}}].[{{{entity}}}.ProcessingUpsert];
+if exists(select 1 from sys.service_contracts where [name]='//{{{schema}}}/{{{entity}}}/Contract') drop contract [//{{{schema}}}/{{{entity}}}/Contract];
+if exists(select 1 from sys.service_message_types where [name]='//{{{schema}}}/{{{entity}}}/Message/Request') drop message type [//{{{schema}}}/{{{entity}}}/Message/Request];
+if exists(select 1 from sys.service_message_types where [name]='//{{{schema}}}/{{{entity}}}/Message/Result') drop message type [//{{{schema}}}/{{{entity}}}/Message/Result];
 
+-- abstacts and methods
 if object_id('[{{{schema}}}].[{{{entity}}}.AsOf]',N'IF') is not null drop function [{{{schema}}}].[{{{entity}}}.AsOf];
 if object_id('[{{{schema}}}].[{{{entity}}}.Changes]',N'IF') is not null drop function [{{{schema}}}].[{{{entity}}}.Changes];
 
-if object_id('[{{{schema}}}].[{{{entity}}}.ProcessLoad]',N'P') is not null drop procedure [{{{schema}}}].[{{{entity}}}.ProcessLoad];
+if object_id('[{{{schema}}}].[{{{entity}}}.ProcessUpsert]',N'P') is not null drop procedure [{{{schema}}}].[{{{entity}}}.ProcessUpsert];
+if object_id('[{{{schema}}}].[{{{entity}}}.WorkerUpsert]',N'P') is not null drop procedure [{{{schema}}}].[{{{entity}}}.WorkerUpsert];
+if object_id('[{{{schema}}}].[{{{entity}}}.ProcessDelete]',N'P') is not null drop procedure [{{{schema}}}].[{{{entity}}}.ProcessDelete];
+if object_id('[{{{schema}}}].[{{{entity}}}.WorkerDelete]',N'P') is not null drop procedure [{{{schema}}}].[{{{entity}}}.WorkerDelete];
+
 if object_id('[{{{schema}}}].[{{{entity}}}.ProcessArchive]',N'P') is not null drop procedure [{{{schema}}}].[{{{entity}}}.ProcessArchive];
 if object_id('[{{{schema}}}].[{{{entity}}}.RehashEntity]',N'P') is not null drop procedure [{{{schema}}}].[{{{entity}}}.RehashEntity];
 
@@ -961,7 +972,7 @@ begin;
    select
 {{{columnset}}}
       @batch,
-      [dbo].[psa_hash]((select {{{hashset}}} for xml raw, binary base64)),
+      {{{hashfunction}}}({{{hashext}}}(select {{{hashset}}} for xml raw, binary base64)),
       @ts
    from
       [inserted] i;
@@ -987,7 +998,7 @@ begin;
       select
 {{{columnset}}}
          @batch [psa_batch_id],
-         [dbo].[psa_hash]((select {{{hashset}}} for xml raw, binary base64)) [psa_hash_id]
+         {{{hashfunction}}}({{{hashext}}}(select {{{hashset}}} for xml raw, binary base64)) [psa_hash_id]
       from
          [inserted] i
     )
@@ -1030,7 +1041,7 @@ begin;
       select
 {{{columnset}}}
          @batch [psa_batch_id],
-         [dbo].[psa_hash]((select {{{hashset}}} for xml raw, binary base64)) [psa_hash_id]
+         {{{hashfunction}}}({{{hashext}}}(select {{{hashset}}} for xml raw, binary base64)) [psa_hash_id]
       from
          [deleted] i
     )
@@ -1082,6 +1093,7 @@ end;</value>
       e.[hash_large_objects],
       e.[psa_infer_deletions],
       e.[etl_build_group],
+      right(convert(nvarchar(42),[dbo].[fn_hash](e.[hash_large_objects]),1),40)+N' : '+
       right(convert(nvarchar(42),[dbo].[fn_hash](e.[etl_max_threads]),1),40)+N' : '+
       right(convert(nvarchar(42),[dbo].[fn_hash](e.[psa_infer_deletions]),1),40) [logic_sig],
       rtrim(ca.ah) [construct_sig],
@@ -1301,7 +1313,7 @@ GO</value>
    alter database [{{{db}}}] set change_tracking=on (change_retention=5 days,auto_cleanup=on);
 end;</value>
   </data>
-  <data name="PSA_LoadQueueDefinition" xml:space="preserve">
+  <data name="PSA_LoadStageDefinition" xml:space="preserve">
     <value>-- create 'upsert stage' abstraction
 if object_id(N'[{{{schema}}}].[{{{entity}}}.UpsertStage]',N'U') is not null drop table [{{{schema}}}].[{{{entity}}}.UpsertStage];
    
@@ -1341,5 +1353,319 @@ create table [{{{schema}}}].[{{{entity}}}.DeleteStage]
 
 grant alter,select,insert,update,delete on [{{{schema}}}].[{{{entity}}}.DeleteStage] to [psa_etl_manager];</value>
     <comment>Contains Security Definition too.</comment>
+  </data>
+  <data name="PSA_ServiceBrokerDefinition" xml:space="preserve">
+    <value>-- message type
+if not exists(select 1 from sys.service_message_types where [name]='//{{{schema}}}/{{{entity}}}/Message/Request') begin;
+   create message type [//{{{schema}}}/{{{entity}}}/Message/Request]
+   validation=well_formed_xml;
+end;
+
+if not exists(select 1 from sys.service_message_types where [name]='//{{{schema}}}/{{{entity}}}/Message/Result') begin;
+   create message type [//{{{schema}}}/{{{entity}}}/Message/Result]
+   validation=well_formed_xml;
+end;
+
+-- contract
+if not exists(select 1 from sys.service_contracts where [name]='//{{{schema}}}/{{{entity}}}/Contract') begin;
+   create contract [//{{{schema}}}/{{{entity}}}/Contract]
+    (
+      [//{{{schema}}}/{{{entity}}}/Message/Request] sent by initiator,
+      [//{{{schema}}}/{{{entity}}}/Message/Result] sent by target
+    );
+end;
+
+-- queues
+if object_id(N'[{{{schema}}}].[{{{entity}}}.ProcessingUpsert]',N'SQ') is null begin;
+   create queue [{{{schema}}}].[{{{entity}}}.ProcessingUpsert] with status=on,
+   activation
+    (
+      status=on,
+      procedure_name=[{{{schema}}}].[{{{entity}}}.WorkerUpsert],
+      max_queue_readers=5,
+      execute as self
+    );
+end else begin;
+   alter queue [{{{schema}}}].[{{{entity}}}.ProcessingUpsert] with status=on,
+   activation
+    (
+      status=on,
+      procedure_name=[{{{schema}}}].[{{{entity}}}.WorkerUpsert],
+      max_queue_readers=5,
+      execute as self
+    );
+end;
+
+if object_id(N'[{{{schema}}}].[{{{entity}}}.RequestUpsert]',N'SQ') is null begin;
+   create queue [{{{schema}}}].[{{{entity}}}.RequestUpsert] with status=on;
+end;
+
+-- services
+if not exists(select 1 from sys.services where [name]=N'//{{{schema}}}/{{{entity}}}/Upsert/Service/Processing') begin;
+   create service [//{{{schema}}}/{{{entity}}}/Upsert/Service/Processing]
+   on queue [{{{schema}}}].[{{{entity}}}.ProcessingUpsert]([//{{{schema}}}/{{{entity}}}/Contract]);
+end;
+
+if not exists(select 1 from sys.services where [name]=N'//{{{schema}}}/{{{entity}}}/Upsert/Service/Request') begin;
+   create service [//{{{schema}}}/{{{entity}}}/Upsert/Service/Request]
+   on queue [{{{schema}}}].[{{{entity}}}.RequestUpsert];
+end;</value>
+  </data>
+  <data name="PSA_ProcessUpsertDefinition" xml:space="preserve">
+    <value>create procedure [{{{schema}}}].[{{{entity}}}.ProcessUpsert]
+ (
+   @i_MaxRowCount int
+ )
+as
+-- do not alter/add/extend this stored procedure, or any psa stored procedure
+-- authored by slalom consulting 2014
+set nocount on;
+
+declare @rc int, @mn int, @mx int;
+declare @hist table([min] int,[max] int,[initiated] bit,[fulfilled] bit,[err] int,[errmsg] nvarchar(1000),unique([min] asc));
+
+-- get bucketing inputs
+select
+   @rc=count([psa_stage_key]),
+   @mn=min([psa_stage_key]),
+   @mx=max([psa_stage_key]),
+   @i_MaxRowCount=isnull(@i_MaxRowCount,1000000)
+from
+   [{{{schema}}}].[{{{entity}}}.UpsertStage];
+
+-- if we have no records, bail
+if @rc=0 begin;
+   print N'There are no records to process in [{{{schema}}}].[{{{entity}}}.UpsertStage].'
+   return -1;
+end;
+
+-- get the histogram
+with [recur] as
+ (
+   select
+      @mn [min],
+      case when (@mn+@i_MaxRowCount-1)&gt;=@mx then @mx else (@mn+@i_MaxRowCount-1) end [max]
+   union all
+   select
+      [max]+1,
+      case when ([max]+@i_MaxRowCount)&gt;=@mx then @mx else ([max]+@i_MaxRowCount) end  [max]
+   from
+      [recur]
+   where
+      [max]&lt;@mx
+ )
+insert @hist
+ (
+   [min],
+   [max],
+   [initiated],
+   [fulfilled]
+ )
+select
+   [min],
+   [max],
+   0,
+   0
+from
+   [recur];
+
+declare @conversation_handle uniqueidentifier;
+declare @from_service sysname=N'//{{{schema}}}/{{{entity}}}/Upsert/Service/Request';
+declare @to_service sysname=N'//{{{schema}}}/{{{entity}}}/Upsert/Service/Processing';
+declare @contract sysname=N'//{{{schema}}}/{{{entity}}}/Contract';
+declare @message_type sysname=N'//{{{schema}}}/{{{entity}}}/Message/Request';
+declare @msg xml;
+
+-- begin the broker conversation
+begin dialog conversation @conversation_handle 
+from service @from_service
+to service @to_service
+on contract @contract
+with encryption=off;
+
+-- queue each bucket in histogram
+while (select min([min]) from @hist where [initiated]=0) is not null begin;
+   select @rc=min([min]) from @hist where [initiated]=0;
+
+   select @msg=N'&lt;msg&gt;'+
+               N'&lt;min&gt;'+convert(nvarchar(10),[min])+N'&lt;/min&gt;'+
+               N'&lt;max&gt;'+convert(nvarchar(10),[max])+N'&lt;/max&gt;'+
+               N'&lt;batch&gt;'+isnull(convert(nvarchar(36),try_convert(uniqueidentifier,context_info())),N'')+N'&lt;/batch&gt;'+
+               N'&lt;/msg&gt;'
+   from @hist
+   where [min]=@rc;
+
+   -- this will open up the worker threads to process the staged set
+   send on conversation @conversation_handle
+   message type @message_type(@msg);
+
+   update @hist set [initiated]=1 where [min]=@rc;
+end;
+
+-- get return queue
+while (select min([min]) from @hist where [fulfilled]=0) is not null begin;
+
+   begin transaction;
+
+   waitfor(receive top(1) @msg=convert(xml,[message_body]) from [{{{schema}}}].[{{{entity}}}.RequestUpsert]),timeout 3000;
+
+   if @@rowcount&gt;0 begin;
+      select @mn=@msg.value('(/msg/min)[1]','int');
+      select @mx=@msg.value('(/msg/max)[1]','int');
+      update @hist set [fulfilled]=1 where [min]=@mn and [max]=@mx;
+   end;
+
+   commit transaction;
+end;
+
+select * from @hist; --  need to check for errors
+
+truncate table [{{{schema}}}].[{{{entity}}}.UpsertStage];
+
+return @@error;</value>
+  </data>
+  <data name="PSA_WorkerUpsertDefinition" xml:space="preserve">
+    <value>create procedure [{{{schema}}}].[{{{entity}}}.WorkerUpsert]
+as
+-- do not alter/add/extend this stored procedure, or any psa stored procedure
+-- authored by slalom consulting 2014
+set nocount on;
+
+-- declare variables
+declare @conversation_handle uniqueidentifier;
+declare @inbound_message_body xml;
+declare @outbound_message_body xml;
+declare @message_type_name sysname;
+declare @min_psa_stage_key int;
+declare @max_psa_stage_key int;
+declare @batch_id varbinary(128);
+
+-- declare constants
+declare @request_message sysname=N'//{{{schema}}}/{{{entity}}}/Message/Request';
+declare @result_message sysname=N'//{{{schema}}}/{{{entity}}}/Message/Result';
+declare @end_dialog_message sysname=N'http://schemas.microsoft.com/SQL/ServiceBroker/EndDialog';
+declare @error_message sysname=N'http://schemas.microsoft.com/SQL/ServiceBroker/Error';
+
+-- instantiate loop and continue until nothing left in queue
+while 1!=2 begin;
+
+   begin transaction;
+
+      --  get the next item in the queue
+      waitfor
+       (
+         receive top(1)
+            @conversation_handle=[conversation_handle],
+            @message_type_name=[message_type_name],
+            @inbound_message_body=convert(xml,[message_body]) 
+         from 
+            [{{{schema}}}].[{{{entity}}}.ProcessingUpsert]
+       ), timeout 3000; -- three seconds
+
+      -- if there was nothing in the queue, rollback and exit the loop
+      if @@rowcount=0 begin;
+         rollback transaction;
+         break;
+      end;
+
+      -- handle the receive message
+      if @message_type_name=@request_message begin;
+
+      -- get the min and max keys
+      select
+         @min_psa_stage_key=@inbound_message_body.value('(/msg/min)[1]','int'),
+         @max_psa_stage_key=@inbound_message_body.value('(/msg/max)[1]','int'),
+         @batch_id=try_convert(uniqueidentifier,@inbound_message_body.value('(/msg/batch)[1]','nvarchar(100)'));
+
+      --add context info for batching
+      if @batch_id is not null begin;
+         set context_info @batch_id;
+      end else begin;
+         set context_info 0x;
+      end;
+
+      -- merge items from the upsert queue based on those keys
+      begin try;
+
+         with [merge_source] as
+          (
+            select
+{{{columnset}}}
+            from
+               [{{{schema}}}].[{{{entity}}}.UpsertStage]
+            where
+               [psa_stage_key] between @min_psa_stage_key and @max_psa_stage_key
+          )
+         merge
+            [{{{schema}}}].[{{{entity}}}.Control] t
+         using
+            [merge_source] s on -1!=1
+{{{mergejoinchunk}}} 
+         when matched then
+            update
+               -- [{{{schema}}}].[{{{entity}}}.Control] 
+            set
+{{{updateset}}}
+         when not matched by target then
+            insert -- [{{{schema}}}].[{{{entity}}}.Control] 
+             (
+{{{columnset}}}
+             )
+            values
+             (
+{{{insertset}}}
+             );
+
+         -- build the outbound message
+         select @outbound_message_body=N'&lt;msg&gt;'+
+                                       N'&lt;min&gt;'+convert(nvarchar(10),@min_psa_stage_key)+N'&lt;/min&gt;'+
+                                       N'&lt;max&gt;'+convert(nvarchar(10),@max_psa_stage_key)+N'&lt;/max&gt;'+
+                                       N'&lt;rc&gt;'+convert(nvarchar(10),@@rowcount)+N'&lt;/rc&gt;'+
+                                       N'&lt;/msg&gt;';
+
+      end try begin catch;
+
+         -- build the outbound message
+         select @outbound_message_body=N'&lt;msg&gt;'+
+                                       N'&lt;min&gt;'+convert(nvarchar(10),@min_psa_stage_key)+N'&lt;/min&gt;'+
+                                       N'&lt;max&gt;'+convert(nvarchar(10),@max_psa_stage_key)+N'&lt;/max&gt;'+
+                                       N'&lt;rc&gt;0&lt;/rc&gt;'+
+                                       N'&lt;error_number&gt;'+convert(nvarchar(10),error_number())+N'&lt;/error_number&gt;'+
+                                       N'&lt;error_message&gt;'+convert(nvarchar(4000),error_message())+N'&lt;/error_message&gt;'+
+                                       N'&lt;/msg&gt;';
+      end catch;
+
+      -- and, send it...
+      send on conversation @conversation_handle
+      message type @result_message(@outbound_message_body);
+
+   -- if we get an 'end dialog', i.e. everything has been processed, simply close the conversation
+   end else if @message_type_name=@end_dialog_message begin;
+      end conversation @conversation_handle;
+
+   -- if we get an 'error dialog', taco [no] bueno, log error and bail
+   end else if @message_type_name=@error_message begin
+      
+      -- add the error log
+      end conversation @conversation_handle;
+   end; -- handling message
+
+   -- commit the transaction
+   commit transaction;
+
+end; -- loop
+return @@error;</value>
+  </data>
+  <data name="PSA_ServiceBrokerLoginDefinition" xml:space="preserve">
+    <value>if not exists(select * from sys.syslogins where [name]=N'psa_sb_manager') begin;
+   create login [psa_sb_manager] with password=N'{{{pw}}}', default_database=[edw_psa], check_expiration=off, check_policy=off
+end;
+grant view server state to [psa_sb_manager];</value>
+  </data>
+  <data name="PSA_ServiceBrokerUserDefinition" xml:space="preserve">
+    <value>if not exists(select N'?' from sys.sysusers where [name]=N'psa_sb_manager') begin;
+   create user [psa_sb_manager] for login [psa_sb_manager];
+end;
+alter role [db_owner] add member [psa_sb_manager];</value>
   </data>
 </root>

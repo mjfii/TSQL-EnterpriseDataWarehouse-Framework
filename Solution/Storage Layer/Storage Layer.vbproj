@@ -6,8 +6,8 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{45292527-9B93-4BAF-B4D5-A7B7F4DF72C6}</ProjectGuid>
     <OutputType>Library</OutputType>
-    <RootNamespace>StorageLayer</RootNamespace>
-    <AssemblyName>Slalom.Framework.EDW</AssemblyName>
+    <RootNamespace>EDW</RootNamespace>
+    <AssemblyName>Slalom.Framework.StorageLayer</AssemblyName>
     <FileAlignment>512</FileAlignment>
     <MyType>Windows</MyType>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
@@ -19,7 +19,7 @@
     <DefineDebug>true</DefineDebug>
     <DefineTrace>true</DefineTrace>
     <OutputPath>bin\Debug\</OutputPath>
-    <DocumentationFile>Slalom.Framework.EDW.xml</DocumentationFile>
+    <DocumentationFile>Slalom.Framework.StorageLayer.xml</DocumentationFile>
     <NoWarn>41999,42016,42017,42018,42019,42020,42021,42022,42032,42036</NoWarn>
     <Prefer32Bit>false</Prefer32Bit>
     <WarningsAsErrors>
@@ -31,7 +31,7 @@
     <DefineTrace>true</DefineTrace>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
-    <DocumentationFile>Slalom.Framework.EDW.xml</DocumentationFile>
+    <DocumentationFile>Slalom.Framework.StorageLayer.xml</DocumentationFile>
     <NoWarn>41999,42016,42017,42018,42019,42020,42021,42022,42032,42036</NoWarn>
     <Prefer32Bit>false</Prefer32Bit>
     <WarningsAsErrors>

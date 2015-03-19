@@ -5,8 +5,8 @@ Imports System.Data.SqlTypes
 Imports Microsoft.SqlServer.Server
 Imports System.Data.SqlClient
 Imports System.Runtime.InteropServices
-Imports StorageLayer.Common.SqlClientOutbound
-Imports StorageLayer.PersistentStagingArea.FrameworkInstallation
+Imports EDW.Common.SqlClientOutbound
+Imports EDW.PersistentStagingArea.FrameworkInstallation
 
 Partial Public Class PSA
 
@@ -52,27 +52,38 @@ Partial Public Class PSA
 
         PrintHeader()
 
-        ' get the metadata from system tables
-        Dim md As DataSet = GetMetadata(DatabaseName, DatabaseSchema, DatabaseEntity, cnn)
+        ' if the user is part of the sysadmin role, move along
+        If UserIsSysAdmin(cnn) Then
 
-        ' if we have a promising set, i.e. the selects worked, we can move forward
-        If Not md Is Nothing Then
+            ' make sure server objects are in place
+            AddInstanceObjects(cnn)
 
-            ' load up a variable with the usable construct
-            Dim cons As New Construct(md)
+            ' make sure database objects are in place
+            AddDatabaseObjects(cnn, DatabaseName)
 
-            ' with we have records, we can begin with the ddl process, otherwise, alert client and exit
-            If cons.EntityCount > 0 Then
-                ProcessConstruct(cons, cnn, vo, del)
+            ' get the metadata from system tables
+            Dim md As DataSet = GetMetadata(DatabaseName, DatabaseSchema, DatabaseEntity, cnn)
+
+            ' if we have a promising set, i.e. the selects worked, we can move forward
+            If Not md Is Nothing Then
+
+                ' load up a variable with the usable construct
+                Dim cons As New Construct(md)
+
+                ' with we have records, we can begin with the DDL process, otherwise, alert client and exit
+                If cons.EntityCount > 0 Then
+                    ProcessConstruct(cons, cnn, vo, del)
+                Else
+                    PrintClientMessage(vbCrLf)
+                    PrintClientMessage("There is not defined metadata for the PSA in [dbo].[psa_entity_definition] and/or [dbo].[psa_attribute_definition] in the [master] database.")
+                    PrintClientMessage("You may manage data directly or via [soon to be authored] MS Excel Add-In.")
+                End If
+
             Else
-                PrintClientMessage(vbCrLf)
-                PrintClientMessage("There is not defined metadata for the PSA in [dbo].[psa_entity_definition] and/or [dbo].[psa_attribute_definition] in the [master] database.")
-                PrintClientMessage("You may manage data directly or via [soon to be authored] MS Excel Add-In.")
+                ' TODO: make this message better OR make the tables?
+                PrintClientMessage("error metadata=nothing")
             End If
 
-        Else
-            ' TODO: make this message better OR make the tables?
-            PrintClientMessage("error metadata=nothing")
         End If
 
         ' ensure connection object is closed
@@ -94,13 +105,10 @@ Partial Public Class PSA
         Dim plbl As String = "" ' printed label
 
         ' print header information
-        PrintClientMessage("• Process started at " & st.ToString(fmt))
+        PrintClientMessage(vbCrLf)
+        PrintClientMessage("• Process construct started at " & st.ToString(fmt))
         PrintClientMessage("• Database Name: " & pc.DatabaseName)
         PrintClientMessage("• Database Compatibility: " & pc.DatabaseCompatibility.ToString)
-
-        ' execute hashing algorithm needs
-        ExecuteDDLCommand(pc.HashingAlgorithm, SqlCnn)
-        PrintClientMessage("• Hashing algorithms are intact")
 
         ' get entity count and labels to alert of process taking place
         If DeleteObjects = True Then
@@ -125,7 +133,7 @@ Partial Public Class PSA
         ' move through each entity
         For c = 0 To (i - 1)
 
-            '
+            ' initiate the transaction
             ExecuteDDLCommand("begin transaction", SqlCnn)
 
             Try
@@ -155,9 +163,9 @@ Partial Public Class PSA
                 With cmd
                     .Connection = SqlCnn
                     .CommandText = e.LogicalSignatureLookup
-                    ls = .ExecuteScalar.ToString
+                    ls = CStr(.ExecuteScalar)
                     .CommandText = e.ConstructSignatureLookup
-                    cs = .ExecuteScalar.ToString
+                    cs = CStr(.ExecuteScalar)
                 End With
 
                 ' check for construct differences
@@ -280,11 +288,14 @@ nextc:
         ExecuteDDLCommand(e.ChangesSecurityDefinition, SqlCnn)
 
         ' queues
-        ExecuteDDLCommand(e.LoadQueueDefinition, SqlCnn)
+        ExecuteDDLCommand(e.LoadStageDefinition, SqlCnn)
 
         ' methods
+        ExecuteDDLCommand(e.ProcessUpsertDefintion, SqlCnn)
+        ExecuteDDLCommand(e.WorkerUpsertDefintion, SqlCnn)
 
-
+        ' service broker
+        ExecuteDDLCommand(e.ServiceBrokerDefinition, SqlCnn)
 
     End Sub
 
@@ -378,18 +389,6 @@ nextc:
         ReadOnly Property Entities(EntityNumber As Integer) As Entity
             Get
                 Return _entities(EntityNumber)
-            End Get
-        End Property
-
-        ReadOnly Property RoleDefinition As String
-            Get
-                Return My.Resources.PSA_RoleDefinitions
-            End Get
-        End Property
-
-        ReadOnly Property HashingAlgorithm As String
-            Get
-                Return My.Resources.PSA_HashingAlgorithmForPSA
             End Get
         End Property
 
@@ -768,6 +767,15 @@ nextc:
                     sd = Replace(sd, "{{{label}}}", Label)
                     sd = Replace(sd, "{{{hashset}}}", HashChunk)
                     sd = Replace(sd, "{{{columnset}}}", cs)
+
+                    If HashLargeObjects = YesNoType.Yes Then
+                        sd = Replace(sd, "{{{hashfunction}}}", "[dbo].[psa_hash]")
+                        sd = Replace(sd, "{{{hashext}}}", "")
+                    Else
+                        sd = Replace(sd, "{{{hashfunction}}}", "hashbytes")
+                        sd = Replace(sd, "{{{hashext}}}", "N'sha1',")
+                    End If
+
                     Return sd
                 End Get
             End Property
@@ -783,10 +791,17 @@ nextc:
                     sd = Replace(sd, "{{{domain}}}", Domain)
                     sd = Replace(sd, "{{{label}}}", Label)
                     sd = Replace(sd, "{{{updateset}}}", UpdateChunk)
-                    sd = Replace(sd, "{{{joinset}}}", JoinChunk)
+                    sd = Replace(sd, "{{{joinset}}}", ControlJoinChunk)
                     sd = Replace(sd, "{{{hashset}}}", HashChunk)
                     sd = Replace(sd, "{{{columnset}}}", cs)
                     sd = Replace(sd, "{{{updatekeyset}}}", UpdateKeyChunk)
+                    If HashLargeObjects = YesNoType.Yes Then
+                        sd = Replace(sd, "{{{hashfunction}}}", "[dbo].[psa_hash]")
+                        sd = Replace(sd, "{{{hashext}}}", "")
+                    Else
+                        sd = Replace(sd, "{{{hashfunction}}}", "hashbytes")
+                        sd = Replace(sd, "{{{hashext}}}", "N'sha1',")
+                    End If
                     Return sd
                 End Get
             End Property
@@ -802,9 +817,16 @@ nextc:
                     sd = Replace(sd, "{{{domain}}}", Domain)
                     sd = Replace(sd, "{{{label}}}", Label)
                     sd = Replace(sd, "{{{updateset}}}", UpdateChunk)
-                    sd = Replace(sd, "{{{joinset}}}", JoinChunk)
+                    sd = Replace(sd, "{{{joinset}}}", ControlJoinChunk)
                     sd = Replace(sd, "{{{hashset}}}", HashChunk)
                     sd = Replace(sd, "{{{columnset}}}", cs)
+                    If HashLargeObjects = YesNoType.Yes Then
+                        sd = Replace(sd, "{{{hashfunction}}}", "[dbo].[psa_hash]")
+                        sd = Replace(sd, "{{{hashext}}}", "")
+                    Else
+                        sd = Replace(sd, "{{{hashfunction}}}", "hashbytes")
+                        sd = Replace(sd, "{{{hashext}}}", "N'sha1',")
+                    End If
                     Return sd
                 End Get
             End Property
@@ -977,16 +999,58 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property LoadQueueDefinition
+            ReadOnly Property LoadStageDefinition
                 Get
                     Dim sd As String
-                    sd = My.Resources.PSA_LoadQueueDefinition
+                    sd = My.Resources.PSA_LoadStageDefinition
                     sd = Replace(sd, "{{{schema}}}", Schema)
                     sd = Replace(sd, "{{{entity}}}", Entity)
                     sd = Replace(sd, "{{{bichunk}}}", BusinessIdentifierChunk)
                     sd = Replace(sd, "{{{akchunk}}}", AlternateKeyChunkForQueue)
                     sd = Replace(sd, "{{{attrchunk}}}", AttributeChunk)
                     Return sd
+                End Get
+            End Property
+
+            ReadOnly Property ProcessUpsertDefintion As String
+                Get
+                    Dim d As String
+                    d = My.Resources.PSA_ProcessUpsertDefinition
+                    d = Replace(d, "{{{schema}}}", Schema)
+                    d = Replace(d, "{{{entity}}}", Entity)
+                    Return d
+                End Get
+            End Property
+
+            ReadOnly Property WorkerUpsertDefintion As String
+                Get
+                    Dim c As String = ColumnSetChunk("", 15)
+                    c = Left(c, Len(c) - 1)
+                    Dim i As String = ColumnSetChunk("s", 15)
+                    i = Left(i, Len(i) - 1)
+                    Dim u As String = UpdateChunk(15)
+                    u = Left(u, Len(u) - 1)
+
+                    Dim d As String
+                    d = My.Resources.PSA_WorkerUpsertDefinition
+                    d = Replace(d, "{{{schema}}}", Schema)
+                    d = Replace(d, "{{{entity}}}", Entity)
+                    d = Replace(d, "{{{columnset}}}", c)
+                    d = Replace(d, "{{{insertset}}}", i)
+                    d = Replace(d, "{{{updateset}}}", u)
+                    d = Replace(d, "{{{mergejoinchunk}}}", MergeJoinChunk(28))
+
+                    Return d
+                End Get
+            End Property
+
+            ReadOnly Property ServiceBrokerDefinition
+                Get
+                    Dim def As String
+                    def = My.Resources.PSA_ServiceBrokerDefinition
+                    def = Replace(def, "{{{schema}}}", Schema)
+                    def = Replace(def, "{{{entity}}}", Entity)
+                    Return def
                 End Get
             End Property
 
@@ -1254,28 +1318,29 @@ nextc:
                 End Get
             End Property
 
-            Private ReadOnly Property UpdateChunk As String
+            Private ReadOnly Property UpdateChunk(Optional ByVal ColumnPadding As UShort = 6) As String
                 Get
                     Dim bia As EntityAttribute = Nothing
                     Dim rstr As String = ""
+                    Dim cp As New String(" ", ColumnPadding)
 
                     For Each bia In _attribute.OrderBy(Function(EntityAttribute) EntityAttribute.BusinessIdentifier).ThenBy(Function(EntityAttribute) EntityAttribute.Ordinal)
                         If bia.BusinessIdentifier = YesNoType.No Then
-                            rstr += "      [" & bia.Name & "]=s.[" & bia.Name & "]," & vbCrLf
+                            rstr += cp & "[" & bia.Name & "]=s.[" & bia.Name & "]," & vbCrLf
                         End If
                     Next
 
                     If Len(rstr) > 0 Then
                         rstr = Left(rstr, Len(rstr) - 2)
                     Else
-                        rstr = "      -- there are no attributes in this psa entity, i.e. this code will never be reached..."
+                        rstr = cp & "-- there are no attributes in this psa entity, i.e. this code will never be reached..."
                     End If
 
                     Return rstr
                 End Get
             End Property
 
-            Private ReadOnly Property JoinChunk As String
+            Private ReadOnly Property ControlJoinChunk As String
                 Get
                     Dim bia As EntityAttribute = Nothing
                     Dim rstr As String = ""
@@ -1298,6 +1363,30 @@ nextc:
                     rstr += spacer & "t.[psa_current_flag]=1;"
 
                     Return rstr
+                End Get
+            End Property
+
+            Private ReadOnly Property MergeJoinChunk(ByVal Padding As UShort) As String
+                Get
+                    Dim bia As EntityAttribute = Nothing
+                    Dim rstr As String = ""
+                    Dim spacer As New String(" ", Padding)
+
+                    For Each bia In _attribute.OrderBy(Function(EntityAttribute) EntityAttribute.BusinessIdentifier).ThenBy(Function(EntityAttribute) EntityAttribute.Ordinal)
+                        If bia.BusinessIdentifier = YesNoType.Yes Then
+                            If bia.Optionality = YesNoType.No Then
+                                rstr += spacer & "and s.[" & bia.Name & "]=t.[" & bia.Name & "]" & vbCrLf
+                            Else
+                                rstr += spacer & "and ("
+                                rstr += "(s.[" & bia.Name & "]=t.[" & bia.Name & "]) or "
+                                rstr += "(s.[" & bia.Name & "] is not null and t.[" & bia.Name & "] is not null) or "
+                                rstr += "(s.[" & bia.Name & "] is null and t.[" & bia.Name & "] is null)"
+                                rstr += ")" & vbCrLf
+                            End If
+                        End If
+                    Next
+
+                    Return Left(rstr, Len(rstr) - 2)
                 End Get
             End Property
 

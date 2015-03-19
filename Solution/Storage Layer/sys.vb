@@ -2,7 +2,7 @@
 Imports Microsoft.SqlServer.Server
 Imports System.Data.SqlClient
 Imports System.Security.Cryptography.SHA1
-Imports StorageLayer.Common.SqlClientOutbound
+Imports EDW.Common.SqlClientOutbound
 
 Namespace Common
 
@@ -29,7 +29,14 @@ Namespace Common
 
         Friend Shared Sub PrintClientMessage(ByVal print_string As String, Optional tab_spaces As UShort = 0)
             Dim pl As New String(" ", tab_spaces)
-            SqlContext.Pipe.Send(pl & print_string)
+
+            Dim ns As String = pl & print_string
+
+            While Len(ns) > 0
+                SqlContext.Pipe.Send(Left(ns, 4000))
+                ns = Right(ns, Len(ns) - If(Len(ns) < 4000, Len(ns), 4000))
+            End While
+
         End Sub
 
         Friend Shared Sub ReturnClientResults(ByVal sql_command As SqlCommand)
@@ -78,6 +85,10 @@ Namespace PersistentStagingArea
                 EntityString += ";"
                 AttributeString += ";"
 
+                Dim chngstr As String = "use [master];"
+                Dim chngdb As New SqlCommand(chngstr, DatabaseConnection)
+                chngdb.ExecuteNonQuery()
+
                 ' the following commands are under the 'master' database
                 Dim cmd As New SqlCommand(EntityString, DatabaseConnection)
                 Dim da As New SqlDataAdapter(cmd)
@@ -91,21 +102,10 @@ Namespace PersistentStagingArea
                 da = New SqlDataAdapter(cmd)
                 da.Fill(GetMetadata, "psa_instance_properties")
 
-                ExecuteDDLCommand(My.Resources.SYS_TableMetadataDefinition, DatabaseConnection)
-                ExecuteDDLCommand(My.Resources.SYS_ColumnMetadataDefinition, DatabaseConnection)
-                PrintClientMessage("• Metadata managers in place")
-
-                ' this command is under whatever we find in the above cmd
-                Dim chngstr As String = "use " & DatabaseName & ";"
-                Dim chngdb As New SqlCommand(chngstr, DatabaseConnection)
+                ' this command the passed in database name
+                chngstr = "use [" & DatabaseName & "];"
+                chngdb = New SqlCommand(chngstr, DatabaseConnection)
                 chngdb.ExecuteNonQuery()
-
-                ExecuteDDLCommand(My.Resources.PSA_RoleDefinitions, DatabaseConnection)
-                PrintClientMessage("• Database Role Requirements sync'd")
-
-                ExecuteDDLCommand(Replace(My.Resources.PSA_DatabaseChangeTrackingDefinition, "{{{db}}}", DatabaseName), DatabaseConnection)
-                ExecuteDDLCommand(My.Resources.PSA_ChangeTrackingSystemDefinition, DatabaseConnection)
-                PrintClientMessage("• Change Tracking methodology in place")
 
                 cmd = New SqlCommand(My.Resources.SYS_DatabaseProperties, DatabaseConnection)
                 da = New SqlDataAdapter(cmd)
@@ -115,12 +115,17 @@ Namespace PersistentStagingArea
 
         End Function
 
-        Friend Shared Function SystemObjectsInstalled(SqlCnn As SqlConnection) As Boolean
+        Friend Shared Function SystemObjectsInstalled(ByVal SqlCnn As SqlConnection) As Boolean
 
-            ' TODO: install objects if not there
+            Dim chngstr As String = "use [master];"
+            Dim chngdb As New SqlCommand(chngstr, SqlCnn)
+            chngdb.ExecuteNonQuery()
 
-            Dim cmd As New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'psa_attribute_definition' and [schema_id]=1;select @x;", SqlCnn)
-            Dim oid As Integer = cmd.ExecuteScalar()
+            Dim cmd As SqlCommand
+            Dim oid As Integer
+
+            cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'psa_attribute_definition' and [schema_id]=1;select @x;", SqlCnn)
+            oid = cmd.ExecuteScalar()
 
             If oid = 0 Then
                 PrintClientMessage("System table [dbo].[psa_attribute_definition] does not exist. Contact the database administrator.")
@@ -137,6 +142,62 @@ Namespace PersistentStagingArea
 
             Return True
         End Function
+
+        Friend Shared Function UserIsSysAdmin(SqlCnn As SqlConnection) As Boolean
+
+            Dim cmd As SqlCommand
+            Dim oid As Integer
+
+            cmd = New SqlCommand("select is_srvrolemember(N'sysadmin') [ninja]", SqlCnn)
+            oid = cmd.ExecuteScalar()
+
+            If oid = 0 Then
+                PrintClientMessage("You need elevated privileges (sysadmin) to manage this framework. Contact the database administrator.")
+                Return False
+            End If
+
+            Return True
+        End Function
+
+        Friend Shared Sub AddInstanceObjects(ByVal InstanceConnection As SqlConnection)
+
+            Dim chngstr As String = "use [master];"
+            Dim chngdb As New SqlCommand(chngstr, InstanceConnection)
+            chngdb.ExecuteNonQuery()
+
+            ExecuteDDLCommand(My.Resources.SYS_TableMetadataDefinition, InstanceConnection)
+            ExecuteDDLCommand(My.Resources.SYS_ColumnMetadataDefinition, InstanceConnection)
+            PrintClientMessage("• Metadata managers in place [instance]")
+
+            ExecuteDDLCommand(My.Resources.PSA_ServiceBrokerLoginDefinition, InstanceConnection) ' TODO: replace with rando pw
+            PrintClientMessage("• Service broker login exists [instance]")
+
+        End Sub
+
+        Friend Shared Sub AddDatabaseObjects(ByVal InstanceConnection As SqlConnection, ByVal DatabaseName As String)
+
+            Dim chngstr As String = "use [" & DatabaseName & "];"
+            Dim chngdb As New SqlCommand(chngstr, InstanceConnection)
+            chngdb.ExecuteNonQuery()
+
+            ' make sure the required database roles are there
+            ExecuteDDLCommand(My.Resources.PSA_RoleDefinitions, InstanceConnection)
+            PrintClientMessage("• Database role requirements synced [database]")
+
+            ' make sure change tracking is turned on
+            ExecuteDDLCommand(Replace(My.Resources.PSA_DatabaseChangeTrackingDefinition, "{{{db}}}", DatabaseName), InstanceConnection)
+            ExecuteDDLCommand(My.Resources.PSA_ChangeTrackingSystemDefinition, InstanceConnection)
+            PrintClientMessage("• Change tracking methodology in place [database]")
+
+            ' execute hashing algorithm needs
+            ExecuteDDLCommand(My.Resources.PSA_HashingAlgorithmForPSA, InstanceConnection)
+            PrintClientMessage("• Hashing algorithms are intact [database]")
+
+            ' execute service broker security needs
+            ExecuteDDLCommand(My.Resources.PSA_ServiceBrokerUserDefinition, InstanceConnection)
+            PrintClientMessage("• Service broker user security aligned [database]")
+
+        End Sub
 
     End Class
 

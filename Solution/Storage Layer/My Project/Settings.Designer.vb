@@ -64,9 +64,9 @@ Namespace My
     Friend Module MySettingsProperty
         
         <Global.System.ComponentModel.Design.HelpKeywordAttribute("My.Settings")> _
-        Friend ReadOnly Property Settings() As Global.StorageLayer.My.MySettings
+        Friend ReadOnly Property Settings() As Global.EDW.My.MySettings
             Get
-                Return Global.StorageLayer.My.MySettings.Default
+                Return Global.EDW.My.MySettings.Default
             End Get
         End Property
     End Module

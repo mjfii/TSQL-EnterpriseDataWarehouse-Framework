@@ -5,8 +5,8 @@ Imports System.Data.SqlTypes
 Imports Microsoft.SqlServer.Server
 Imports System.Data.SqlClient
 Imports System.Runtime.InteropServices
-Imports StorageLayer.Common.SqlClientOutbound
-Imports StorageLayer.LoggingArea.FrameworkInstallation
+Imports EDW.Common.SqlClientOutbound
+Imports EDW.LoggingArea.FrameworkInstallation
 
 Public Class LOG
 
