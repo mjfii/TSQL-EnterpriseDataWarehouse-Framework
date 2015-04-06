@@ -131,10 +131,14 @@ begin;
 end;</value>
   </data>
   <data name="PSA_AsIsViewDefinition" xml:space="preserve">
-    <value>create view [{{{schema}}}].[{{{entity}}}.AsIs] with schemabinding --,encryption
+    <value>create view [{{{schema}}}].[{{{entity}}}.AsIs] with schemabinding
 as
 select
-   [psa_entity_key] [AbstractEntityKey],
+   [psa_entity_key] [PersistentEntityKey],
+   [psa_entity_sequence] [PersistentEntityIncrement],
+   [psa_start_period] [PersistentEntityValidFrom],
+   isnull([psa_end_period],'9999-12-31 23:59:59.9999999') [PersistentEntityValidTo],
+   [psa_dml_action] [PersistentEntityChangeAction],
 {{{columnset}}}
 from
    {{{domain}}}
@@ -154,7 +158,11 @@ returns table with schemabinding
 as return
 
 select
-   [psa_entity_key] [AbstractEntityKey],
+   [psa_entity_key] [PersistentEntityKey],
+   [psa_entity_sequence] [PersistentEntityIncrement],
+   [psa_start_period] [PersistentEntityValidFrom],
+   isnull([psa_end_period],'9999-12-31 23:59:59.9999999') [PersistentEntityValidTo],
+   [psa_dml_action] [PersistentEntityChangeAction],
 {{{columnset}}}
 from
    {{{domain}}}
@@ -187,11 +195,11 @@ end;</value>
     <value>create view [{{{schema}}}].[{{{entity}}}.AsWas] with schemabinding
 as
 select
-   [psa_entity_key] [AbstractEntityKey],
-   [psa_entity_sequence] [AbstractChangeIncrement],
-   [psa_start_period] [AbstractValidFrom],
-   isnull([psa_end_period],'9999-12-31 23:59:59.9999999') [AbstractValidTo],
-   [psa_dml_action] [AbstractChangeAction],
+   [psa_entity_key] [PersistentEntityKey],
+   [psa_entity_sequence] [PersistentEntityIncrement],
+   [psa_start_period] [PersistentEntityValidFrom],
+   isnull([psa_end_period],'9999-12-31 23:59:59.9999999') [PersistentEntityValidTo],
+   [psa_dml_action] [PersistentEntityChangeAction],
 {{{columnset}}}
 from
    {{{domain}}}
@@ -230,32 +238,37 @@ group by
   <data name="PSA_ChangesFunctionDefinition" xml:space="preserve">
     <value>create function [{{{schema}}}].[{{{entity}}}.Changes]
  (
-    @CurrentVersion bigint 
+    @Version bigint 
  )
 returns table with schemabinding
 as return
 
 select
-   d.[psa_entity_key] [AbstractEntityKey],
-   [psa_dml_action] [AbstractChangeAction],
-   case when d.[psa_archive_flag]=1 then N'ARCHIVE' else N'ACTIVE' end [AbstractArchiveActive],
+   [psa_entity_key] [PersistentEntityKey],
+   [psa_entity_sequence] [PersistentEntityIncrement],
+   [psa_start_period] [PersistentEntityValidFrom],
+   isnull([psa_end_period],'9999-12-31 23:59:59.9999999') [PersistentEntityValidTo],
+   [psa_dml_action] [PersistentEntityChangeAction],
 {{{columnset}}}
 from
-   {{{domain}}} d 
-   left join
-   changetable(changes {{{domain}}},@CurrentVersion) c on d.[psa_surrogate_key]=c.[psa_surrogate_key]
-where
-   d.[psa_current_flag]=1
-   and
-   d.[psa_surrogate_key]=case when @CurrentVersion is null then d.[psa_surrogate_key] else c.[psa_surrogate_key] end;</value>
+   changetable(changes {{{domain}}},@Version) c
+   inner join
+   {{{domain}}} d  on c.[psa_surrogate_key]=d.[psa_surrogate_key] and d.[psa_current_flag]=1;</value>
   </data>
   <data name="PSA_ChangesSecurityDefinition" xml:space="preserve">
     <value>grant select on [{{{schema}}}].[{{{entity}}}.Changes] to [psa_abstractreader];</value>
   </data>
   <data name="PSA_ChangeTrackingDefinition" xml:space="preserve">
-    <value>if not exists(select * from sys.change_tracking_tables where [object_id]=object_id(N'{{{domain}}}'))
-alter table {{{domain}}} enable change_tracking
-with(track_columns_updated=off);</value>
+    <value>if not exists(select N'?' from sys.change_tracking_tables where [object_id]=object_id(N'{{{domain}}}')) begin;
+   alter table {{{domain}}} enable change_tracking
+   with(track_columns_updated=off);
+end;
+
+if not exists(select N'?' from sys.stats where [name]=N'st : syscommittab :: commit_ts') begin;
+   create statistics [st : syscommittab :: commit_ts] on [edw_psa].[sys].[syscommittab] (commit_ts);
+end;
+
+-- drop statistics [sys].[syscommittab].[st : syscommittab :: commit_ts]</value>
   </data>
   <data name="PSA_ControlViewDefinition" xml:space="preserve">
     <value>create view [{{{schema}}}].[{{{entity}}}.Control] with schemabinding
@@ -510,20 +523,19 @@ create statistics [st : {{{label}}} :: psa_hash_id] on {{{domain}}}
    [psa_hash_id]
  );
 
-create nonclustered index [ie : {{{label}}} :: psa_current_flag] on {{{domain}}}
- (
-   [psa_current_flag] desc
- )
-where
- (
-   [psa_archive_flag]=0
- ) with (fillfactor=100,data_compression=page);
-
 create nonclustered index [ie : {{{label}}} :: psa_start_period :: psa_end_period] on {{{domain}}}
  (
    [psa_start_period] desc,
    [psa_end_period] desc
- ) with (fillfactor=100,data_compression=page);</value>
+ ) with (fillfactor=80,data_compression=page);
+
+create nonclustered index [ie : {{{label}}} :: {Record State}] on {{{domain}}}
+ (
+   [psa_entity_key] asc,
+   [psa_current_flag] desc,
+   [psa_active_state] desc,
+   [psa_archive_flag] desc
+ ) with (fillfactor=80,data_compression=page);</value>
   </data>
   <data name="PSA_TemporalGovernorDefinition" xml:space="preserve">
     <value>create trigger [tr : {{{label}}} {Temporal Governor}] on {{{domain}}}
@@ -1415,12 +1427,32 @@ end;</value>
     <value>create procedure [{{{schema}}}].[{{{entity}}}.ProcessUpsert]
  (
    @i_MaxRowCount int
- )
+ ) with execute as N'psa_sb_manager'
 as
 -- do not alter/add/extend this stored procedure, or any psa stored procedure
 -- authored by slalom consulting 2014
 set nocount on;
 
+-- check to see is object is actively running on another thread
+if not exists(
+   select
+      N'?'
+   from
+      sys.dm_broker_queue_monitors
+   where
+      object_name([queue_id])=N'{{{entity}}}.ProcessingUpsert'
+      and
+      object_schema_name([queue_id])=N'{{{schema}}}'
+      and
+      database_id=db_id()
+      and
+      [state]=N'INACTIVE'
+ ) begin;
+   print N'There is already an active session for procedure [{{{schema}}}].[{{{entity}}}.ProcessUpsert]. Execution is aborted.'
+   return -1;
+end;
+
+-- declare variables
 declare @rc int, @mn int, @mx int;
 declare @hist table([min] int,[max] int,[initiated] bit,[fulfilled] bit,[err] int,[errmsg] nvarchar(1000),unique([min] asc));
 
@@ -1435,7 +1467,7 @@ from
 
 -- if we have no records, bail
 if @rc=0 begin;
-   print N'There are no records to process in [{{{schema}}}].[{{{entity}}}.UpsertStage].'
+   print N'There are no records to process in [{{{schema}}}].[{{{entity}}}.UpsertStage]. Execution is aborted.'
    return -1;
 end;
 
@@ -1476,51 +1508,72 @@ declare @contract sysname=N'//{{{schema}}}/{{{entity}}}/Contract';
 declare @message_type sysname=N'//{{{schema}}}/{{{entity}}}/Message/Request';
 declare @msg xml;
 
--- begin the broker conversation
-begin dialog conversation @conversation_handle 
-from service @from_service
-to service @to_service
-on contract @contract
-with encryption=off;
-
--- queue each bucket in histogram
-while (select min([min]) from @hist where [initiated]=0) is not null begin;
-   select @rc=min([min]) from @hist where [initiated]=0;
-
-   select @msg=N'&lt;msg&gt;'+
-               N'&lt;min&gt;'+convert(nvarchar(10),[min])+N'&lt;/min&gt;'+
-               N'&lt;max&gt;'+convert(nvarchar(10),[max])+N'&lt;/max&gt;'+
-               N'&lt;batch&gt;'+isnull(convert(nvarchar(36),try_convert(uniqueidentifier,context_info())),N'')+N'&lt;/batch&gt;'+
-               N'&lt;/msg&gt;'
-   from @hist
-   where [min]=@rc;
-
-   -- this will open up the worker threads to process the staged set
-   send on conversation @conversation_handle
-   message type @message_type(@msg);
-
-   update @hist set [initiated]=1 where [min]=@rc;
+-- before we begin the process, lock the table
+if not exists(select N'?' from sys.objects where [name]=N'{{{schema}}}.{{{entity}}}.UpsertStage is in a read-only state.') begin;
+   alter table [{{{schema}}}].[{{{entity}}}.UpsertStage] with nocheck add constraint [{{{schema}}}.{{{entity}}}.UpsertStage is in a read-only state.] check(1=0);
 end;
 
--- get return queue
-while (select min([min]) from @hist where [fulfilled]=0) is not null begin;
+-- lets roll...
+begin try;
 
-   begin transaction;
+   -- begin the broker conversation
+   begin dialog conversation @conversation_handle 
+   from service @from_service
+   to service @to_service
+   on contract @contract
+   with encryption=off;
 
-   waitfor(receive top(1) @msg=convert(xml,[message_body]) from [{{{schema}}}].[{{{entity}}}.RequestUpsert]),timeout 3000;
+   -- queue each bucket in histogram
+   while (select min([min]) from @hist where [initiated]=0) is not null begin;
+      select @rc=min([min]) from @hist where [initiated]=0;
 
-   if @@rowcount&gt;0 begin;
-      select @mn=@msg.value('(/msg/min)[1]','int');
-      select @mx=@msg.value('(/msg/max)[1]','int');
-      update @hist set [fulfilled]=1 where [min]=@mn and [max]=@mx;
+      select @msg=N'&lt;msg&gt;'+
+                  N'&lt;min&gt;'+convert(nvarchar(10),[min])+N'&lt;/min&gt;'+
+                  N'&lt;max&gt;'+convert(nvarchar(10),[max])+N'&lt;/max&gt;'+
+                  N'&lt;batch&gt;'+isnull(convert(nvarchar(36),try_convert(uniqueidentifier,context_info())),N'')+N'&lt;/batch&gt;'+
+                  N'&lt;/msg&gt;'
+      from @hist
+      where [min]=@rc;
+
+      -- this will open up the worker threads to process the staged set
+      send on conversation @conversation_handle
+      message type @message_type(@msg);
+
+      update @hist set [initiated]=1 where [min]=@rc;
    end;
 
-   commit transaction;
+   -- get return queue
+   while (select min([min]) from @hist where [fulfilled]=0) is not null begin;
+
+      begin transaction;
+
+      waitfor(receive top(1) @msg=convert(xml,[message_body]) from [{{{schema}}}].[{{{entity}}}.RequestUpsert]),timeout 3000;
+
+      if @@rowcount&gt;0 begin;
+         select @mn=@msg.value('(/msg/min)[1]','int');
+         select @mx=@msg.value('(/msg/max)[1]','int');
+         update @hist set [fulfilled]=1 where [min]=@mn and [max]=@mx;
+      end;
+
+      commit transaction;
+   end;
+
+   truncate table [{{{schema}}}].[{{{entity}}}.UpsertStage];
+
+   {{{updatestats}}}update statistics [sys].[change_tracking_{{{objectid}}}] with fullscan;
+
+end try begin catch;
+
+   declare @re nvarchar(4000)=N'PSA Error :: Procedure [{{{schema}}}].[{{{entity}}}.ProcessUpsert] threw error number ''%d'' with the message ''%s'' :: Batch GUID: %s.';
+   declare @en int=error_number(),@em nvarchar(4000)=error_message(),@b nvarchar(36)=try_convert(nvarchar(36),null);
+   raiserror(@re,16,1,@en,@em,@b) with log;
+
+end catch;
+
+-- remove any locking on the table
+if  exists(select N'?' from sys.objects where [name]=N'{{{schema}}}.{{{entity}}}.UpsertStage is in a read-only state.') begin;
+   alter table [{{{schema}}}].[{{{entity}}}.UpsertStage] drop constraint [{{{schema}}}.{{{entity}}}.UpsertStage is in a read-only state.];
 end;
-
-select * from @hist; --  need to check for errors
-
-truncate table [{{{schema}}}].[{{{entity}}}.UpsertStage];
 
 return @@error;</value>
   </data>
@@ -1539,6 +1592,10 @@ declare @message_type_name sysname;
 declare @min_psa_stage_key int;
 declare @max_psa_stage_key int;
 declare @batch_id varbinary(128);
+declare @re nvarchar(4000);
+declare @en int;
+declare @em nvarchar(4000);
+declare @b nvarchar(36);
 
 -- declare constants
 declare @request_message sysname=N'//{{{schema}}}/{{{entity}}}/Message/Request';
@@ -1625,29 +1682,38 @@ while 1!=2 begin;
 
       end try begin catch;
 
+         select @re=N'PSA Error :: Procedure [{{{schema}}}].[{{{entity}}}.WorkerUpsert] threw a merge dml error number ''%d'' with the message ''%s'' :: Batch GUID: %s.';
+         select @en=error_number(),@em=error_message(),@b=try_convert(nvarchar(36),@batch_id);
+         raiserror(@re,16,1,@en,@em,@b) with log;
+
          -- build the outbound message
          select @outbound_message_body=N'&lt;msg&gt;'+
                                        N'&lt;min&gt;'+convert(nvarchar(10),@min_psa_stage_key)+N'&lt;/min&gt;'+
                                        N'&lt;max&gt;'+convert(nvarchar(10),@max_psa_stage_key)+N'&lt;/max&gt;'+
                                        N'&lt;rc&gt;0&lt;/rc&gt;'+
-                                       N'&lt;error_number&gt;'+convert(nvarchar(10),error_number())+N'&lt;/error_number&gt;'+
-                                       N'&lt;error_message&gt;'+convert(nvarchar(4000),error_message())+N'&lt;/error_message&gt;'+
+                                       N'&lt;error_number&gt;'+convert(nvarchar(10),@en)+N'&lt;/error_number&gt;'+
+                                       N'&lt;error_message&gt;'+convert(nvarchar(4000),@em)+N'&lt;/error_message&gt;'+
                                        N'&lt;/msg&gt;';
+
       end catch;
 
       -- and, send it...
       send on conversation @conversation_handle
       message type @result_message(@outbound_message_body);
 
-   -- if we get an 'end dialog', i.e. everything has been processed, simply close the conversation
+   -- if we get an 'end dialog', simply close the conversation
    end else if @message_type_name=@end_dialog_message begin;
       end conversation @conversation_handle;
 
    -- if we get an 'error dialog', taco [no] bueno, log error and bail
    end else if @message_type_name=@error_message begin
       
-      -- add the error log
+      -- log error and end conversation
+      select @re=N'PSA Error :: Procedure [{{{schema}}}].[{{{entity}}}.WorkerUpsert] received an error message type from the ProcessingUpsert queue. :: Batch GUID: %s.';
+      select @b=try_convert(nvarchar(36),@batch_id);
+      raiserror(@re,16,1,@b) with log;
       end conversation @conversation_handle;
+
    end; -- handling message
 
    -- commit the transaction
@@ -1667,5 +1733,147 @@ grant view server state to [psa_sb_manager];</value>
    create user [psa_sb_manager] for login [psa_sb_manager];
 end;
 alter role [db_owner] add member [psa_sb_manager];</value>
+  </data>
+  <data name="PSA_ProcessUpsertSecurityDefinition" xml:space="preserve">
+    <value>grant execute on [{{{schema}}}].[{{{entity}}}.ProcessUpsert] to [psa_etl_manager];</value>
+  </data>
+  <data name="PSA_GetModel" xml:space="preserve">
+    <value>with attr as
+ (
+   select
+      N'['+[psa_schema]+N'].['+[psa_entity]+N']' [@psa_domain],
+      [psa_schema],
+      [psa_entity],
+      [psa_entity_description],
+      [psa_source_statement],
+      [psa_source_predicate_values],
+      [source_schema],
+      [source_entity],
+      [hash_large_objects],
+      [psa_infer_deletions],
+      [etl_build_group],
+      [etl_max_threads],
+      [etl_max_record_count],
+      convert(xml,sq.[attribute]) [attributes]
+   from
+      [master].[dbo].[psa_entity_definition] e
+      cross apply
+       (
+         select
+            [psa_attribute],
+            [psa_attribute_datatype],
+            [psa_attribute_ordinal],
+            [psa_attribute_sort],
+            [psa_attribute_optional],
+            [psa_attribute_business_identifier],
+            [psa_attribute_description]
+         from
+            [dbo].[psa_attribute_definition] a
+         where
+            e.[psa_schema]=a.[psa_schema]
+            and
+            e.[psa_entity]=a.[psa_entity]
+         for xml path('attribute')
+       ) sq(attribute)
+ ), ent([psa_model]) as
+ (
+   select
+      [@psa_domain],
+      [psa_schema],
+      [psa_entity],
+      [psa_entity_description],
+      [psa_source_statement],
+      [psa_source_predicate_values],
+      [source_schema],
+      [source_entity],
+      [hash_large_objects],
+      [psa_infer_deletions],
+      [etl_build_group],
+      [etl_max_threads],
+      [etl_max_record_count],
+      [attributes]
+   from
+      attr
+   for xml path('entity')
+ ) 
+select
+   convert(xml,N'&lt;entities&gt;'+[psa_model]+N'&lt;/entities&gt;') [psa_model]
+from
+   ent;</value>
+  </data>
+  <data name="PSA_SetModel" xml:space="preserve">
+    <value>set nocount on;
+declare @xml xml='{{{xml}}}';
+
+begin try;
+
+   delete [master].[dbo].[psa_attribute_definition];
+   delete [master].[dbo].[psa_entity_definition];
+
+   insert [master].[dbo].[psa_entity_definition]
+    (
+      [psa_schema],
+      [psa_entity],
+      [psa_entity_description],
+      [psa_source_statement],
+      [psa_source_predicate_values],
+      [source_schema],
+      [source_entity],
+      [hash_large_objects],
+      [psa_infer_deletions],
+      [etl_build_group],
+      [etl_max_threads],
+      [etl_max_record_count]
+    )
+   select
+      x.e.value('./psa_schema[1]',N'nvarchar(4)') [psa_schema],
+      x.e.value('./psa_entity[1]',N'nvarchar(31)') [psa_entity],
+      x.e.value('./psa_entity_description[1]',N'nvarchar(4000)') [psa_entity_description],
+      x.e.value('./psa_source_statement[1]',N'nvarchar(max)') [psa_source_statement],
+      x.e.value('./psa_source_predicate_values[1]',N'nvarchar(max)') [psa_source_predicate_values],
+      x.e.value('./source_schema[1]',N'nvarchar(128)') [source_schema],
+      x.e.value('./source_entity[1]',N'nvarchar(128)') [source_entity],
+      x.e.value('./hash_large_objects[1]',N'nvarchar(3)') [hash_large_objects],
+      x.e.value('./psa_infer_deletions[1]',N'nvarchar(3)') [psa_infer_deletions],
+      x.e.value('./etl_build_group[1]',N'nvarchar(128)') [etl_build_group],
+      x.e.value('./etl_max_threads[1]',N'int') [etl_max_threads],
+      x.e.value('./etl_max_record_count[1]',N'int') [etl_max_record_count]
+   from
+      @xml.nodes('/entities/entity') x(e);
+
+   insert [master].[dbo].[psa_attribute_definition]
+    (
+      [psa_schema],
+      [psa_entity],
+      [psa_attribute],
+      [psa_attribute_datatype],
+      [psa_attribute_ordinal],
+      [psa_attribute_sort],
+      [psa_attribute_optional],
+      [psa_attribute_business_identifier],
+      [psa_attribute_description]
+    )
+   select
+      p.e.value('./psa_schema[1]',N'nvarchar(4)') [psa_schema],
+      p.e.value('./psa_entity[1]',N'nvarchar(31)') [psa_entity],
+      c.a.value('./psa_attribute[1]',N'sysname') [psa_attribute],
+      c.a.value('./psa_attribute_datatype[1]',N'sysname') [psa_attribute_datatype],
+      c.a.value('./psa_attribute_ordinal[1]',N'int') [psa_attribute_ordinal],
+      c.a.value('./psa_attribute_sort[1]',N'nvarchar(4)') [psa_attribute_sort],
+      c.a.value('./psa_attribute_optional[1]',N'nvarchar(3)') [psa_attribute_optional],
+      c.a.value('./psa_attribute_business_identifier[1]',N'nvarchar(3)') [psa_attribute_business_identifier],
+      c.a.value('./psa_attribute_description[1]',N'nvarchar(4000)') [psa_attribute_description]
+   from
+      @xml.nodes('/entities/entity') p(e)
+      cross apply
+      p.e.nodes('./attributes/attribute') c(a);
+
+end try begin catch;
+
+      declare @ErrorMessage nvarchar(4000)=error_message();
+      declare @ErrorSeverity int=error_severity();
+      declare @ErrorState int=error_state();
+      raiserror(@ErrorMessage,@ErrorSeverity,@ErrorState) with log;
+end catch;</value>
   </data>
 </root>

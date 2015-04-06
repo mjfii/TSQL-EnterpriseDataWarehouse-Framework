@@ -39,6 +39,34 @@ Partial Public Class PSA
 
     End Sub
 
+    <Microsoft.SqlServer.Server.SqlProcedure> _
+    Public Shared Sub GetModel
+
+        Dim model_query As String = My.Resources.PSA_GetModel
+
+        ReturnClientResults(model_query)
+
+    End Sub
+
+    <Microsoft.SqlServer.Server.SqlProcedure> _
+    Public Shared Sub SetModel(ByVal model As SqlXml)
+
+        If IsNothing(model) Then
+            PrintClientMessage("You cannot process a null model.")
+            Exit Sub
+        End If
+
+        Dim model_query As String = Replace(My.Resources.PSA_SetModel, "{{{xml}}}", model.Value.ToString)
+
+        Dim cnn As New SqlConnection("context connection=true")
+        cnn.Open()
+
+        ExecuteDDLCommand(model_query, cnn)
+
+        cnn.Close()
+
+    End Sub
+
 #End Region
 
     Private Shared Sub ProcessCall(ByVal DatabaseName As String, _
@@ -220,8 +248,6 @@ nextc:
 
                 ExecuteDDLCommand("rollback transaction", SqlCnn)
 
-            Finally
-
             End Try
 
         Next c
@@ -235,15 +261,20 @@ nextc:
 
     End Sub
 
-    Private Shared Sub DropEntity(e As Construct.Entity, SqlCnn As SqlConnection)
+    Private Shared Sub DropEntity(e As Construct.Entity, ByVal SqlCnn As SqlConnection)
 
         ExecuteDDLCommand(e.RenameDefintion, SqlCnn)
 
     End Sub
 
-    Private Shared Sub BuildEntity(e As Construct.Entity, SqlCnn As SqlConnection)
+    Private Shared Sub BuildEntity(e As Construct.Entity, ByVal SqlCnn As SqlConnection)
 
         ExecuteDDLCommand(e.TableDefinition, SqlCnn)
+
+        Dim cmd As New SqlCommand("select object_id(N'" & e.Domain & "') [oid]", SqlCnn)
+        Dim oid As Integer = CInt(cmd.ExecuteScalar)
+        e.ObjectID = oid
+
         ExecuteDDLCommand(e.ChangeTrackingDefinition, SqlCnn)
         ExecuteDDLCommand(e.AlternateKeyStatsDefinition, SqlCnn)
         ExecuteDDLCommand(e.DropTemporalGovernorDefinition, SqlCnn)
@@ -251,11 +282,11 @@ nextc:
 
     End Sub
 
-    Private Shared Sub DropAbstracts(e As Construct.Entity, SqlCnn As SqlConnection)
+    Private Shared Sub DropAbstracts(e As Construct.Entity, ByVal SqlCnn As SqlConnection)
         ExecuteDDLCommand(e.DropRelatedObjectsDefintion, SqlCnn)
     End Sub
 
-    Private Shared Sub BuildAbstracts(e As Construct.Entity, SqlCnn As SqlConnection)
+    Private Shared Sub BuildAbstracts(e As Construct.Entity, ByVal SqlCnn As SqlConnection)
 
         ' control abstract
         ExecuteDDLCommand(e.ControlViewDefinition, SqlCnn)
@@ -292,6 +323,7 @@ nextc:
 
         ' methods
         ExecuteDDLCommand(e.ProcessUpsertDefintion, SqlCnn)
+        ExecuteDDLCommand(e.ProcessUpsertSecurityDefintion, SqlCnn)
         ExecuteDDLCommand(e.WorkerUpsertDefintion, SqlCnn)
 
         ' service broker
@@ -299,7 +331,7 @@ nextc:
 
     End Sub
 
-    Private Shared Sub SyncMetadata(e As Construct.Entity, SqlCnn As SqlConnection)
+    Private Shared Sub SyncMetadata(e As Construct.Entity, ByVal SqlCnn As SqlConnection)
 
         ExecuteDDLCommand(e.EntityMetadataDefinition, SqlCnn)
         ExecuteDDLCommand(e.AttributeMetadataDefintion, SqlCnn)
@@ -316,7 +348,7 @@ nextc:
 
     Class Construct
 
-#Region "Contruct Variables"
+#Region "Construct Variables"
         Private _construct As New DataSet
         Private _entities As Entity()
         Private _databasecompatibility As SQLServerCompatibility
@@ -444,6 +476,7 @@ nextc:
             Private _constructsig As String
             Private _maxthreads As Integer
             Private _maxrecordcount As Integer
+            Private _objectid As Integer
             Private _attribute As EntityAttribute()
 #End Region
 
@@ -573,6 +606,15 @@ nextc:
                 End Get
                 Set(value As Integer)
                     _maxrecordcount = value
+                End Set
+            End Property
+
+            Property ObjectID As Integer
+                Get
+                    Return If(IsNothing(_objectid), 0, _objectid)
+                End Get
+                Set(value As Integer)
+                    _objectid = value
                 End Set
             End Property
 
@@ -1016,6 +1058,24 @@ nextc:
                 Get
                     Dim d As String
                     d = My.Resources.PSA_ProcessUpsertDefinition
+                    d = Replace(d, "{{{schema}}}", Schema)
+                    d = Replace(d, "{{{entity}}}", Entity)
+                    d = Replace(d, "{{{objectid}}}", ObjectID.ToString)
+
+                    If ObjectID = 0 Then
+                        d = Replace(d, "{{{updatestats}}}", "-- ")
+                    Else
+                        d = Replace(d, "{{{updatestats}}}", "")
+                    End If
+
+                    Return d
+                End Get
+            End Property
+
+            ReadOnly Property ProcessUpsertSecurityDefintion As String
+                Get
+                    Dim d As String
+                    d = My.Resources.PSA_ProcessUpsertSecurityDefinition
                     d = Replace(d, "{{{schema}}}", Schema)
                     d = Replace(d, "{{{entity}}}", Entity)
                     Return d
@@ -1506,6 +1566,8 @@ nextc:
                                 Return "varbinary(max)"
                             Case "geometry"
                                 Return "varbinary(max)"
+                            Case "timestamp"
+                                Return "binary(8)"
                             Case Else
                                 Return _datatype
                         End Select

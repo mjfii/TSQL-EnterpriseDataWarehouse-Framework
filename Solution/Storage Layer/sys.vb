@@ -10,7 +10,9 @@ Namespace Common
 
         <Microsoft.SqlServer.Server.SqlFunction> _
         Public Shared Function StringHash(ByVal HashingString As String) As SqlBinary
-            Return If(IsNothing(HashingString), New SqlBinary, Security.Cryptography.SHA1.Create.ComputeHash(Text.UnicodeEncoding.Unicode.GetBytes(HashingString)))
+            Return If(IsNothing(HashingString), New SqlBinary, _
+                      Security.Cryptography.SHA1.Create.ComputeHash _
+                      (Text.UnicodeEncoding.Unicode.GetBytes(HashingString)))
         End Function
 
     End Class ' Methods
@@ -39,9 +41,21 @@ Namespace Common
 
         End Sub
 
-        Friend Shared Sub ReturnClientResults(ByVal sql_command As SqlCommand)
-            Dim x As SqlDataReader = sql_command.ExecuteReader
-            SqlContext.Pipe.Send(x)
+        Friend Shared Sub ReturnClientResults(ByVal sql_command_string As String, Optional ByVal database_name As String = "master")
+
+            Dim cnn As New SqlConnection("context connection=true")
+            cnn.Open()
+            Dim cmd As SqlCommand
+
+            cmd = New SqlCommand("use [" & database_name & "];", cnn)
+            cmd.ExecuteScalar()
+
+            cmd = New SqlCommand(sql_command_string, cnn)
+
+            Dim rdr As SqlDataReader = cmd.ExecuteReader
+            SqlContext.Pipe.Send(rdr)
+
+            cnn.Close()
         End Sub
 
     End Class ' OutboundMethods
