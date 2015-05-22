@@ -86,33 +86,51 @@ Partial Public Class PSA
             ' make sure server objects are in place
             AddInstanceObjects(cnn)
 
-            ' make sure database objects are in place
-            AddDatabaseObjects(cnn, DatabaseName)
+            ' validate incoming database
+            Dim cmd As New SqlCommand("select isnull(db_id(N'" & DatabaseName & " '),-1) N'?';", cnn)
+            Dim dbe As Integer = CInt(cmd.ExecuteScalar.ToString)
 
-            ' get the metadata from system tables
-            Dim md As DataSet = GetMetadata(DatabaseName, DatabaseSchema, DatabaseEntity, cnn)
+            If dbe > 0 Then
 
-            ' if we have a promising set, i.e. the selects worked, we can move forward
-            If Not md Is Nothing Then
+                ' make sure database objects are in place
+                AddDatabaseObjects(cnn, DatabaseName)
 
-                ' load up a variable with the usable construct
-                Dim cons As New Construct(md)
+                ' get the metadata from system tables
+                Dim md As DataSet = GetMetadata(DatabaseName, DatabaseSchema, DatabaseEntity, cnn)
 
-                ' with we have records, we can begin with the DDL process, otherwise, alert client and exit
-                If cons.EntityCount > 0 Then
-                    ProcessConstruct(cons, cnn, vo, del)
+                ' if we have a promising set, i.e. the selects worked, we can move forward
+                If Not md Is Nothing Then
+
+                    ' load up a variable with the usable construct
+                    Dim cons As New Construct(md)
+
+                    ' with we have records, we can begin with the DDL process, otherwise, alert client and exit
+                    If cons.EntityCount > 0 Then
+                        ProcessConstruct(cons, cnn, vo, del)
+                    Else
+                        PrintClientMessage(vbCrLf)
+                        PrintClientMessage("There is not defined metadata for the PSA in [dbo].[psa_entity_definition] and/or [dbo].[psa_attribute_definition] in the [master] database.")
+                        PrintClientMessage("You may manage data directly or via [soon to be authored] MS Excel Add-In.")
+                    End If ' metadata content exists
+
                 Else
+                    ' alert the tables arent there and make them
+                    ' execute service broker security needs
+
+                    ExecuteDDLCommand(My.Resources.SYS_PSAMetadataTableDefinition, cnn)
                     PrintClientMessage(vbCrLf)
-                    PrintClientMessage("There is not defined metadata for the PSA in [dbo].[psa_entity_definition] and/or [dbo].[psa_attribute_definition] in the [master] database.")
-                    PrintClientMessage("You may manage data directly or via [soon to be authored] MS Excel Add-In.")
-                End If
+                    PrintClientMessage("The PSA Framework was not ready for use. The required system tables have been built; you can now use the [dbo].[psa_entity_definition] and")
+                    PrintClientMessage("[dbo].[psa_attribute_definition] tables in the [master] database to add the metadata construct elements to build each of the PSA objects.")
+
+                End If ' metadata tables exist
 
             Else
-                ' TODO: make this message better OR make the tables?
-                PrintClientMessage("error metadata=nothing")
-            End If
+                PrintClientMessage(vbCrLf)
+                PrintClientMessage("A database with the name '" & DatabaseName & "' does not exist.  Create that database or use an alternate one.")
 
-        End If
+            End If ' psa database exists
+
+        End If ' user is admin
 
         ' ensure connection object is closed
         cnn.Close()
@@ -323,8 +341,14 @@ nextc:
 
         ' methods
         ExecuteDDLCommand(e.ProcessUpsertDefintion, SqlCnn)
-        ExecuteDDLCommand(e.ProcessUpsertSecurityDefintion, SqlCnn)
+        ExecuteDDLCommand(e.ProcessUpsertSecurityDefinition, SqlCnn)
         ExecuteDDLCommand(e.WorkerUpsertDefintion, SqlCnn)
+
+        ExecuteDDLCommand(e.ProcessDeleteDefintion, SqlCnn)
+        ExecuteDDLCommand(e.ProcessDeleteSecurityDefinition, SqlCnn)
+        ExecuteDDLCommand(e.WorkerDeleteDefintion, SqlCnn)
+
+
 
         ' service broker
         ExecuteDDLCommand(e.ServiceBrokerDefinition, SqlCnn)
@@ -850,7 +874,7 @@ nextc:
 
             ReadOnly Property ControlDeleteDefinition As String
                 Get
-                    Dim cs As String = ColumnSetChunk("", 9)
+                    Dim cs As String = BusinessIdentifierColumnSetChunk("", 9)
 
                     Dim sd As String
                     sd = My.Resources.PSA_ControlDeleteDefinition
@@ -862,13 +886,7 @@ nextc:
                     sd = Replace(sd, "{{{joinset}}}", ControlJoinChunk)
                     sd = Replace(sd, "{{{hashset}}}", HashChunk)
                     sd = Replace(sd, "{{{columnset}}}", cs)
-                    If HashLargeObjects = YesNoType.Yes Then
-                        sd = Replace(sd, "{{{hashfunction}}}", "[dbo].[psa_hash]")
-                        sd = Replace(sd, "{{{hashext}}}", "")
-                    Else
-                        sd = Replace(sd, "{{{hashfunction}}}", "hashbytes")
-                        sd = Replace(sd, "{{{hashext}}}", "N'sha1',")
-                    End If
+
                     Return sd
                 End Get
             End Property
@@ -1072,7 +1090,7 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property ProcessUpsertSecurityDefintion As String
+            ReadOnly Property ProcessUpsertSecurityDefinition As String
                 Get
                     Dim d As String
                     d = My.Resources.PSA_ProcessUpsertSecurityDefinition
@@ -1098,6 +1116,50 @@ nextc:
                     d = Replace(d, "{{{columnset}}}", c)
                     d = Replace(d, "{{{insertset}}}", i)
                     d = Replace(d, "{{{updateset}}}", u)
+                    d = Replace(d, "{{{mergejoinchunk}}}", MergeJoinChunk(28))
+
+                    Return d
+                End Get
+            End Property
+
+            ReadOnly Property ProcessDeleteDefintion As String
+                Get
+                    Dim d As String
+                    d = My.Resources.PSA_ProcessDeleteDefinition
+                    d = Replace(d, "{{{schema}}}", Schema)
+                    d = Replace(d, "{{{entity}}}", Entity)
+                    d = Replace(d, "{{{objectid}}}", ObjectID.ToString)
+
+                    If ObjectID = 0 Then
+                        d = Replace(d, "{{{updatestats}}}", "-- ")
+                    Else
+                        d = Replace(d, "{{{updatestats}}}", "")
+                    End If
+
+                    Return d
+                End Get
+            End Property
+
+            ReadOnly Property ProcessDeleteSecurityDefinition As String
+                Get
+                    Dim d As String
+                    d = My.Resources.PSA_ProcessDeleteSecurityDefinition
+                    d = Replace(d, "{{{schema}}}", Schema)
+                    d = Replace(d, "{{{entity}}}", Entity)
+                    Return d
+                End Get
+            End Property
+
+            ReadOnly Property WorkerDeleteDefintion As String
+                Get
+                    Dim c As String = BusinessIdentifierColumnSetChunk("", 15)
+                    c = Left(c, Len(c) - 1)
+
+                    Dim d As String
+                    d = My.Resources.PSA_WorkerDeleteDefinition
+                    d = Replace(d, "{{{schema}}}", Schema)
+                    d = Replace(d, "{{{entity}}}", Entity)
+                    d = Replace(d, "{{{columnset}}}", c)
                     d = Replace(d, "{{{mergejoinchunk}}}", MergeJoinChunk(28))
 
                     Return d
@@ -1477,6 +1539,24 @@ nextc:
 
                     For Each bia In _attribute.OrderBy(Function(EntityAttribute) EntityAttribute.BusinessIdentifier).ThenBy(Function(EntityAttribute) EntityAttribute.Ordinal)
                         rstr += pad & ColumnSetAlias & "[" & bia.Name & "]," & vbCrLf
+                    Next
+
+                    Return Left(rstr, Len(rstr) - 2)
+                End Get
+            End Property
+
+            Private ReadOnly Property BusinessIdentifierColumnSetChunk(ByVal ColumnSetAlias As String, ByVal ColumnPadding As UShort) As String
+                Get
+                    Dim bia As EntityAttribute = Nothing
+                    Dim rstr As String = ""
+                    Dim pad As New String(" ", ColumnPadding)
+                    ColumnSetAlias = If(ColumnSetAlias = "", "", ColumnSetAlias & ".")
+
+                    For Each bia In _attribute.OrderBy(Function(EntityAttribute) EntityAttribute.BusinessIdentifier).ThenBy(Function(EntityAttribute) EntityAttribute.Ordinal)
+                        If bia.BusinessIdentifier = YesNoType.Yes Then
+                            rstr += pad & ColumnSetAlias & "[" & bia.Name & "]," & vbCrLf
+                        End If
+
                     Next
 
                     Return Left(rstr, Len(rstr) - 2)

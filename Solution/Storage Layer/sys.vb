@@ -15,6 +15,18 @@ Namespace Common
                       (Text.UnicodeEncoding.Unicode.GetBytes(HashingString)))
         End Function
 
+        Public Shared Function ConvertXMLtoJSON(ByVal XMLtoConvert As SqlXml) As String
+
+
+
+            Dim doc As Xml.XmlDocument = New Xml.XmlDocument
+            doc.LoadXml(XMLtoConvert.Value.ToString)
+
+            'Dim json As String = JsonConvert.SerializeXmlNode(doc)
+
+            Return ""
+        End Function
+
     End Class ' Methods
 
     Partial Public Class Aggregates
@@ -77,7 +89,6 @@ Namespace PersistentStagingArea
             If IsNothing(DatabaseEntity) Then DatabaseEntity = ""
 
             If Not SystemObjectsInstalled(DatabaseConnection) Then ' test database exists and filegroups exist
-                PrintClientMessage("The existing PSA framework is not valid. Entity Build aborted.")
                 GetMetadata = Nothing
             Else
 
@@ -142,7 +153,6 @@ Namespace PersistentStagingArea
             oid = cmd.ExecuteScalar()
 
             If oid = 0 Then
-                PrintClientMessage("System table [dbo].[psa_attribute_definition] does not exist. Contact the database administrator.")
                 Return False
             End If
 
@@ -150,7 +160,6 @@ Namespace PersistentStagingArea
             oid = cmd.ExecuteScalar()
 
             If oid = 0 Then
-                PrintClientMessage("System table [dbo].[psa_entity_definition] does not exist. Contact the database administrator.")
                 Return False
             End If
 
@@ -211,6 +220,10 @@ Namespace PersistentStagingArea
             ExecuteDDLCommand(My.Resources.PSA_ServiceBrokerUserDefinition, InstanceConnection)
             PrintClientMessage("• Service broker user security aligned [database]")
 
+            ' execute service broker security needs
+            ExecuteDDLCommand(My.Resources.PSA_LoggingDefinition, InstanceConnection)
+            PrintClientMessage("• Logging objects created [database]")
+
         End Sub
 
     End Class
@@ -242,14 +255,6 @@ Namespace AnalyticReportingArea
         Friend Shared Sub InstallSystemObjects()
 
         End Sub
-
-    End Class
-
-End Namespace
-
-Namespace LoggingArea
-
-    Partial Public Class FrameworkInstallation
 
     End Class
 

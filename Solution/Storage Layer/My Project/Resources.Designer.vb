@@ -362,8 +362,9 @@ Namespace My.Resources
         '''    (
         '''      select
         '''{{{columnset}}}
-        '''         @batch [psa_batch_id],
-        '''         {{{hashfunction}}}( [rest of string was truncated]&quot;;.
+        '''         @batch [psa_batch_id]
+        '''      from
+        '''         [deleted [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property PSA_ControlDeleteDefinition() As String
             Get
@@ -488,7 +489,7 @@ Namespace My.Resources
         '''  Looks up a localized string similar to -- service broker drops
         '''if exists(select 1 from sys.services where [name]=N&apos;//{{{schema}}}/{{{entity}}}/Upsert/Service/Processing&apos;) drop service [//{{{schema}}}/{{{entity}}}/Upsert/Service/Processing];
         '''if exists(select 1 from sys.services where [name]=N&apos;//{{{schema}}}/{{{entity}}}/Upsert/Service/Request&apos;) drop service [//{{{schema}}}/{{{entity}}}/Upsert/Service/Request];
-        '''if object_id(N&apos;[{{{schema}}}].[{{{entity}}}.RequestUpsert]&apos;,N&apos;SQ&apos;) is not null drop queue [{{{schema}}}].[{{{entity}}}.RequestUpsert];        ''' [rest of string was truncated]&quot;;.
+        '''if exists(select 1 from sys.services where [name]=N&apos;//{{{schema}}}/{{{entity}}}/Delete/Service/Processing&apos;) drop service [//{{{schema}} [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property PSA_DropRelatedObjects() As String
             Get
@@ -596,6 +597,26 @@ Namespace My.Resources
         End Property
         
         '''<summary>
+        '''  Looks up a localized string similar to if object_id(N&apos;[dbo].[psa_batch_control]&apos;,N&apos;U&apos;) is null begin;
+        '''
+        '''   create table [dbo].[psa_batch_control] 
+        '''    (
+        '''      [psa_batch_id] uniqueidentifier not null
+        '''      constraint [df : dbo.psa_batch_control {Sequential GUID}] default (newsequentialid()),
+        '''	   constraint [pk : dbo.psa_batch_control :: psa_batch_id]
+        '''      primary key clustered ([psa_batch_id] asc)
+        '''      with (fillfactor=80),
+        '''	   [psa_batch_ssis_id] bigint not null,
+        '''      [psa_package_name] nvarchar(128) null,
+        '''	   [psa_batch_start] dat [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property PSA_LoggingDefinition() As String
+            Get
+                Return ResourceManager.GetString("PSA_LoggingDefinition", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
         '''  Looks up a localized string similar to select
         '''   convert(nvarchar(40),[value]) [sig]
         '''from
@@ -612,6 +633,42 @@ Namespace My.Resources
         Friend ReadOnly Property PSA_LogicalSignatureLookup() As String
             Get
                 Return ResourceManager.GetString("PSA_LogicalSignatureLookup", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to create procedure [{{{schema}}}].[{{{entity}}}.ProcessDelete]
+        ''' (
+        '''   @i_MaxRowCount int
+        ''' ) with execute as N&apos;psa_sb_manager&apos;
+        '''as
+        '''-- do not alter/add/extend this stored procedure, or any psa stored procedure
+        '''-- authored by slalom consulting 2014
+        '''set nocount on;
+        '''
+        '''-- check to see is object is actively running on another thread
+        '''if not exists(
+        '''   select
+        '''      N&apos;?&apos;
+        '''   from
+        '''      sys.dm_broker_queue_monitors
+        '''   where
+        '''      object_name([queue_id])=N&apos;{{{entity}}}.ProcessingDelete&apos;
+        '''      and
+        '''      obje [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property PSA_ProcessDeleteDefinition() As String
+            Get
+                Return ResourceManager.GetString("PSA_ProcessDeleteDefinition", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to grant execute on [{{{schema}}}].[{{{entity}}}.ProcessDelete] to [psa_etl_manager];.
+        '''</summary>
+        Friend ReadOnly Property PSA_ProcessDeleteSecurityDefinition() As String
+            Get
+                Return ResourceManager.GetString("PSA_ProcessDeleteSecurityDefinition", resourceCulture)
             End Get
         End Property
         
@@ -873,6 +930,30 @@ Namespace My.Resources
         End Property
         
         '''<summary>
+        '''  Looks up a localized string similar to create procedure [{{{schema}}}].[{{{entity}}}.WorkerDelete]
+        '''as
+        '''-- do not alter/add/extend this stored procedure, or any psa stored procedure
+        '''-- authored by slalom consulting 2014
+        '''set nocount on;
+        '''
+        '''-- declare variables
+        '''declare @conversation_handle uniqueidentifier;
+        '''declare @inbound_message_body xml;
+        '''declare @outbound_message_body xml;
+        '''declare @message_type_name sysname;
+        '''declare @min_psa_stage_key int;
+        '''declare @max_psa_stage_key int;
+        '''declare @batch_id varbinary(128);
+        '''declare @re nvarchar(4000);
+        ''' [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property PSA_WorkerDeleteDefinition() As String
+            Get
+                Return ResourceManager.GetString("PSA_WorkerDeleteDefinition", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
         '''  Looks up a localized string similar to create procedure [{{{schema}}}].[{{{entity}}}.WorkerUpsert]
         '''as
         '''-- do not alter/add/extend this stored procedure, or any psa stored procedure
@@ -968,6 +1049,25 @@ Namespace My.Resources
         Friend ReadOnly Property SYS_PSAEntityDefinition() As String
             Get
                 Return ResourceManager.GetString("SYS_PSAEntityDefinition", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to if object_id(N&apos;[dbo].[psa_entity_definition]&apos;,N&apos;U&apos;) is null begin;
+        '''
+        '''create table [dbo].[psa_entity_definition]
+        ''' (
+        '''   [psa_schema] nvarchar(4) collate Latin1_General_100_BIN2,
+        '''   constraint [ck : dbo.psa_entity_definition :: psa_schema]
+        '''   check (len([psa_schema])=4),
+        '''   [psa_entity] nvarchar(31) collate Latin1_General_100_BIN2,
+        '''   constraint [pk : dbo.psa_entity_definition {domain}]
+        '''   primary key clustered ([psa_schema],[psa_entity]),
+        '''   [psa_entity_description] nvarchar(4000) collate Latin1_Gene [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property SYS_PSAMetadataTableDefinition() As String
+            Get
+                Return ResourceManager.GetString("SYS_PSAMetadataTableDefinition", resourceCulture)
             End Get
         End Property
         

@@ -293,8 +293,12 @@ where
     <value>-- service broker drops
 if exists(select 1 from sys.services where [name]=N'//{{{schema}}}/{{{entity}}}/Upsert/Service/Processing') drop service [//{{{schema}}}/{{{entity}}}/Upsert/Service/Processing];
 if exists(select 1 from sys.services where [name]=N'//{{{schema}}}/{{{entity}}}/Upsert/Service/Request') drop service [//{{{schema}}}/{{{entity}}}/Upsert/Service/Request];
+if exists(select 1 from sys.services where [name]=N'//{{{schema}}}/{{{entity}}}/Delete/Service/Processing') drop service [//{{{schema}}}/{{{entity}}}/Delete/Service/Processing];
+if exists(select 1 from sys.services where [name]=N'//{{{schema}}}/{{{entity}}}/Delete/Service/Request') drop service [//{{{schema}}}/{{{entity}}}/Delete/Service/Request];
 if object_id(N'[{{{schema}}}].[{{{entity}}}.RequestUpsert]',N'SQ') is not null drop queue [{{{schema}}}].[{{{entity}}}.RequestUpsert];
 if object_id(N'[{{{schema}}}].[{{{entity}}}.ProcessingUpsert]',N'SQ') is not null drop queue [{{{schema}}}].[{{{entity}}}.ProcessingUpsert];
+if object_id(N'[{{{schema}}}].[{{{entity}}}.RequestDelete]',N'SQ') is not null drop queue [{{{schema}}}].[{{{entity}}}.RequestDelete];
+if object_id(N'[{{{schema}}}].[{{{entity}}}.ProcessingDelete]',N'SQ') is not null drop queue [{{{schema}}}].[{{{entity}}}.ProcessingDelete];
 if exists(select 1 from sys.service_contracts where [name]='//{{{schema}}}/{{{entity}}}/Contract') drop contract [//{{{schema}}}/{{{entity}}}/Contract];
 if exists(select 1 from sys.service_message_types where [name]='//{{{schema}}}/{{{entity}}}/Message/Request') drop message type [//{{{schema}}}/{{{entity}}}/Message/Request];
 if exists(select 1 from sys.service_message_types where [name]='//{{{schema}}}/{{{entity}}}/Message/Result') drop message type [//{{{schema}}}/{{{entity}}}/Message/Result];
@@ -780,7 +784,7 @@ create statistics [st : dbo.psa_change_tracking_entity_version :: psa_domain] on
    [psa_domain]
  );
 
-exec sys.sp_ms_marksystemobject N''psa_change_tracking_entity_version'';
+exec sys.sp_MS_marksystemobject N''psa_change_tracking_entity_version'';
 end;
 ';
 
@@ -872,7 +876,7 @@ return @rv;
 
 exec sys.sp_executesql 
 N'
-exec sys.sp_ms_marksystemobject N''psa_get_change_tracking_entity_version'';
+exec sys.sp_MS_marksystemobject N''psa_get_change_tracking_entity_version'';
 ';
 
 exec sys.sp_executesql 
@@ -946,7 +950,7 @@ return @@error;
 
 exec sys.sp_executesql 
 N'
-exec sys.sp_ms_marksystemobject N''psa_set_change_tracking_entity_version'';
+exec sys.sp_MS_marksystemobject N''psa_set_change_tracking_entity_version'';
 ';
 
 grant select,insert,update,delete on [dbo].[psa_change_tracking_entity_version] to [psa_owner];
@@ -1052,8 +1056,7 @@ begin;
     (
       select
 {{{columnset}}}
-         @batch [psa_batch_id],
-         {{{hashfunction}}}({{{hashext}}}(select {{{hashset}}} for xml raw, binary base64)) [psa_hash_id]
+         @batch [psa_batch_id]
       from
          [deleted] i
     )
@@ -1068,7 +1071,7 @@ begin;
    from
       [delete_source] s
       inner join
-      {{{domain}}} t on 1=1 and
+      {{{domain}}} t on t.[psa_active_state]=1 and
 {{{joinset}}}           
 
 end;</value>
@@ -1408,8 +1411,32 @@ end else begin;
     );
 end;
 
+if object_id(N'[{{{schema}}}].[{{{entity}}}.ProcessingDelete]',N'SQ') is null begin;
+   create queue [{{{schema}}}].[{{{entity}}}.ProcessingDelete] with status=on,
+   activation
+    (
+      status=on,
+      procedure_name=[{{{schema}}}].[{{{entity}}}.WorkerDelete],
+      max_queue_readers=5,
+      execute as self
+    );
+end else begin;
+   alter queue [{{{schema}}}].[{{{entity}}}.ProcessingDelete] with status=on,
+   activation
+    (
+      status=on,
+      procedure_name=[{{{schema}}}].[{{{entity}}}.WorkerDelete],
+      max_queue_readers=5,
+      execute as self
+    );
+end;
+
 if object_id(N'[{{{schema}}}].[{{{entity}}}.RequestUpsert]',N'SQ') is null begin;
    create queue [{{{schema}}}].[{{{entity}}}.RequestUpsert] with status=on;
+end;
+
+if object_id(N'[{{{schema}}}].[{{{entity}}}.RequestDelete]',N'SQ') is null begin;
+   create queue [{{{schema}}}].[{{{entity}}}.RequestDelete] with status=on;
 end;
 
 -- services
@@ -1421,6 +1448,16 @@ end;
 if not exists(select 1 from sys.services where [name]=N'//{{{schema}}}/{{{entity}}}/Upsert/Service/Request') begin;
    create service [//{{{schema}}}/{{{entity}}}/Upsert/Service/Request]
    on queue [{{{schema}}}].[{{{entity}}}.RequestUpsert];
+end;
+
+if not exists(select 1 from sys.services where [name]=N'//{{{schema}}}/{{{entity}}}/Delete/Service/Processing') begin;
+   create service [//{{{schema}}}/{{{entity}}}/Delete/Service/Processing]
+   on queue [{{{schema}}}].[{{{entity}}}.ProcessingDelete]([//{{{schema}}}/{{{entity}}}/Contract]);
+end;
+
+if not exists(select 1 from sys.services where [name]=N'//{{{schema}}}/{{{entity}}}/Delete/Service/Request') begin;
+   create service [//{{{schema}}}/{{{entity}}}/Delete/Service/Request]
+   on queue [{{{schema}}}].[{{{entity}}}.RequestDelete];
 end;</value>
   </data>
   <data name="PSA_ProcessUpsertDefinition" xml:space="preserve">
@@ -1875,5 +1912,438 @@ end try begin catch;
       declare @ErrorState int=error_state();
       raiserror(@ErrorMessage,@ErrorSeverity,@ErrorState) with log;
 end catch;</value>
+  </data>
+  <data name="PSA_LoggingDefinition" xml:space="preserve">
+    <value>if object_id(N'[dbo].[psa_batch_control]',N'U') is null begin;
+
+   create table [dbo].[psa_batch_control] 
+    (
+      [psa_batch_id] uniqueidentifier not null
+      constraint [df : dbo.psa_batch_control {Sequential GUID}] default (newsequentialid()),
+	   constraint [pk : dbo.psa_batch_control :: psa_batch_id]
+      primary key clustered ([psa_batch_id] asc)
+      with (fillfactor=80),
+	   [psa_batch_ssis_id] bigint not null,
+      [psa_package_name] nvarchar(128) null,
+	   [psa_batch_start] datetime2(7) not null,
+	   [psa_batch_end] datetime2(7) null,
+      [psa_batch_completed] as (convert(bit,case when [psa_batch_end] is not null then 1 else 0 end)) persisted not null
+    );
+
+   exec sys.sp_MS_marksystemobject 'psa_batch_control';
+end;
+
+if object_id(N'[dbo].[psa_start_batch]',N'P') is null begin;
+
+exec sys.sp_executesql N'
+create procedure [dbo].[psa_start_batch]
+ (
+	@psa_batch_ssis_id bigint,
+   @psa_package_name nvarchar(128)
+ )
+as
+set nocount on;
+
+insert [dbo].[psa_batch_control]
+ (
+   [psa_batch_ssis_id],
+   [psa_batch_start],
+   [psa_package_name]
+ )
+output
+   inserted.[psa_batch_id]
+values 
+ (
+   @psa_batch_ssis_id,
+   sysutcdatetime(),
+   @psa_package_name
+ );
+
+return @@error;'
+
+end;
+
+exec sys.sp_MS_marksystemobject 'psa_start_batch';
+
+grant execute on [dbo].[psa_start_batch] to [psa_etl_manager];
+
+if object_id(N'[dbo].[psa_end_batch]',N'P') is null begin;
+
+exec sys.sp_executesql N'
+create procedure [dbo].[psa_end_batch]
+ (
+	@psa_batch_id uniqueidentifier
+ )
+as
+set nocount on;
+
+update
+   [dbo].[psa_batch_control] 
+set
+   [psa_batch_end]=sysutcdatetime()
+where
+   [psa_batch_id]=@psa_batch_id;
+
+return @@error;'
+end;
+
+exec sys.sp_MS_marksystemobject 'psa_end_batch';
+
+grant execute on [dbo].[psa_end_batch] to [psa_etl_manager];</value>
+  </data>
+  <data name="SYS_PSAMetadataTableDefinition" xml:space="preserve">
+    <value>if object_id(N'[dbo].[psa_entity_definition]',N'U') is null begin;
+
+create table [dbo].[psa_entity_definition]
+ (
+   [psa_schema] nvarchar(4) collate Latin1_General_100_BIN2,
+   constraint [ck : dbo.psa_entity_definition :: psa_schema]
+   check (len([psa_schema])=4),
+   [psa_entity] nvarchar(31) collate Latin1_General_100_BIN2,
+   constraint [pk : dbo.psa_entity_definition {domain}]
+   primary key clustered ([psa_schema],[psa_entity]),
+   [psa_entity_description] nvarchar(4000) collate Latin1_General_100_BIN2 null,
+   [psa_source_statement] nvarchar(max) collate Latin1_General_100_BIN2 null,
+   [psa_source_predicate_values] nvarchar(max) collate Latin1_General_100_BIN2 null,
+   [source_schema] sysname collate Latin1_General_100_BIN2,
+   [source_entity] sysname collate Latin1_General_100_BIN2,
+   [hash_large_objects] nvarchar(3) collate Latin1_General_100_BIN2 not null,
+   constraint [ck : dbo.psa_entity_definition :: hash_large_objects]
+   check ([hash_large_objects] in(N'Yes',N'No')),
+   [psa_infer_deletions] nvarchar(3) collate Latin1_General_100_BIN2 not null,
+   constraint [ck : dbo.psa_entity_definition :: psa_infer_deletions]
+   check ([psa_infer_deletions] in(N'Yes',N'No')),
+   [etl_build_group] nvarchar(128) collate Latin1_General_100_BIN2 null,
+   [etl_max_threads] int not null,
+   [etl_max_record_count] int not null
+ );
+
+exec sys.sp_MS_marksystemobject N'psa_entity_definition';
+
+end;
+
+if object_id(N'[dbo].[psa_attribute_definition]',N'U') is null begin;
+
+create table [dbo].[psa_attribute_definition]
+ (
+   [psa_schema] nvarchar(4) collate Latin1_General_100_BIN2,
+   constraint [ck : dbo.psa_attribute_definition :: psa_schema]
+   check (len([psa_schema])=4),
+   [psa_entity] nvarchar(31) collate Latin1_General_100_BIN2,
+   constraint [fk]
+   foreign key ([psa_schema],[psa_entity])
+   references [dbo].[psa_entity_definition] ([psa_schema],[psa_entity])
+   on update cascade,
+   [psa_attribute] sysname collate Latin1_General_100_BIN2,
+   constraint [pk : dbo.psa_attribute_definition {domain | attribute}]
+   primary key clustered ([psa_schema],[psa_entity],[psa_attribute]),
+   [psa_attribute_datatype] sysname collate Latin1_General_100_BIN2,
+   [psa_attribute_ordinal] int not null,
+   [psa_attribute_sort] nvarchar(4) collate Latin1_General_100_BIN2 not null,
+   constraint [ck : dbo.psa_attribute_definition :: psa_attribute_sort]
+   check ([psa_attribute_sort] in(N'asc',N'desc')),
+   [psa_attribute_optional] nvarchar(4) collate Latin1_General_100_BIN2 not null,
+   constraint [ck : dbo.psa_attribute_definition :: psa_attribute_optional]
+   check ([psa_attribute_optional] in(N'Yes',N'No')),
+   [psa_attribute_business_identifier] nvarchar(3) collate Latin1_General_100_BIN2,
+   constraint [ck : dbo.psa_attribute_definition :: psa_attribute_business_identifier]
+   check ([psa_attribute_business_identifier] in(N'Yes',N'No')),
+   [psa_attribute_description] nvarchar(4000) collate Latin1_General_100_BIN2 null
+ );
+
+exec sys.sp_MS_marksystemobject N'psa_attribute_definition';
+
+end;</value>
+    <comment>Contains DDL to build the required metadata tables in the master database.  These tables drive object creation.</comment>
+  </data>
+  <data name="PSA_ProcessDeleteDefinition" xml:space="preserve">
+    <value>create procedure [{{{schema}}}].[{{{entity}}}.ProcessDelete]
+ (
+   @i_MaxRowCount int
+ ) with execute as N'psa_sb_manager'
+as
+-- do not alter/add/extend this stored procedure, or any psa stored procedure
+-- authored by slalom consulting 2014
+set nocount on;
+
+-- check to see is object is actively running on another thread
+if not exists(
+   select
+      N'?'
+   from
+      sys.dm_broker_queue_monitors
+   where
+      object_name([queue_id])=N'{{{entity}}}.ProcessingDelete'
+      and
+      object_schema_name([queue_id])=N'{{{schema}}}'
+      and
+      database_id=db_id()
+      and
+      [state]=N'INACTIVE'
+ ) begin;
+   print N'There is already an active session for procedure [{{{schema}}}].[{{{entity}}}.ProcessDelete]. Execution is aborted.'
+   return -1;
+end;
+
+-- declare variables
+declare @rc int, @mn int, @mx int;
+declare @hist table([min] int,[max] int,[initiated] bit,[fulfilled] bit,[err] int,[errmsg] nvarchar(1000),unique([min] asc));
+
+-- get bucketing inputs
+select
+   @rc=count([psa_stage_key]),
+   @mn=min([psa_stage_key]),
+   @mx=max([psa_stage_key]),
+   @i_MaxRowCount=isnull(@i_MaxRowCount,1000000)
+from
+   [{{{schema}}}].[{{{entity}}}.DeleteStage];
+
+-- if we have no records, bail
+if @rc=0 begin;
+   print N'There are no records to process in [{{{schema}}}].[{{{entity}}}.DeleteStage]. Execution is aborted.'
+   return -1;
+end;
+
+-- get the histogram
+with [recur] as
+ (
+   select
+      @mn [min],
+      case when (@mn+@i_MaxRowCount-1)&gt;=@mx then @mx else (@mn+@i_MaxRowCount-1) end [max]
+   union all
+   select
+      [max]+1,
+      case when ([max]+@i_MaxRowCount)&gt;=@mx then @mx else ([max]+@i_MaxRowCount) end  [max]
+   from
+      [recur]
+   where
+      [max]&lt;@mx
+ )
+insert @hist
+ (
+   [min],
+   [max],
+   [initiated],
+   [fulfilled]
+ )
+select
+   [min],
+   [max],
+   0,
+   0
+from
+   [recur];
+
+declare @conversation_handle uniqueidentifier;
+declare @from_service sysname=N'//{{{schema}}}/{{{entity}}}/Delete/Service/Request';
+declare @to_service sysname=N'//{{{schema}}}/{{{entity}}}/Delete/Service/Processing';
+declare @contract sysname=N'//{{{schema}}}/{{{entity}}}/Contract';
+declare @message_type sysname=N'//{{{schema}}}/{{{entity}}}/Message/Request';
+declare @msg xml;
+
+-- before we begin the process, lock the table
+if not exists(select N'?' from sys.objects where [name]=N'{{{schema}}}.{{{entity}}}.DeleteStage is in a read-only state.') begin;
+   alter table [{{{schema}}}].[{{{entity}}}.DeleteStage] with nocheck add constraint [{{{schema}}}.{{{entity}}}.DeleteStage is in a read-only state.] check(1=0);
+end;
+
+-- lets roll...
+begin try;
+
+   -- begin the broker conversation
+   begin dialog conversation @conversation_handle 
+   from service @from_service
+   to service @to_service
+   on contract @contract
+   with encryption=off;
+
+   -- queue each bucket in histogram
+   while (select min([min]) from @hist where [initiated]=0) is not null begin;
+      select @rc=min([min]) from @hist where [initiated]=0;
+
+      select @msg=N'&lt;msg&gt;'+
+                  N'&lt;min&gt;'+convert(nvarchar(10),[min])+N'&lt;/min&gt;'+
+                  N'&lt;max&gt;'+convert(nvarchar(10),[max])+N'&lt;/max&gt;'+
+                  N'&lt;batch&gt;'+isnull(convert(nvarchar(36),try_convert(uniqueidentifier,context_info())),N'')+N'&lt;/batch&gt;'+
+                  N'&lt;/msg&gt;'
+      from @hist
+      where [min]=@rc;
+
+      -- this will open up the worker threads to process the staged set
+      send on conversation @conversation_handle
+      message type @message_type(@msg);
+
+      update @hist set [initiated]=1 where [min]=@rc;
+   end;
+
+   -- get return queue
+   while (select min([min]) from @hist where [fulfilled]=0) is not null begin;
+
+      begin transaction;
+
+      waitfor(receive top(1) @msg=convert(xml,[message_body]) from [{{{schema}}}].[{{{entity}}}.RequestDelete]),timeout 3000;
+
+      if @@rowcount&gt;0 begin;
+         select @mn=@msg.value('(/msg/min)[1]','int');
+         select @mx=@msg.value('(/msg/max)[1]','int');
+         update @hist set [fulfilled]=1 where [min]=@mn and [max]=@mx;
+      end;
+
+      commit transaction;
+   end;
+
+   truncate table [{{{schema}}}].[{{{entity}}}.DeleteStage];
+
+   {{{updatestats}}}update statistics [sys].[change_tracking_{{{objectid}}}] with fullscan;
+
+end try begin catch;
+
+   declare @re nvarchar(4000)=N'PSA Error :: Procedure [{{{schema}}}].[{{{entity}}}.ProcessDelete] threw error number ''%d'' with the message ''%s'' :: Batch GUID: %s.';
+   declare @en int=error_number(),@em nvarchar(4000)=error_message(),@b nvarchar(36)=try_convert(nvarchar(36),null);
+   raiserror(@re,16,1,@en,@em,@b) with log;
+
+end catch;
+
+-- remove any locking on the table
+if  exists(select N'?' from sys.objects where [name]=N'{{{schema}}}.{{{entity}}}.DeleteStage is in a read-only state.') begin;
+   alter table [{{{schema}}}].[{{{entity}}}.DeleteStage] drop constraint [{{{schema}}}.{{{entity}}}.DeleteStage is in a read-only state.];
+end;
+
+return @@error;</value>
+  </data>
+  <data name="PSA_WorkerDeleteDefinition" xml:space="preserve">
+    <value>create procedure [{{{schema}}}].[{{{entity}}}.WorkerDelete]
+as
+-- do not alter/add/extend this stored procedure, or any psa stored procedure
+-- authored by slalom consulting 2014
+set nocount on;
+
+-- declare variables
+declare @conversation_handle uniqueidentifier;
+declare @inbound_message_body xml;
+declare @outbound_message_body xml;
+declare @message_type_name sysname;
+declare @min_psa_stage_key int;
+declare @max_psa_stage_key int;
+declare @batch_id varbinary(128);
+declare @re nvarchar(4000);
+declare @en int;
+declare @em nvarchar(4000);
+declare @b nvarchar(36);
+
+-- declare constants
+declare @request_message sysname=N'//{{{schema}}}/{{{entity}}}/Message/Request';
+declare @result_message sysname=N'//{{{schema}}}/{{{entity}}}/Message/Result';
+declare @end_dialog_message sysname=N'http://schemas.microsoft.com/SQL/ServiceBroker/EndDialog';
+declare @error_message sysname=N'http://schemas.microsoft.com/SQL/ServiceBroker/Error';
+
+-- instantiate loop and continue until nothing left in queue
+while 1!=2 begin;
+
+   begin transaction;
+
+      --  get the next item in the queue
+      waitfor
+       (
+         receive top(1)
+            @conversation_handle=[conversation_handle],
+            @message_type_name=[message_type_name],
+            @inbound_message_body=convert(xml,[message_body]) 
+         from 
+            [{{{schema}}}].[{{{entity}}}.ProcessingDelete]
+       ), timeout 3000; -- three seconds
+
+      -- if there was nothing in the queue, rollback and exit the loop
+      if @@rowcount=0 begin;
+         rollback transaction;
+         break;
+      end;
+
+      -- handle the receive message
+      if @message_type_name=@request_message begin;
+
+      -- get the min and max keys
+      select
+         @min_psa_stage_key=@inbound_message_body.value('(/msg/min)[1]','int'),
+         @max_psa_stage_key=@inbound_message_body.value('(/msg/max)[1]','int'),
+         @batch_id=try_convert(uniqueidentifier,@inbound_message_body.value('(/msg/batch)[1]','nvarchar(100)'));
+
+      --add context info for batching
+      if @batch_id is not null begin;
+         set context_info @batch_id;
+      end else begin;
+         set context_info 0x;
+      end;
+
+      -- merge items from the upsert queue based on those keys
+      begin try;
+
+         with [merge_source] as
+          (
+            select
+{{{columnset}}}
+            from
+               [{{{schema}}}].[{{{entity}}}.DeleteStage]
+            where
+               [psa_stage_key] between @min_psa_stage_key and @max_psa_stage_key
+          )
+         merge
+            [{{{schema}}}].[{{{entity}}}.Control] t
+         using
+            [merge_source] s on -1!=1
+{{{mergejoinchunk}}} 
+         when matched then
+            delete;
+
+         -- build the outbound message
+         select @outbound_message_body=N'&lt;msg&gt;'+
+                                       N'&lt;min&gt;'+convert(nvarchar(10),@min_psa_stage_key)+N'&lt;/min&gt;'+
+                                       N'&lt;max&gt;'+convert(nvarchar(10),@max_psa_stage_key)+N'&lt;/max&gt;'+
+                                       N'&lt;rc&gt;'+convert(nvarchar(10),@@rowcount)+N'&lt;/rc&gt;'+
+                                       N'&lt;/msg&gt;';
+
+      end try begin catch;
+
+         select @re=N'PSA Error :: Procedure [{{{schema}}}].[{{{entity}}}.WorkerDelete] threw a merge dml error number ''%d'' with the message ''%s'' :: Batch GUID: %s.';
+         select @en=error_number(),@em=error_message(),@b=try_convert(nvarchar(36),@batch_id);
+         raiserror(@re,16,1,@en,@em,@b) with log;
+
+         -- build the outbound message
+         select @outbound_message_body=N'&lt;msg&gt;'+
+                                       N'&lt;min&gt;'+convert(nvarchar(10),@min_psa_stage_key)+N'&lt;/min&gt;'+
+                                       N'&lt;max&gt;'+convert(nvarchar(10),@max_psa_stage_key)+N'&lt;/max&gt;'+
+                                       N'&lt;rc&gt;0&lt;/rc&gt;'+
+                                       N'&lt;error_number&gt;'+convert(nvarchar(10),@en)+N'&lt;/error_number&gt;'+
+                                       N'&lt;error_message&gt;'+convert(nvarchar(4000),@em)+N'&lt;/error_message&gt;'+
+                                       N'&lt;/msg&gt;';
+
+      end catch;
+
+      -- and, send it...
+      send on conversation @conversation_handle
+      message type @result_message(@outbound_message_body);
+
+   -- if we get an 'end dialog', simply close the conversation
+   end else if @message_type_name=@end_dialog_message begin;
+      end conversation @conversation_handle;
+
+   -- if we get an 'error dialog', taco [no] bueno, log error and bail
+   end else if @message_type_name=@error_message begin
+      
+      -- log error and end conversation
+      select @re=N'PSA Error :: Procedure [{{{schema}}}].[{{{entity}}}.WorkerDelete] received an error message type from the ProcessingDelete queue. :: Batch GUID: %s.';
+      select @b=try_convert(nvarchar(36),@batch_id);
+      raiserror(@re,16,1,@b) with log;
+      end conversation @conversation_handle;
+
+   end; -- handling message
+
+   -- commit the transaction
+   commit transaction;
+
+end; -- loop
+return @@error;</value>
+  </data>
+  <data name="PSA_ProcessDeleteSecurityDefinition" xml:space="preserve">
+    <value>grant execute on [{{{schema}}}].[{{{entity}}}.ProcessDelete] to [psa_etl_manager];</value>
   </data>
 </root>
