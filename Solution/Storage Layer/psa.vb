@@ -1172,6 +1172,8 @@ nextc:
                     def = My.Resources.PSA_ServiceBrokerDefinition
                     def = Replace(def, "{{{schema}}}", Schema)
                     def = Replace(def, "{{{entity}}}", Entity)
+                    def = Replace(def, "{{{threads}}}", MaxThreads)
+
                     Return def
                 End Get
             End Property

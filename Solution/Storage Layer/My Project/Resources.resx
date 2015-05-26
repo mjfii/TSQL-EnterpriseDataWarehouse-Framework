@@ -1397,7 +1397,7 @@ if object_id(N'[{{{schema}}}].[{{{entity}}}.ProcessingUpsert]',N'SQ') is null be
     (
       status=on,
       procedure_name=[{{{schema}}}].[{{{entity}}}.WorkerUpsert],
-      max_queue_readers=5,
+      max_queue_readers={{{threads}}},
       execute as self
     );
 end else begin;
@@ -1406,7 +1406,7 @@ end else begin;
     (
       status=on,
       procedure_name=[{{{schema}}}].[{{{entity}}}.WorkerUpsert],
-      max_queue_readers=5,
+      max_queue_readers={{{threads}}},
       execute as self
     );
 end;
@@ -1417,7 +1417,7 @@ if object_id(N'[{{{schema}}}].[{{{entity}}}.ProcessingDelete]',N'SQ') is null be
     (
       status=on,
       procedure_name=[{{{schema}}}].[{{{entity}}}.WorkerDelete],
-      max_queue_readers=5,
+      max_queue_readers={{{threads}}},
       execute as self
     );
 end else begin;
@@ -1426,7 +1426,7 @@ end else begin;
     (
       status=on,
       procedure_name=[{{{schema}}}].[{{{entity}}}.WorkerDelete],
-      max_queue_readers=5,
+      max_queue_readers={{{threads}}},
       execute as self
     );
 end;
