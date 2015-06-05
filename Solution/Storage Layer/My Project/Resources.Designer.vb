@@ -61,7 +61,8 @@ Namespace My.Resources
         End Property
         
         '''<summary>
-        '''  Looks up a localized string similar to grant select on [{{{schema}}}].[{{{entity}}}.AsIs] to [psa_abstractreader];.
+        '''  Looks up a localized string similar to grant select on [{{{schema}}}].[{{{entity}}}.AsIs] to [psa_abstractreader];
+        '''grant select on [{{{schema}}}].[{{{entity}}}.AsIs] to [psa_current_state_reader];.
         '''</summary>
         Friend ReadOnly Property PSA_AsIsSecurityDefinition() As String
             Get
@@ -303,12 +304,12 @@ Namespace My.Resources
         '''create table [dbo].[psa_change_tracking_entity_version]
         ''' (
         '''   [psa_object_id] int not null,
-        '''   [psa_activity] nvarchar(2) not null,
+        '''   [psa_activity] nvarchar(10) not null,
+        '''   constraint [pk : dbo.psa_change_tracking_entity_version] 
         '''   primary key clustered ([psa_activity],[psa_object_id]),
         '''
         '''   [psa_schema] sysname not null,
-        '''   [psa_entity] sysname not null,
-        '''   [psa_domain] as quotename([psa_schema])+N&apos;&apos;.&apos;&apos;+quotename([p [rest of string was truncated]&quot;;.
+        '''   [psa_entity] sysname not null,        ''' [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property PSA_ChangeTrackingSystemDefinition() As String
             Get
@@ -748,7 +749,9 @@ Namespace My.Resources
         '''
         '''if not exists(select 1 from sys.sysusers where [name]=N&apos;psa_etl_manager&apos;) begin;
         '''   create role [psa_etl_manager] authorization [psa_owner];
-        '''end;.
+        '''end;
+        '''
+        '''if not exists(select 1 from sys.sysusers where [name]=N&apos;psa_curren [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property PSA_RoleDefinitions() As String
             Get
@@ -1055,15 +1058,15 @@ Namespace My.Resources
         '''<summary>
         '''  Looks up a localized string similar to if object_id(N&apos;[dbo].[psa_entity_definition]&apos;,N&apos;U&apos;) is null begin;
         '''
-        '''create table [dbo].[psa_entity_definition]
-        ''' (
-        '''   [psa_schema] nvarchar(4) collate Latin1_General_100_BIN2,
-        '''   constraint [ck : dbo.psa_entity_definition :: psa_schema]
-        '''   check (len([psa_schema])=4),
-        '''   [psa_entity] nvarchar(31) collate Latin1_General_100_BIN2,
-        '''   constraint [pk : dbo.psa_entity_definition {domain}]
-        '''   primary key clustered ([psa_schema],[psa_entity]),
-        '''   [psa_entity_description] nvarchar(4000) collate Latin1_Gene [rest of string was truncated]&quot;;.
+        '''   create table [dbo].[psa_entity_definition]
+        '''    (
+        '''      [psa_schema] nvarchar(4) collate Latin1_General_100_BIN2,
+        '''      constraint [ck : dbo.psa_entity_definition :: psa_schema]
+        '''      check (len([psa_schema])=4 and [psa_schema] not like &apos;%[^0-9a-zA-Z]%&apos;),
+        '''
+        '''      [psa_entity] nvarchar(31) collate Latin1_General_100_BIN2,
+        '''      constraint [ck : dbo.psa_entity_definition :: psa_entity]
+        '''      check ([psa_entity] not like &apos;%[^0-9a-zA [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property SYS_PSAMetadataTableDefinition() As String
             Get

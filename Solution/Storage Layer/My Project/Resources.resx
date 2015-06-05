@@ -118,7 +118,8 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <data name="PSA_AsIsSecurityDefinition" xml:space="preserve">
-    <value>grant select on [{{{schema}}}].[{{{entity}}}.AsIs] to [psa_abstractreader];</value>
+    <value>grant select on [{{{schema}}}].[{{{entity}}}.AsIs] to [psa_abstractreader];
+grant select on [{{{schema}}}].[{{{entity}}}.AsIs] to [psa_current_state_reader];</value>
   </data>
   <data name="PSA_AsIsTriggerDefinition" xml:space="preserve">
     <value>create trigger [tr : {{{label}}}.AsIs {Reverse DML}] on [{{{schema}}}].[{{{entity}}}.AsIs]
@@ -323,7 +324,10 @@ if object_id('[{{{schema}}}].[{{{entity}}}.BatchCount]',N'V') is not null drop v
 
 if object_id('[{{{schema}}}].[{{{entity}}}.DeleteStage]',N'U') is not null drop table [{{{schema}}}].[{{{entity}}}.DeleteStage];
 if object_id('[{{{schema}}}].[{{{entity}}}.UpsertStage]',N'U') is not null drop table [{{{schema}}}].[{{{entity}}}.UpsertStage];
-if object_id('[{{{schema}}}].[{{{entity}}}.ArchiveStage]',N'U') is not null drop table [{{{schema}}}].[{{{entity}}}.ArchiveStage];</value>
+if object_id('[{{{schema}}}].[{{{entity}}}.ArchiveStage]',N'U') is not null drop table [{{{schema}}}].[{{{entity}}}.ArchiveStage];
+
+-- any existing change control
+delete [dbo].[psa_change_tracking_entity_version] where [psa_object_id]=object_id('[{{{schema}}}].[{{{entity}}}]',N'U');</value>
   </data>
   <data name="PSA_DropTemporalGovernorDefinition" xml:space="preserve">
     <value>if object_id(N'[{{{schema}}}].[tr : {{{label}}} {Temporal Governor}]',N'TR') is not null begin;
@@ -393,6 +397,10 @@ end;
 
 if not exists(select 1 from sys.sysusers where [name]=N'psa_etl_manager') begin;
    create role [psa_etl_manager] authorization [psa_owner];
+end;
+
+if not exists(select 1 from sys.sysusers where [name]=N'psa_current_state_reader') begin;
+   create role [psa_current_state_reader] authorization [psa_owner];
 end;</value>
   </data>
   <data name="PSA_SchemaDefinition" xml:space="preserve">
@@ -758,7 +766,8 @@ if object_id(N''[dbo].[psa_change_tracking_entity_version]'',N''U'') is null beg
 create table [dbo].[psa_change_tracking_entity_version]
  (
    [psa_object_id] int not null,
-   [psa_activity] nvarchar(2) not null,
+   [psa_activity] nvarchar(10) not null,
+   constraint [pk : dbo.psa_change_tracking_entity_version] 
    primary key clustered ([psa_activity],[psa_object_id]),
 
    [psa_schema] sysname not null,
@@ -784,6 +793,11 @@ create statistics [st : dbo.psa_change_tracking_entity_version :: psa_domain] on
    [psa_domain]
  );
 
+create statistics [st : dbo.psa_change_tracking_entity_version :: psa_activity] on [dbo].[psa_change_tracking_entity_version]
+ (
+   [psa_activity]
+ );
+
 exec sys.sp_MS_marksystemobject N''psa_change_tracking_entity_version'';
 end;
 ';
@@ -798,7 +812,7 @@ N'
 create procedure [dbo].[psa_get_change_tracking_entity_version] 
  (
    @entity sysname,
-   @activity nvarchar(2),
+   @activity nvarchar(10),
    @current_version bigint output
  ) with execute as ''dbo''
 as
@@ -889,7 +903,7 @@ N'
 create procedure [dbo].[psa_set_change_tracking_entity_version]
  (
    @entity sysname,
-   @activity nvarchar(2)
+   @activity nvarchar(10)
  )
 as
 set nocount on;
@@ -1994,64 +2008,71 @@ grant execute on [dbo].[psa_end_batch] to [psa_etl_manager];</value>
   <data name="SYS_PSAMetadataTableDefinition" xml:space="preserve">
     <value>if object_id(N'[dbo].[psa_entity_definition]',N'U') is null begin;
 
-create table [dbo].[psa_entity_definition]
- (
-   [psa_schema] nvarchar(4) collate Latin1_General_100_BIN2,
-   constraint [ck : dbo.psa_entity_definition :: psa_schema]
-   check (len([psa_schema])=4),
-   [psa_entity] nvarchar(31) collate Latin1_General_100_BIN2,
-   constraint [pk : dbo.psa_entity_definition {domain}]
-   primary key clustered ([psa_schema],[psa_entity]),
-   [psa_entity_description] nvarchar(4000) collate Latin1_General_100_BIN2 null,
-   [psa_source_statement] nvarchar(max) collate Latin1_General_100_BIN2 null,
-   [psa_source_predicate_values] nvarchar(max) collate Latin1_General_100_BIN2 null,
-   [source_schema] sysname collate Latin1_General_100_BIN2,
-   [source_entity] sysname collate Latin1_General_100_BIN2,
-   [hash_large_objects] nvarchar(3) collate Latin1_General_100_BIN2 not null,
-   constraint [ck : dbo.psa_entity_definition :: hash_large_objects]
-   check ([hash_large_objects] in(N'Yes',N'No')),
-   [psa_infer_deletions] nvarchar(3) collate Latin1_General_100_BIN2 not null,
-   constraint [ck : dbo.psa_entity_definition :: psa_infer_deletions]
-   check ([psa_infer_deletions] in(N'Yes',N'No')),
-   [etl_build_group] nvarchar(128) collate Latin1_General_100_BIN2 null,
-   [etl_max_threads] int not null,
-   [etl_max_record_count] int not null
- );
+   create table [dbo].[psa_entity_definition]
+    (
+      [psa_schema] nvarchar(4) collate Latin1_General_100_BIN2,
+      constraint [ck : dbo.psa_entity_definition :: psa_schema]
+      check (len([psa_schema])=4 and [psa_schema] not like '%[^0-9a-zA-Z]%'),
 
-exec sys.sp_MS_marksystemobject N'psa_entity_definition';
+      [psa_entity] nvarchar(31) collate Latin1_General_100_BIN2,
+      constraint [ck : dbo.psa_entity_definition :: psa_entity]
+      check ([psa_entity] not like '%[^0-9a-zA-Z]%'),
+      constraint [pk : dbo.psa_entity_definition {domain}]
+      primary key clustered ([psa_schema],[psa_entity]),
+
+      [psa_entity_description] nvarchar(4000) collate Latin1_General_100_BIN2 null,
+      [psa_source_statement] nvarchar(max) collate Latin1_General_100_BIN2 null,      
+      [psa_source_predicate_values] nvarchar(max) collate Latin1_General_100_BIN2 null,
+      
+      [source_schema] sysname collate Latin1_General_100_BIN2,
+      [source_entity] sysname collate Latin1_General_100_BIN2,
+      [hash_large_objects] nvarchar(3) collate Latin1_General_100_BIN2 not null,
+      constraint [ck : dbo.psa_entity_definition :: hash_large_objects]
+      check ([hash_large_objects] in(N'Yes',N'No')),
+      [psa_infer_deletions] nvarchar(3) collate Latin1_General_100_BIN2 not null,
+      constraint [ck : dbo.psa_entity_definition :: psa_infer_deletions]
+      check ([psa_infer_deletions] in(N'Yes',N'No')),
+      [etl_build_group] nvarchar(128) collate Latin1_General_100_BIN2 null,
+      constraint [ck : dbo.psa_entity_definition :: etl_build_group]
+      check ([etl_build_group] not like '%[^0-9a-zA-Z]%'),
+      [etl_max_threads] int not null,
+      [etl_max_record_count] int not null
+    );
+
+   exec sys.sp_MS_marksystemobject N'psa_entity_definition';
 
 end;
 
 if object_id(N'[dbo].[psa_attribute_definition]',N'U') is null begin;
 
-create table [dbo].[psa_attribute_definition]
- (
-   [psa_schema] nvarchar(4) collate Latin1_General_100_BIN2,
-   constraint [ck : dbo.psa_attribute_definition :: psa_schema]
-   check (len([psa_schema])=4),
-   [psa_entity] nvarchar(31) collate Latin1_General_100_BIN2,
-   constraint [fk]
-   foreign key ([psa_schema],[psa_entity])
-   references [dbo].[psa_entity_definition] ([psa_schema],[psa_entity])
-   on update cascade,
-   [psa_attribute] sysname collate Latin1_General_100_BIN2,
-   constraint [pk : dbo.psa_attribute_definition {domain | attribute}]
-   primary key clustered ([psa_schema],[psa_entity],[psa_attribute]),
-   [psa_attribute_datatype] sysname collate Latin1_General_100_BIN2,
-   [psa_attribute_ordinal] int not null,
-   [psa_attribute_sort] nvarchar(4) collate Latin1_General_100_BIN2 not null,
-   constraint [ck : dbo.psa_attribute_definition :: psa_attribute_sort]
-   check ([psa_attribute_sort] in(N'asc',N'desc')),
-   [psa_attribute_optional] nvarchar(4) collate Latin1_General_100_BIN2 not null,
-   constraint [ck : dbo.psa_attribute_definition :: psa_attribute_optional]
-   check ([psa_attribute_optional] in(N'Yes',N'No')),
-   [psa_attribute_business_identifier] nvarchar(3) collate Latin1_General_100_BIN2,
-   constraint [ck : dbo.psa_attribute_definition :: psa_attribute_business_identifier]
-   check ([psa_attribute_business_identifier] in(N'Yes',N'No')),
-   [psa_attribute_description] nvarchar(4000) collate Latin1_General_100_BIN2 null
- );
+   create table [dbo].[psa_attribute_definition]
+    (
+      [psa_schema] nvarchar(4) collate Latin1_General_100_BIN2,
+      constraint [ck : dbo.psa_attribute_definition :: psa_schema]
+      check (len([psa_schema])=4),
+      [psa_entity] nvarchar(31) collate Latin1_General_100_BIN2,
+      constraint [fk : dbo.psa_attribute_definition $ dbo.psa_entity_definition]
+      foreign key ([psa_schema],[psa_entity])
+      references [dbo].[psa_entity_definition] ([psa_schema],[psa_entity])
+      on update cascade,
+      [psa_attribute] sysname collate Latin1_General_100_BIN2,
+      constraint [pk : dbo.psa_attribute_definition {domain | attribute}]
+      primary key clustered ([psa_schema],[psa_entity],[psa_attribute]),
+      [psa_attribute_datatype] sysname collate Latin1_General_100_BIN2,
+      [psa_attribute_ordinal] int not null,
+      [psa_attribute_sort] nvarchar(4) collate Latin1_General_100_BIN2 not null,
+      constraint [ck : dbo.psa_attribute_definition :: psa_attribute_sort]
+      check ([psa_attribute_sort] in(N'asc',N'desc')),
+      [psa_attribute_optional] nvarchar(4) collate Latin1_General_100_BIN2 not null,
+      constraint [ck : dbo.psa_attribute_definition :: psa_attribute_optional]
+      check ([psa_attribute_optional] in(N'Yes',N'No')),
+      [psa_attribute_business_identifier] nvarchar(3) collate Latin1_General_100_BIN2,
+      constraint [ck : dbo.psa_attribute_definition :: psa_attribute_business_identifier]
+      check ([psa_attribute_business_identifier] in(N'Yes',N'No')),
+      [psa_attribute_description] nvarchar(4000) collate Latin1_General_100_BIN2 null
+    );
 
-exec sys.sp_MS_marksystemobject N'psa_attribute_definition';
+   exec sys.sp_MS_marksystemobject N'psa_attribute_definition';
 
 end;</value>
     <comment>Contains DDL to build the required metadata tables in the master database.  These tables drive object creation.</comment>

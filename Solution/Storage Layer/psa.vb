@@ -1191,31 +1191,31 @@ nextc:
                     ep += My.Resources.PSA_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "Description")
-                    ep = Replace(ep, "{{{value}}}", Description)
+                    ep = Replace(ep, "{{{value}}}", Replace(Description, "'", "''"))
                     ep += vbCrLf
 
                     ep += My.Resources.PSA_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "Source Statement")
-                    ep = Replace(ep, "{{{value}}}", SourceStatement)
+                    ep = Replace(ep, "{{{value}}}", Replace(SourceStatement, "'", "''"))
                     ep += vbCrLf
 
                     ep += My.Resources.PSA_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "Source Predicate Values")
-                    ep = Replace(ep, "{{{value}}}", SourcePredicateValues)
+                    ep = Replace(ep, "{{{value}}}", Replace(SourcePredicateValues, "'", "''"))
                     ep += vbCrLf
 
                     ep += My.Resources.PSA_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "Source Schema")
-                    ep = Replace(ep, "{{{value}}}", SourceSchema)
+                    ep = Replace(ep, "{{{value}}}", Replace(SourceSchema, "'", "''"))
                     ep += vbCrLf
 
                     ep += My.Resources.PSA_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "Source Entity")
-                    ep = Replace(ep, "{{{value}}}", SourceEntity)
+                    ep = Replace(ep, "{{{value}}}", Replace(SourceEntity, "'", "''"))
                     ep += vbCrLf
 
                     ep += My.Resources.PSA_TablePropertyDefintion
@@ -1233,7 +1233,7 @@ nextc:
                     ep += My.Resources.PSA_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "ETL Build Group")
-                    ep = Replace(ep, "{{{value}}}", BuildGroup)
+                    ep = Replace(ep, "{{{value}}}", Replace(BuildGroup, "'", "''"))
                     ep += vbCrLf
 
                     ep += My.Resources.PSA_TablePropertyDefintion
@@ -1306,7 +1306,7 @@ nextc:
                         ep = Replace(ep, "{{{domain}}}", Domain)
                         ep = Replace(ep, "{{{attribute}}}", bia.Name)
                         ep = Replace(ep, "{{{property}}}", "Description")
-                        ep = Replace(ep, "{{{value}}}", bia.Description)
+                        ep = Replace(ep, "{{{value}}}", Replace(bia.Description, "'", "''"))
                         ep += vbCrLf
 
                         ep += My.Resources.PSA_ColumnPropertyDefinition
