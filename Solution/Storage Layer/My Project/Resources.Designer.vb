@@ -61,6 +61,102 @@ Namespace My.Resources
         End Property
         
         '''<summary>
+        '''  Looks up a localized string similar to set nocount on;
+        '''set quoted_identifier on;
+        '''set ansi_nulls on;
+        '''
+        '''exec sys.sp_executesql 
+        '''N&apos;
+        '''if object_id(N&apos;&apos;[dbo].[ara_change_tracking_entity_version]&apos;&apos;,N&apos;&apos;U&apos;&apos;) is null begin;
+        '''
+        '''create table [dbo].[ara_change_tracking_entity_version]
+        ''' (
+        '''   [ara_object_id] int not null,
+        '''   [ara_activity] nvarchar(10) not null,
+        '''   constraint [pk : dbo.ara_change_tracking_entity_version] 
+        '''   primary key clustered ([ara_activity],[ara_object_id]),
+        '''
+        '''   [ara_schema] sysname not null,
+        '''   [ara_entity] sysname not null,        ''' [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property ARA_ChangeTrackingSystemDefinition() As String
+            Get
+                Return ResourceManager.GetString("ARA_ChangeTrackingSystemDefinition", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to if not exists(select 1 from sys.change_tracking_databases where [database_id]=db_id()) begin;
+        '''   alter database [{{{db}}}] set change_tracking=on (change_retention=5 days,auto_cleanup=on);
+        '''end;.
+        '''</summary>
+        Friend ReadOnly Property ARA_DatabaseChangeTrackingDefinition() As String
+            Get
+                Return ResourceManager.GetString("ARA_DatabaseChangeTrackingDefinition", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to if object_id(N&apos;[dbo].[ara_hash]&apos;,N&apos;FN&apos;) is null begin;
+        '''
+        '''   exec sys.sp_executesql
+        '''   N&apos;
+        '''   create function [dbo].[ara_hash] 
+        '''    (
+        '''      @string nvarchar(max)
+        '''    ) 
+        '''   returns varbinary(20) with encryption
+        '''   as 
+        '''   begin;
+        '''      return master.dbo.[fn_hash](@string);
+        '''   end;
+        '''   &apos;
+        '''   exec sys.sp_MS_marksystemobject &apos;ara_hash&apos;;
+        '''
+        '''end;.
+        '''</summary>
+        Friend ReadOnly Property ARA_HashingAlgorithm() As String
+            Get
+                Return ResourceManager.GetString("ARA_HashingAlgorithm", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to if object_id(N&apos;[dbo].[ara_batch_control]&apos;,N&apos;U&apos;) is null begin;
+        '''
+        '''   create table [dbo].[ara_batch_control] 
+        '''    (
+        '''      [ara_batch_id] uniqueidentifier not null
+        '''      constraint [df : dbo.ara_batch_control {Sequential GUID}] default (newsequentialid()),
+        '''	   constraint [pk : dbo.ara_batch_control :: ara_batch_id]
+        '''      primary key clustered ([ara_batch_id] asc)
+        '''      with (fillfactor=80),
+        '''	   [ara_batch_ssis_id] bigint not null,
+        '''      [ara_package_name] nvarchar(128) null,
+        '''	   [ara_batch_start] dat [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property ARA_LoggingDefinition() As String
+            Get
+                Return ResourceManager.GetString("ARA_LoggingDefinition", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to if not exists(select 1 from sys.sysusers where [name]=N&apos;ara_owner&apos;) begin;
+        '''   create role [ara_owner] authorization [db_owner];
+        '''end;
+        '''
+        '''if not exists(select 1 from sys.sysusers where [name]=N&apos;ara_etl_manager&apos;) begin;
+        '''   create role [ara_etl_manager] authorization [db_owner];
+        '''end;.
+        '''</summary>
+        Friend ReadOnly Property ARA_RoleDefinitions() As String
+            Get
+                Return ResourceManager.GetString("ARA_RoleDefinitions", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
         '''  Looks up a localized string similar to grant select on [{{{schema}}}].[{{{entity}}}.AsIs] to [psa_abstractreader];
         '''grant select on [{{{schema}}}].[{{{entity}}}.AsIs] to [psa_current_state_reader];.
         '''</summary>
@@ -555,23 +651,9 @@ Namespace My.Resources
         '''
         '''end;.
         '''</summary>
-        Friend ReadOnly Property PSA_HashingAlgorithmForPSA() As String
+        Friend ReadOnly Property PSA_HashingAlgorithm() As String
             Get
-                Return ResourceManager.GetString("PSA_HashingAlgorithmForPSA", resourceCulture)
-            End Get
-        End Property
-        
-        '''<summary>
-        '''  Looks up a localized string similar to select
-        '''   db_name() [database_name],
-        '''   @@servername [instance_name],
-        '''   serverproperty(&apos;productlevel&apos;) [product_level],
-        '''   serverproperty(&apos;edition&apos;) [edition],
-        '''   parsename(convert(nvarchar(50),serverproperty(&apos;productversion&apos;)),4) [version];.
-        '''</summary>
-        Friend ReadOnly Property PSA_InstanceProperties() As String
-            Get
-                Return ResourceManager.GetString("PSA_InstanceProperties", resourceCulture)
+                Return ResourceManager.GetString("PSA_HashingAlgorithm", resourceCulture)
             End Get
         End Property
         
@@ -981,6 +1063,79 @@ Namespace My.Resources
         End Property
         
         '''<summary>
+        '''  Looks up a localized string similar to with [new_model] as
+        ''' (
+        '''   select
+        '''      [ara_entity],
+        '''      [ara_attribute_name],
+        '''      isnull([ara_attribute_referenced_entity],N&apos;&apos;) [ara_attribute_referenced_entity],
+        '''      case when [ara_attribute_referenced_entity] is null then [ara_attribute_datatype] else N&apos;int&apos; end [ara_attribute_datatype],
+        '''      N&apos;&apos; [ara_attribute_default],
+        '''      [ara_attribute_ordinal],
+        '''      [ara_attribute_sort],
+        '''      [ara_attribute_optional],
+        '''      [ara_attribute_business_identifier],
+        '''      [ara_attribute_description] [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property SYS_ARAAttributeDefinition() As String
+            Get
+                Return ResourceManager.GetString("SYS_ARAAttributeDefinition", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to with [new_model] as
+        ''' (
+        '''   select
+        '''      [ara_entity],
+        '''      [ara_entity_description],
+        '''      [ara_entity_type],
+        '''      [ara_hash_large_objects]
+        '''   from
+        '''      [master].[dbo].[ara_entity_definition]
+        ''' ), [existing_model] as
+        ''' (
+        '''   select
+        '''      o.[name] [ara_entity],
+        '''      case when sq.[name] is not null then N&apos;D&apos; else N&apos;F&apos; end [ara_entity_type]
+        '''   from
+        '''      sys.tables o
+        '''      left join
+        '''       (
+        '''         select
+        '''            parsename(o.[name],2) [name]
+        '''         from
+        '''            sys.tables o
+        '''   [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property SYS_ARAEntityDefinition() As String
+            Get
+                Return ResourceManager.GetString("SYS_ARAEntityDefinition", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to if object_id(N&apos;[dbo].[ara_entity_definition]&apos;,N&apos;U&apos;) is null begin;
+        '''
+        '''   create table [dbo].[ara_entity_definition]
+        '''    (
+        '''      [ara_entity] nvarchar(25) collate Latin1_General_100_BIN2,
+        '''      constraint [ck : dbo.ara_entity_definition :: ara_entity]
+        '''      check ([ara_entity] not like &apos;%[^0-9a-zA-Z]%&apos;),
+        '''      constraint [pk : dbo.ara_entity_definition {domain}]
+        '''      primary key clustered ([ara_entity]),
+        '''
+        '''      [ara_entity_description] nvarchar(4000) collate Latin1_General_100_BIN2 null,
+        '''
+        '''      [a [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property SYS_ARAMetadataTableDefinition() As String
+            Get
+                Return ResourceManager.GetString("SYS_ARAMetadataTableDefinition", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
         '''  Looks up a localized string similar to if object_id(&apos;[dbo].[sp_manage_column_properties]&apos;,N&apos;P&apos;) is not null drop procedure [dbo].[sp_manage_column_properties];
         '''
         '''exec sys.sp_executesql
@@ -1024,6 +1179,20 @@ Namespace My.Resources
         Friend ReadOnly Property SYS_DatabaseProperties() As String
             Get
                 Return ResourceManager.GetString("SYS_DatabaseProperties", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to select
+        '''   db_name() [database_name],
+        '''   @@servername [instance_name],
+        '''   serverproperty(&apos;productlevel&apos;) [product_level],
+        '''   serverproperty(&apos;edition&apos;) [edition],
+        '''   parsename(convert(nvarchar(50),serverproperty(&apos;productversion&apos;)),4) [version];.
+        '''</summary>
+        Friend ReadOnly Property SYS_InstanceProperties() As String
+            Get
+                Return ResourceManager.GetString("SYS_InstanceProperties", resourceCulture)
             End Get
         End Property
         

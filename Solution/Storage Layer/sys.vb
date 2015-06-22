@@ -15,18 +15,6 @@ Namespace Common
                       (Text.UnicodeEncoding.Unicode.GetBytes(HashingString)))
         End Function
 
-        Public Shared Function ConvertXMLtoJSON(ByVal XMLtoConvert As SqlXml) As String
-
-
-
-            Dim doc As Xml.XmlDocument = New Xml.XmlDocument
-            doc.LoadXml(XMLtoConvert.Value.ToString)
-
-            'Dim json As String = JsonConvert.SerializeXmlNode(doc)
-
-            Return ""
-        End Function
-
     End Class ' Methods
 
     Partial Public Class Aggregates
@@ -71,6 +59,26 @@ Namespace Common
         End Sub
 
     End Class ' OutboundMethods
+
+    Partial Public Class InstanceSettings
+
+        Friend Shared Function UserIsSysAdmin(SqlCnn As SqlConnection) As Boolean
+
+            Dim cmd As SqlCommand
+            Dim oid As Integer
+
+            cmd = New SqlCommand("select is_srvrolemember(N'sysadmin') [ninja]", SqlCnn)
+            oid = cmd.ExecuteScalar()
+
+            If oid = 0 Then
+                PrintClientMessage("You need elevated privileges (sysadmin) to manage this framework. Contact the database administrator.")
+                Return False
+            End If
+
+            Return True
+        End Function
+
+    End Class
 
 End Namespace
 
@@ -123,7 +131,7 @@ Namespace PersistentStagingArea
                 da = New SqlDataAdapter(cmd)
                 da.Fill(GetMetadata, "psa_attribute_definition")
 
-                cmd = New SqlCommand(My.Resources.PSA_InstanceProperties, DatabaseConnection)
+                cmd = New SqlCommand(My.Resources.SYS_InstanceProperties, DatabaseConnection)
                 da = New SqlDataAdapter(cmd)
                 da.Fill(GetMetadata, "psa_instance_properties")
 
@@ -166,22 +174,6 @@ Namespace PersistentStagingArea
             Return True
         End Function
 
-        Friend Shared Function UserIsSysAdmin(SqlCnn As SqlConnection) As Boolean
-
-            Dim cmd As SqlCommand
-            Dim oid As Integer
-
-            cmd = New SqlCommand("select is_srvrolemember(N'sysadmin') [ninja]", SqlCnn)
-            oid = cmd.ExecuteScalar()
-
-            If oid = 0 Then
-                PrintClientMessage("You need elevated privileges (sysadmin) to manage this framework. Contact the database administrator.")
-                Return False
-            End If
-
-            Return True
-        End Function
-
         Friend Shared Sub AddInstanceObjects(ByVal InstanceConnection As SqlConnection)
 
             Dim chngstr As String = "use [master];"
@@ -213,7 +205,7 @@ Namespace PersistentStagingArea
             PrintClientMessage("• Change tracking methodology in place [database]")
 
             ' execute hashing algorithm needs
-            ExecuteDDLCommand(My.Resources.PSA_HashingAlgorithmForPSA, InstanceConnection)
+            ExecuteDDLCommand(My.Resources.PSA_HashingAlgorithm, InstanceConnection)
             PrintClientMessage("• Hashing algorithms are intact [database]")
 
             ' execute service broker security needs
@@ -234,25 +226,116 @@ Namespace AnalyticReportingArea
 
     Partial Public Class FrameworkInstallation
 
-        Friend Shared Function GetMetadata(ByVal entity_cmd_string As String, ByVal attribute_cmd_string As String, sqlcnn As SqlConnection) As DataSet
+        Friend Shared Function GetMetadata(ByVal DatabaseName As String, _
+                                           ByVal DatabaseConnection As SqlConnection) As DataSet
 
-            GetMetadata = New DataSet
+            ' handle null values by flipping them to an empty string
+            If IsNothing(DatabaseName) Then DatabaseName = ""
 
-            If Not SystemObjectsInstalled(sqlcnn) Then
-                PrintClientMessage("The existing PSA framework is not valid. Entity Build aborted.")
+            If Not SystemObjectsInstalled(DatabaseConnection) Then ' test database exists and filegroups exist
+                GetMetadata = Nothing
             Else
 
+                Dim cmd As SqlCommand
+                Dim da As SqlDataAdapter
+
+                GetMetadata = New DataSet
+
+                Dim EntityQuery As String = My.Resources.SYS_ARAEntityDefinition
+                Dim AttributeQuery As String = My.Resources.SYS_ARAAttributeDefinition
+                Dim InstanceQuery As String = My.Resources.SYS_InstanceProperties
+                Dim DatabaseQuery As String = My.Resources.SYS_DatabaseProperties
+
+                Dim chngstr As String = "use [master];"
+                Dim chngdb As New SqlCommand(chngstr, DatabaseConnection)
+                chngdb.ExecuteNonQuery()
+
+                ' the following commands are under the 'master' database
+                cmd = New SqlCommand(InstanceQuery, DatabaseConnection)
+                da = New SqlDataAdapter(cmd)
+                da.Fill(GetMetadata, "ara_instance_properties")
+
+                ' this command the passed in database name
+                chngstr = "use [" & DatabaseName & "];"
+                chngdb = New SqlCommand(chngstr, DatabaseConnection)
+                chngdb.ExecuteNonQuery()
+
+                cmd = New SqlCommand(DatabaseQuery, DatabaseConnection)
+                da = New SqlDataAdapter(cmd)
+                da.Fill(GetMetadata, "ara_database_properties")
+
+                cmd = New SqlCommand(EntityQuery, DatabaseConnection)
+                da = New SqlDataAdapter(cmd)
+                da.Fill(GetMetadata, "ara_entity_definition")
+
+                cmd = New SqlCommand(AttributeQuery, DatabaseConnection)
+                da = New SqlDataAdapter(cmd)
+                da.Fill(GetMetadata, "ara_attribute_definition")
 
             End If
 
         End Function
 
-        Friend Shared Function SystemObjectsInstalled(SqlCnn As SqlConnection) As Boolean
+        Friend Shared Function SystemObjectsInstalled(ByVal SqlCnn As SqlConnection) As Boolean
+
+            Dim chngstr As String = "use [master];"
+            Dim chngdb As New SqlCommand(chngstr, SqlCnn)
+            chngdb.ExecuteNonQuery()
+
+            Dim cmd As SqlCommand
+            Dim oid As Integer
+
+            cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'ara_attribute_definition' and [schema_id]=1;select @x;", SqlCnn)
+            oid = cmd.ExecuteScalar()
+
+            If oid = 0 Then
+                Return False
+            End If
+
+            cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'ara_entity_definition' and [schema_id]=1;select @x;", SqlCnn)
+            oid = cmd.ExecuteScalar()
+
+            If oid = 0 Then
+                Return False
+            End If
 
             Return True
         End Function
 
-        Friend Shared Sub InstallSystemObjects()
+        Friend Shared Sub AddInstanceObjects(ByVal InstanceConnection As SqlConnection)
+
+            Dim chngstr As String = "use [master];"
+            Dim chngdb As New SqlCommand(chngstr, InstanceConnection)
+            chngdb.ExecuteNonQuery()
+
+            ExecuteDDLCommand(My.Resources.SYS_TableMetadataDefinition, InstanceConnection)
+            ExecuteDDLCommand(My.Resources.SYS_ColumnMetadataDefinition, InstanceConnection)
+            PrintClientMessage("• Metadata managers in place [instance]")
+
+        End Sub
+
+        Friend Shared Sub AddDatabaseObjects(ByVal InstanceConnection As SqlConnection, ByVal DatabaseName As String)
+
+            Dim chngstr As String = "use [" & DatabaseName & "];"
+            Dim chngdb As New SqlCommand(chngstr, InstanceConnection)
+            chngdb.ExecuteNonQuery()
+
+            ' make sure the required database roles are there
+            ExecuteDDLCommand(My.Resources.ARA_RoleDefinitions, InstanceConnection)
+            PrintClientMessage("• Database role requirements synced [database]")
+
+            ' make sure change tracking is turned on
+            ExecuteDDLCommand(Replace(My.Resources.ARA_DatabaseChangeTrackingDefinition, "{{{db}}}", DatabaseName), InstanceConnection)
+            ExecuteDDLCommand(My.Resources.ARA_ChangeTrackingSystemDefinition, InstanceConnection)
+            PrintClientMessage("• Change tracking methodology in place [database]")
+
+            ' execute hashing algorithm needs
+            ExecuteDDLCommand(My.Resources.ARA_HashingAlgorithm, InstanceConnection)
+            PrintClientMessage("• Hashing algorithms are intact [database]")
+
+            ' execute service broker security needs
+            ExecuteDDLCommand(My.Resources.ARA_LoggingDefinition, InstanceConnection)
+            PrintClientMessage("• Logging objects created [database]")
 
         End Sub
 

@@ -334,7 +334,7 @@ delete [dbo].[psa_change_tracking_entity_version] where [psa_object_id]=object_i
    drop trigger [{{{schema}}}].[tr : {{{label}}} {Temporal Governor}];
 end;</value>
   </data>
-  <data name="PSA_InstanceProperties" xml:space="preserve">
+  <data name="SYS_InstanceProperties" xml:space="preserve">
     <value>select
    db_name() [database_name],
    @@servername [instance_name],
@@ -588,7 +588,7 @@ begin;
 
 end;</value>
   </data>
-  <data name="PSA_HashingAlgorithmForPSA" xml:space="preserve">
+  <data name="PSA_HashingAlgorithm" xml:space="preserve">
     <value>if object_id(N'[dbo].[psa_hash]',N'FN') is null begin;
 
    exec sys.sp_executesql
@@ -778,6 +778,11 @@ create table [dbo].[psa_change_tracking_entity_version]
    [psa_change_tracking_set] bigint
  );
 
+create statistics [st : dbo.psa_change_tracking_entity_version :: psa_object_id] on [dbo].[psa_change_tracking_entity_version]
+ (
+   [psa_object_id]
+ );
+
 create statistics [st : dbo.psa_change_tracking_entity_version :: psa_schema] on [dbo].[psa_change_tracking_entity_version]
  (
    [psa_schema]
@@ -828,7 +833,10 @@ from
 where
    [object_id]=object_id(@entity);
 
-if @oid is null return -1;
+if @oid is null begin;
+   raiserror(''PSA entity %s does not exist and cannot be accessed for change tracking versioning.'',16,1,@entity) with log;
+   return -1;
+end;
 
 with merge_source as
  (
@@ -904,7 +912,7 @@ create procedure [dbo].[psa_set_change_tracking_entity_version]
  (
    @entity sysname,
    @activity nvarchar(10)
- )
+ ) with execute as ''dbo''
 as
 set nocount on;
 
@@ -918,7 +926,10 @@ from
 where
    [object_id]=object_id(@entity);
 
-if @oid is null return -1;
+if @oid is null begin;
+   raiserror(''PSA entity %s does not exist and cannot be accessed for change tracking versioning.'',16,1,@entity) with log;
+   return -1;
+end;
 
 with merge_source as
  (
@@ -970,10 +981,6 @@ exec sys.sp_MS_marksystemobject N''psa_set_change_tracking_entity_version'';
 grant select,insert,update,delete on [dbo].[psa_change_tracking_entity_version] to [psa_owner];
 grant execute on [dbo].[psa_get_change_tracking_entity_version] to [psa_owner];
 grant execute on [dbo].[psa_set_change_tracking_entity_version] to [psa_owner];
-
-grant select,insert,update,delete on [dbo].[psa_change_tracking_entity_version] to [psa_etl_manager];
-grant execute on [dbo].[psa_get_change_tracking_entity_version] to [psa_etl_manager];
-grant execute on [dbo].[psa_set_change_tracking_entity_version] to [psa_etl_manager];
 
 grant select,insert,update,delete on [dbo].[psa_change_tracking_entity_version] to [psa_abstractreader];
 grant execute on [dbo].[psa_get_change_tracking_entity_version] to [psa_abstractreader];
@@ -2366,5 +2373,672 @@ return @@error;</value>
   </data>
   <data name="PSA_ProcessDeleteSecurityDefinition" xml:space="preserve">
     <value>grant execute on [{{{schema}}}].[{{{entity}}}.ProcessDelete] to [psa_etl_manager];</value>
+  </data>
+  <data name="SYS_ARAMetadataTableDefinition" xml:space="preserve">
+    <value>if object_id(N'[dbo].[ara_entity_definition]',N'U') is null begin;
+
+   create table [dbo].[ara_entity_definition]
+    (
+      [ara_entity] nvarchar(25) collate Latin1_General_100_BIN2,
+      constraint [ck : dbo.ara_entity_definition :: ara_entity]
+      check ([ara_entity] not like '%[^0-9a-zA-Z]%'),
+      constraint [pk : dbo.ara_entity_definition {domain}]
+      primary key clustered ([ara_entity]),
+
+      [ara_entity_description] nvarchar(4000) collate Latin1_General_100_BIN2 null,
+
+      [ara_entity_type] nvarchar(1) collate Latin1_General_100_BIN2 not null,
+      constraint [ck : dbo.ara_entity_definition :: ara_entity_type]
+      check ([ara_entity_type] in(N'D',N'F')),
+
+      [ara_hash_large_objects] nvarchar(3) collate Latin1_General_100_BIN2 not null,
+      constraint [ck : dbo.ara_entity_definition :: ara_hash_large_objects]
+      check ([ara_hash_large_objects] in(N'Yes',N'No'))
+    );
+
+   exec sys.sp_MS_marksystemobject N'ara_entity_definition';
+
+end;
+
+if object_id(N'[dbo].[ara_attribute_definition]',N'U') is null begin;
+
+   create table [dbo].[ara_attribute_definition]
+    (
+      [ara_entity] nvarchar(25) collate Latin1_General_100_BIN2 not null,
+      constraint [fk : dbo.ara_attribute_definition $ dbo.ara_entity_definition]
+      foreign key ([ara_entity])
+      references [dbo].[ara_entity_definition] ([ara_entity]),
+
+      [ara_attribute] nvarchar(25) collate Latin1_General_100_BIN2 not null,
+      constraint [pk : dbo.ara_attribute_definition {entity | attribute}]
+      primary key clustered ([ara_entity],[ara_attribute]),
+
+      [ara_attribute_referenced_entity] nvarchar(25) collate Latin1_General_100_BIN2 null,
+      constraint [fk : dbo.ara_attribute_definition $$ dbo.ara_entity_definition]
+      foreign key ([ara_attribute_referenced_entity])
+      references [dbo].[ara_entity_definition] ([ara_entity]),
+
+      [ara_attribute_referenced_entity_role] nvarchar(10) collate Latin1_General_100_BIN2 null,
+      
+      [ara_attribute_name] as convert(nvarchar(53),case when [ara_attribute_referenced_entity] is null 
+                                                        then [ara_attribute] 
+                                                        else isnull([ara_attribute_referenced_entity_role],N'')+[ara_attribute_referenced_entity]+N'Key'
+                                                    end) persisted not null,
+
+      constraint [ak : dbo.ara_attribute_definition {entity | attribute name}]
+      unique nonclustered ([ara_entity],[ara_attribute_name]),
+
+      [ara_attribute_datatype] sysname collate Latin1_General_100_BIN2,
+      [ara_attribute_ordinal] int not null,
+      [ara_attribute_sort] nvarchar(4) collate Latin1_General_100_BIN2 not null,
+      constraint [ck : dbo.ara_attribute_definition :: ara_attribute_sort]
+      check ([ara_attribute_sort] in(N'asc',N'desc')),
+
+      [ara_attribute_optional] nvarchar(4) collate Latin1_General_100_BIN2 not null,
+      constraint [ck : dbo.ara_attribute_definition :: ara_attribute_optional]
+      check ([ara_attribute_optional] in(N'Yes',N'No')),
+      
+      [ara_attribute_business_identifier] nvarchar(3) collate Latin1_General_100_BIN2,
+      constraint [ck : dbo.ara_attribute_definition :: ara_attribute_business_identifier]
+      check ([ara_attribute_business_identifier] in(N'Yes',N'No')),
+
+
+
+      [ara_attribute_description] nvarchar(4000) collate Latin1_General_100_BIN2 null,
+
+      [ara_attribute_distribution] nvarchar(1) collate Latin1_General_100_BIN2 not null,
+      constraint [ck : dbo.ara_attribute_definition :: ara_attribute_distribution]
+      check ([ara_attribute_distribution] in(N'D',N'C',N'N'))
+    );
+
+   exec sys.sp_MS_marksystemobject N'ara_attribute_definition';
+
+end;</value>
+  </data>
+  <data name="ARA_ChangeTrackingSystemDefinition" xml:space="preserve">
+    <value>set nocount on;
+set quoted_identifier on;
+set ansi_nulls on;
+
+exec sys.sp_executesql 
+N'
+if object_id(N''[dbo].[ara_change_tracking_entity_version]'',N''U'') is null begin;
+
+create table [dbo].[ara_change_tracking_entity_version]
+ (
+   [ara_object_id] int not null,
+   [ara_activity] nvarchar(10) not null,
+   constraint [pk : dbo.ara_change_tracking_entity_version] 
+   primary key clustered ([ara_activity],[ara_object_id]),
+
+   [ara_schema] sysname not null,
+   [ara_entity] sysname not null,
+   [ara_domain] as quotename([ara_schema])+N''.''+quotename([ara_entity]) persisted,
+
+   [ara_change_tracking_get] bigint,
+   [ara_change_tracking_set] bigint
+ );
+
+create statistics [st : dbo.ara_change_tracking_entity_version :: ara_object_id] on [dbo].[ara_change_tracking_entity_version]
+ (
+   [ara_object_id]
+ );
+
+create statistics [st : dbo.ara_change_tracking_entity_version :: ara_schema] on [dbo].[ara_change_tracking_entity_version]
+ (
+   [ara_schema]
+ );
+
+create statistics [st : dbo.ara_change_tracking_entity_version :: ara_entity] on [dbo].[ara_change_tracking_entity_version]
+ (
+   [ara_entity]
+ );
+
+create statistics [st : dbo.ara_change_tracking_entity_version :: ara_domain] on [dbo].[ara_change_tracking_entity_version]
+ (
+   [ara_domain]
+ );
+
+create statistics [st : dbo.ara_change_tracking_entity_version :: ara_activity] on [dbo].[ara_change_tracking_entity_version]
+ (
+   [ara_activity]
+ );
+
+exec sys.sp_MS_marksystemobject N''ara_change_tracking_entity_version'';
+end;
+';
+
+exec sys.sp_executesql 
+N'
+if object_id(N''[dbo].[ara_get_change_tracking_entity_version]'',N''P'') is not null drop procedure [dbo].[ara_get_change_tracking_entity_version];
+';
+
+exec sys.sp_executesql 
+N'
+create procedure [dbo].[ara_get_change_tracking_entity_version] 
+ (
+   @entity sysname,
+   @activity nvarchar(10),
+   @current_version bigint output
+ ) with execute as ''dbo''
+as
+set nocount on;
+
+declare
+   @oid int=null;
+
+select
+   @oid=[object_id]
+from
+   sys.change_tracking_tables ctt
+where
+   [object_id]=object_id(@entity);
+
+if @oid is null begin;
+   raiserror(''ARA entity %s does not exist and cannot be accessed for change tracking versioning.'',16,1,@entity) with log;
+   return -1;
+end;
+
+with merge_source as
+ (
+   select
+      @oid [ara_object_id],
+      @activity [ara_activity],
+      change_tracking_current_version() [ara_change_tracking_set],
+      change_tracking_min_valid_version(@oid) [ara_change_tracking_get],
+      object_schema_name(@oid) [ara_schema],
+      object_name(@oid) [ara_entity]
+ )
+merge
+   [dbo].[ara_change_tracking_entity_version] t
+using
+   merge_source s on t.[ara_object_id]=s.[ara_object_id]
+                 and t.[ara_activity]=s.[ara_activity]
+when matched then
+   update
+      -- [dbo].[ara_change_tracking_entity_version]
+   set
+      [ara_change_tracking_set]=s.[ara_change_tracking_set]
+when not matched by target then
+   insert -- [dbo].[ara_change_tracking_entity_version]
+    (
+      [ara_object_id],
+      [ara_activity],
+      [ara_schema],
+      [ara_entity],
+      [ara_change_tracking_get],
+      [ara_change_tracking_set]
+    )
+   values
+    (
+      s.[ara_object_id],
+      s.[ara_activity],
+      s.[ara_schema],
+      s.[ara_entity],
+      s.[ara_change_tracking_get],
+      s.[ara_change_tracking_set]
+    );
+
+declare
+   @rv bigint;
+
+select
+   @rv=[ara_change_tracking_get]
+from
+   [dbo].[ara_change_tracking_entity_version]
+where
+   [ara_object_id]=@oid
+   and
+   [ara_activity]=@activity;
+
+select
+   @current_version=@rv;
+
+return @rv;
+';
+
+exec sys.sp_executesql 
+N'
+exec sys.sp_MS_marksystemobject N''ara_get_change_tracking_entity_version'';
+';
+
+exec sys.sp_executesql 
+N'
+if object_id(N''[dbo].[ara_set_change_tracking_entity_version]'',N''P'') is not null drop procedure [dbo].[ara_set_change_tracking_entity_version];
+';
+
+exec sys.sp_executesql 
+N'
+create procedure [dbo].[ara_set_change_tracking_entity_version]
+ (
+   @entity sysname,
+   @activity nvarchar(10)
+ ) with execute as ''dbo''
+as
+set nocount on;
+
+declare
+   @oid int=null;
+
+select
+   @oid=[object_id]
+from
+   sys.change_tracking_tables ctt
+where
+   [object_id]=object_id(@entity);
+
+if @oid is null begin;
+   raiserror(''ARA entity %s does not exist and cannot be accessed for change tracking versioning.'',16,1,@entity) with log;
+   return -1;
+end;
+
+with merge_source as
+ (
+   select
+      @oid [ara_object_id],
+      @activity [ara_activity],
+      change_tracking_min_valid_version(@oid) [ara_change_tracking_get],
+      object_schema_name(@oid) [ara_schema],
+      object_name(@oid) [ara_entity]
+ )
+merge
+   [dbo].[ara_change_tracking_entity_version] t
+using
+   merge_source s on t.[ara_object_id]=s.[ara_object_id]
+                 and t.[ara_activity]=s.[ara_activity]
+when matched then
+   update
+      -- [dbo].[ara_change_tracking_entity_version]
+   set
+      [ara_change_tracking_get]=t.[ara_change_tracking_set]
+when not matched by target then
+   insert -- [dbo].[ara_change_tracking_entity_version]
+    (
+      [ara_object_id],
+      [ara_activity],
+      [ara_schema],
+      [ara_entity],
+      [ara_change_tracking_get],
+      [ara_change_tracking_set]
+    )
+   values
+    (
+      s.[ara_object_id],
+      s.[ara_activity],
+      s.[ara_schema],
+      s.[ara_entity],
+      s.[ara_change_tracking_get],
+      s.[ara_change_tracking_get]
+    );
+
+return @@error;
+';
+
+exec sys.sp_executesql 
+N'
+exec sys.sp_MS_marksystemobject N''ara_set_change_tracking_entity_version'';
+';
+
+grant select,insert,update,delete on [dbo].[ara_change_tracking_entity_version] to [ara_owner];
+grant execute on [dbo].[ara_get_change_tracking_entity_version] to [ara_owner];
+grant execute on [dbo].[ara_set_change_tracking_entity_version] to [ara_owner];</value>
+  </data>
+  <data name="ARA_DatabaseChangeTrackingDefinition" xml:space="preserve">
+    <value>if not exists(select 1 from sys.change_tracking_databases where [database_id]=db_id()) begin;
+   alter database [{{{db}}}] set change_tracking=on (change_retention=5 days,auto_cleanup=on);
+end;</value>
+  </data>
+  <data name="ARA_HashingAlgorithm" xml:space="preserve">
+    <value>if object_id(N'[dbo].[ara_hash]',N'FN') is null begin;
+
+   exec sys.sp_executesql
+   N'
+   create function [dbo].[ara_hash] 
+    (
+      @string nvarchar(max)
+    ) 
+   returns varbinary(20) with encryption
+   as 
+   begin;
+      return master.dbo.[fn_hash](@string);
+   end;
+   '
+   exec sys.sp_MS_marksystemobject 'ara_hash';
+
+end;</value>
+  </data>
+  <data name="ARA_LoggingDefinition" xml:space="preserve">
+    <value>if object_id(N'[dbo].[ara_batch_control]',N'U') is null begin;
+
+   create table [dbo].[ara_batch_control] 
+    (
+      [ara_batch_id] uniqueidentifier not null
+      constraint [df : dbo.ara_batch_control {Sequential GUID}] default (newsequentialid()),
+	   constraint [pk : dbo.ara_batch_control :: ara_batch_id]
+      primary key clustered ([ara_batch_id] asc)
+      with (fillfactor=80),
+	   [ara_batch_ssis_id] bigint not null,
+      [ara_package_name] nvarchar(128) null,
+	   [ara_batch_start] datetime2(7) not null,
+	   [ara_batch_end] datetime2(7) null,
+      [ara_batch_completed] as (convert(bit,case when [ara_batch_end] is not null then 1 else 0 end)) persisted not null
+    );
+
+   exec sys.sp_MS_marksystemobject 'ara_batch_control';
+end;
+
+if object_id(N'[dbo].[ara_start_batch]',N'P') is null begin;
+
+exec sys.sp_executesql N'
+create procedure [dbo].[ara_start_batch]
+ (
+	@ara_batch_ssis_id bigint,
+   @ara_package_name nvarchar(128)
+ )
+as
+set nocount on;
+
+insert [dbo].[ara_batch_control]
+ (
+   [ara_batch_ssis_id],
+   [ara_batch_start],
+   [ara_package_name]
+ )
+output
+   inserted.[ara_batch_id]
+values 
+ (
+   @ara_batch_ssis_id,
+   sysutcdatetime(),
+   @ara_package_name
+ );
+
+return @@error;'
+
+end;
+
+exec sys.sp_MS_marksystemobject 'ara_start_batch';
+
+grant execute on [dbo].[ara_start_batch] to [ara_etl_manager];
+
+if object_id(N'[dbo].[ara_end_batch]',N'P') is null begin;
+
+exec sys.sp_executesql N'
+create procedure [dbo].[ara_end_batch]
+ (
+	@ara_batch_id uniqueidentifier
+ )
+as
+set nocount on;
+
+update
+   [dbo].[ara_batch_control] 
+set
+   [ara_batch_end]=sysutcdatetime()
+where
+   [ara_batch_id]=@ara_batch_id;
+
+return @@error;'
+end;
+
+exec sys.sp_MS_marksystemobject 'ara_end_batch';
+
+grant execute on [dbo].[ara_end_batch] to [ara_etl_manager];</value>
+  </data>
+  <data name="ARA_RoleDefinitions" xml:space="preserve">
+    <value>if not exists(select 1 from sys.sysusers where [name]=N'ara_owner') begin;
+   create role [ara_owner] authorization [db_owner];
+end;
+
+if not exists(select 1 from sys.sysusers where [name]=N'ara_etl_manager') begin;
+   create role [ara_etl_manager] authorization [db_owner];
+end;</value>
+  </data>
+  <data name="SYS_ARAEntityDefinition" xml:space="preserve">
+    <value>with [new_model] as
+ (
+   select
+      [ara_entity],
+      [ara_entity_description],
+      [ara_entity_type],
+      [ara_hash_large_objects]
+   from
+      [master].[dbo].[ara_entity_definition]
+ ), [existing_model] as
+ (
+   select
+      o.[name] [ara_entity],
+      case when sq.[name] is not null then N'D' else N'F' end [ara_entity_type]
+   from
+      sys.tables o
+      left join
+       (
+         select
+            parsename(o.[name],2) [name]
+         from
+            sys.tables o
+         where
+            object_schema_name(o.[object_id])=N'dbo'
+            and
+            o.[is_ms_shipped]=1
+            and
+            left(o.[name],4)!=N'ara_'
+       ) sq on o.[name]=sq.[name]
+   where
+      object_schema_name(o.[object_id])=N'dbo'
+      and
+      o.[is_ms_shipped]=0
+ ), [entity_set] as
+ (
+   select [ara_entity] from [existing_model]
+   union
+   select [ara_entity] from [new_model]
+ )
+select
+   x.[ara_entity],
+   isnull(n.[ara_entity_description],N'') [ara_entity_description],
+   coalesce(e.[ara_entity_type],n.[ara_entity_type]) [ara_entity_type],
+   coalesce(n.[ara_entity_type],e.[ara_entity_type]) [ara_new_entity_type],
+   isnull(n.[ara_hash_large_objects],N'No') [ara_hash_large_objects],
+   case when e.[ara_entity] is null
+        then convert(bit,1)
+        else convert(bit,0)
+    end [ara_entity_create],
+   case when n.[ara_entity] is null 
+        then convert(bit,1)
+        else convert(bit,0)
+    end [ara_entity_delete]
+from
+   [entity_set] x
+   left join
+   [new_model] n on x.[ara_entity]=n.[ara_entity]
+   left join
+   [existing_model] e on x.[ara_entity]=e.[ara_entity];</value>
+  </data>
+  <data name="SYS_ARAAttributeDefinition" xml:space="preserve">
+    <value>with [new_model] as
+ (
+   select
+      [ara_entity],
+      [ara_attribute_name],
+      isnull([ara_attribute_referenced_entity],N'') [ara_attribute_referenced_entity],
+      case when [ara_attribute_referenced_entity] is null then [ara_attribute_datatype] else N'int' end [ara_attribute_datatype],
+      N'' [ara_attribute_default],
+      [ara_attribute_ordinal],
+      [ara_attribute_sort],
+      [ara_attribute_optional],
+      [ara_attribute_business_identifier],
+      [ara_attribute_description],
+      [ara_attribute_distribution]
+   from 
+      [master].[dbo].[ara_attribute_definition]
+ ), [existing_bids] as
+ (
+   select
+      ic.[object_id],
+      ic.[column_id],
+      ic.[is_descending_key]
+   from
+      sys.index_columns ic
+      inner join
+      sys.indexes i on ic.[object_id]=i.[object_id]
+                     and ic.[index_id]=i.[index_id]
+      inner join
+      sys.columns c on ic.[object_id]=c.[object_id]
+                     and ic.[column_id]=c.[column_id]
+      inner join
+      sys.tables t on c.[object_id]=t.[object_id]
+   where
+      i.[is_unique]=1
+      and
+      ic.[is_included_column]=0
+      and
+      left(i.[name],4)=N'ak :'
+      and
+      left(c.[name],4)!=N'ara_'
+      and
+      t.[is_ms_shipped]=0
+ ), [existing_pks] as
+ (
+   select
+      ic.[object_id],
+      ic.[column_id]
+   from
+      sys.index_columns ic
+      inner join
+      sys.indexes i on ic.[object_id]=i.[object_id]
+                     and ic.[index_id]=i.[index_id]
+      inner join
+      sys.columns c on ic.[object_id]=c.[object_id]
+                     and ic.[column_id]=c.[column_id]
+      inner join
+      sys.tables t on c.[object_id]=t.[object_id]
+   where
+      i.[is_primary_key]=1
+      and
+      ic.[is_included_column]=0
+      and
+      left(c.[name],4)!=N'ara_'
+      and
+      t.[is_ms_shipped]=0
+ ), [existing_refs] as
+ (
+   select
+      fkc.[parent_object_id] [object_id],
+      fkc.[parent_column_id] [column_id],
+      object_name(fkc.[parent_object_id]) [ara_attribute_referenced_entity]
+   from 
+      sys.foreign_key_columns fkc
+ ), [existing_model] as
+ (
+   select
+      o.[name] [ara_entity],
+      c.[name] [ara_attribute_name],
+      isnull(er.[ara_attribute_referenced_entity],N'') [ara_attribute_referenced_entity],
+      case y.[Name]
+         when N'char' then y.[Name]+N'('+convert(nvarchar(10),c.[max_length])+N')'
+         when N'nchar' then y.[Name]+N'('+convert(nvarchar(10),c.[max_length]/2)+N')'
+         when N'varchar' then y.[Name]+N'('+ isnull(nullif(convert(nvarchar(10),c.[max_length]),N'-1'),N'max') +N')'
+         when N'nvarchar' then y.[Name]+N'('+ isnull(nullif(convert(nvarchar(10),c.[max_length]/2),N'-1'),N'max') +N')'
+         when N'binary' then y.[Name]+N'('+isnull(nullif(convert(nvarchar(10),c.[max_length]),N'-1'),N'max')+N')'
+         when N'varbinary' then y.[Name]+N'('+isnull(nullif(convert(nvarchar(10),c.[max_length]),N'-1'),N'max')+N')'
+         when N'datetime2' then y.[Name]+N'('+convert(nvarchar(10),c.[scale])+N')'
+         when N'decimal' then y.[Name]+N'('+convert(nvarchar(10),c.[precision])+N','+convert(nvarchar(10),c.[scale])+N')'
+         when N'numeric' then y.[Name]+N'('+convert(nvarchar(10),c.[precision])+N','+convert(nvarchar(10),c.[scale])+N')'
+         else y.[Name]
+       end [ara_attribute_datatype],
+      lower(isnull(df.[definition],N'')) [ara_attribute_default],
+      row_number() over(partition by o.[name] order by c.[column_id]) [ara_attribute_ordinal],
+      case when sq.[is_descending_key]=1 then 'desc' else N'asc' end [ara_attribute_sort],
+      case c.[is_nullable] when 1 then N'Yes' else N'No' end [ara_attribute_optional],
+      case when sq.[column_id] is not null then N'Yes' else N'No' end [ara_attribute_business_identifier]
+   from
+      sys.tables o
+      inner join
+      sys.columns c on o.[object_id]=c.[object_id] and left(c.[name],4)!=N'ara_'
+      inner join
+      sys.types y on c.[user_type_id]=y.[user_type_id] 
+      left join
+      sys.default_constraints df on c.[object_id]=df.[parent_object_id]
+                                and c.[column_id]=df.[parent_column_id]
+      left join
+      [existing_bids] sq on c.[object_id]=sq.[object_id]
+                        and c.[column_id]=sq.[column_id]
+      left join
+      [existing_pks] epk on c.[object_id]=epk.[object_id]
+                        and c.[column_id]=epk.[column_id]
+      left join
+      [existing_refs] er on c.[object_id]=er.[object_id]
+                        and c.[column_id]=er.[column_id]
+   where
+      object_schema_name(o.[object_id])=N'dbo'
+      and
+      o.[is_ms_shipped]=0 -- i dont want system objects
+      and
+      epk.[column_id] is null -- i dont want the surrogate keys
+ ), [keyset] as
+ (
+   select [ara_entity],[ara_attribute_name] from [new_model]
+   union
+   select [ara_entity],[ara_attribute_name] from [existing_model]
+ )
+select
+   ks.[ara_entity],
+   ks.[ara_attribute_name],
+   isnull(nm.[ara_attribute_referenced_entity],N'') [ara_attribute_referenced_entity],
+   isnull(nm.[ara_attribute_datatype],N'') [ara_attribute_datatype],
+   isnull(nm.[ara_attribute_default],N'') [ara_attribute_default],
+   isnull(nm.[ara_attribute_ordinal],0) [ara_attribute_ordinal],
+   isnull(nm.[ara_attribute_sort],N'') [ara_attribute_sort],
+   isnull(nm.[ara_attribute_optional],N'') [ara_attribute_optional],
+   isnull(nm.[ara_attribute_business_identifier],N'') [ara_attribute_business_identifier],
+   isnull(nm.[ara_attribute_description],N'') [ara_attribute_description],
+   isnull(nm.[ara_attribute_distribution],N'') [ara_attribute_distribution],
+   case when em.[ara_entity] is null
+        then convert(bit,1)
+        else convert(bit,0)
+    end [ara_attribute_add_column],
+   case when nm.[ara_entity] is null 
+        then convert(bit,1)
+        else convert(bit,0)
+    end [ara_attribute_delete_column],
+   case when em.[ara_entity] is null or nm.[ara_entity] is null 
+        then convert(bit,0)
+        when em.[ara_attribute_datatype]!=nm.[ara_attribute_datatype] or em.[ara_attribute_optional]!=nm.[ara_attribute_optional]
+        then convert(bit,1)
+        else convert(bit,0)
+    end [ara_attribute_alter_column],
+   case when em.[ara_entity] is null or nm.[ara_entity] is null 
+        then convert(bit,0)
+        when isnull(em.[ara_attribute_referenced_entity],N'')!=isnull(nm.[ara_attribute_referenced_entity],N'')
+        then convert(bit,1)
+        else convert(bit,0)
+    end [ara_attribute_alter_foreign_key],
+   case when em.[ara_entity] is null or nm.[ara_entity] is null 
+        then convert(bit,0)
+        when isnull(em.[ara_attribute_default],N'')!=isnull(nm.[ara_attribute_default],N'')
+        then convert(bit,1)
+        else convert(bit,0)
+    end [ara_attribute_alter_default],
+   case when em.[ara_entity] is null or nm.[ara_entity] is null 
+        then convert(bit,0)
+        when em.[ara_entity] is null and nm.[ara_attribute_business_identifier]=N'Yes'
+        then convert(bit,1)
+        when em.[ara_attribute_business_identifier]!=nm.[ara_attribute_business_identifier]
+        then convert(bit,1)
+        when nm.[ara_attribute_business_identifier]=N'Yes' and em.[ara_attribute_sort]!=nm.[ara_attribute_sort]
+        then convert(bit,1)
+        else convert(bit,0)
+    end [ara_attribute_alter_alternate_key]
+from
+   [keyset] ks
+   left join
+   [new_model] nm on ks.[ara_entity]=nm.[ara_entity]
+                 and ks.[ara_attribute_name]=nm.[ara_attribute_name]
+   left join
+   [existing_model] em on ks.[ara_entity]=em.[ara_entity]
+                      and ks.[ara_attribute_name]=em.[ara_attribute_name]
+order by
+   ks.[ara_entity],isnull(nm.[ara_attribute_ordinal],9999);</value>
   </data>
 </root>

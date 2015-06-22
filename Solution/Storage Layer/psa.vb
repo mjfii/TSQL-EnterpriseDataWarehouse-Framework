@@ -6,6 +6,7 @@ Imports Microsoft.SqlServer.Server
 Imports System.Data.SqlClient
 Imports System.Runtime.InteropServices
 Imports EDW.Common.SqlClientOutbound
+Imports EDW.Common.InstanceSettings
 Imports EDW.PersistentStagingArea.FrameworkInstallation
 
 Partial Public Class PSA
