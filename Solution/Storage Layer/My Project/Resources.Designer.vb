@@ -339,21 +339,22 @@ Namespace My.Resources
         '''<summary>
         '''  Looks up a localized string similar to create function [{{{schema}}}].[{{{entity}}}.Changes]
         ''' (
-        '''    @Version bigint 
+        '''   @Version bigint=0,
+        '''   @NullOnDeletes bit=1
         ''' )
         '''returns table with schemabinding
         '''as return
         '''
         '''select
-        '''   [psa_entity_key] [PersistentEntityKey],
-        '''   [psa_entity_sequence] [PersistentEntityIncrement],
-        '''   [psa_start_period] [PersistentEntityValidFrom],
-        '''   isnull([psa_end_period],&apos;9999-12-31 23:59:59.9999999&apos;) [PersistentEntityValidTo],
-        '''   [psa_dml_action] [PersistentEntityChangeAction],
+        '''   d.[psa_entity_key] [PersistentEntityKey],
+        '''   d.[psa_entity_sequence] [PersistentEntityIncrement],
+        '''   d.[psa_start_period] [PersistentEntityValidFrom],
+        '''   isnull(d.[psa_end_period],&apos;9999-12-31 23:59:59.9999999&apos;) [PersistentEntityValidTo],
+        '''   d.[psa_dml_action] [PersistentEntityChangeAction],
+        '''{{{ak_columnset}}}
         '''{{{columnset}}}
         '''from
-        '''   changetable(changes {{{domain}}},@Version) c
-        '''   inner j [rest of string was truncated]&quot;;.
+        '''    [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property PSA_ChangesFunctionDefinition() As String
             Get

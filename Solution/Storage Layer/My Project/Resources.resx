@@ -239,17 +239,19 @@ group by
   <data name="PSA_ChangesFunctionDefinition" xml:space="preserve">
     <value>create function [{{{schema}}}].[{{{entity}}}.Changes]
  (
-    @Version bigint 
+   @Version bigint=0,
+   @NullOnDeletes bit=1
  )
 returns table with schemabinding
 as return
 
 select
-   [psa_entity_key] [PersistentEntityKey],
-   [psa_entity_sequence] [PersistentEntityIncrement],
-   [psa_start_period] [PersistentEntityValidFrom],
-   isnull([psa_end_period],'9999-12-31 23:59:59.9999999') [PersistentEntityValidTo],
-   [psa_dml_action] [PersistentEntityChangeAction],
+   d.[psa_entity_key] [PersistentEntityKey],
+   d.[psa_entity_sequence] [PersistentEntityIncrement],
+   d.[psa_start_period] [PersistentEntityValidFrom],
+   isnull(d.[psa_end_period],'9999-12-31 23:59:59.9999999') [PersistentEntityValidTo],
+   d.[psa_dml_action] [PersistentEntityChangeAction],
+{{{ak_columnset}}}
 {{{columnset}}}
 from
    changetable(changes {{{domain}}},@Version) c
@@ -324,10 +326,7 @@ if object_id('[{{{schema}}}].[{{{entity}}}.BatchCount]',N'V') is not null drop v
 
 if object_id('[{{{schema}}}].[{{{entity}}}.DeleteStage]',N'U') is not null drop table [{{{schema}}}].[{{{entity}}}.DeleteStage];
 if object_id('[{{{schema}}}].[{{{entity}}}.UpsertStage]',N'U') is not null drop table [{{{schema}}}].[{{{entity}}}.UpsertStage];
-if object_id('[{{{schema}}}].[{{{entity}}}.ArchiveStage]',N'U') is not null drop table [{{{schema}}}].[{{{entity}}}.ArchiveStage];
-
--- any existing change control
-delete [dbo].[psa_change_tracking_entity_version] where [psa_object_id]=object_id('[{{{schema}}}].[{{{entity}}}]',N'U');</value>
+if object_id('[{{{schema}}}].[{{{entity}}}.ArchiveStage]',N'U') is not null drop table [{{{schema}}}].[{{{entity}}}.ArchiveStage];</value>
   </data>
   <data name="PSA_DropTemporalGovernorDefinition" xml:space="preserve">
     <value>if object_id(N'[{{{schema}}}].[tr : {{{label}}} {Temporal Governor}]',N'TR') is not null begin;
@@ -384,6 +383,10 @@ set ansi_warnings on;</value>
       drop trigger [dbo].[tr : {{{label}}} {Temporal Governor}]
 
    end;
+
+   -- any existing change control
+   delete [dbo].[psa_change_tracking_entity_version] where [psa_object_id]=object_id('{{{domain}}}',N'U');
+
 end;</value>
   </data>
   <data name="PSA_RoleDefinitions" xml:space="preserve">

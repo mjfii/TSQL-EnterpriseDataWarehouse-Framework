@@ -474,6 +474,13 @@ nextc:
             Yes = 1
             No = 2
         End Enum
+
+        Enum AttributeType As UShort
+            BusinessIdentifier = 1
+            Variable = 2
+            Both = 3
+        End Enum
+
 #End Region
 
 #Region "Construct Constructors"
@@ -1037,14 +1044,16 @@ nextc:
 
             ReadOnly Property ChangesFunctionDefinition As String
                 Get
-                    Dim cs As String = ColumnSetChunk("", 3)
-                    cs = Left(cs, Len(cs) - 1) ' remove the last comma
+                    Dim cs As String = NewColumnSetChunk("d", 3, "", "", AttributeType.BusinessIdentifier)
 
                     Dim sd As String
                     sd = My.Resources.PSA_ChangesFunctionDefinition
                     sd = Replace(sd, "{{{schema}}}", Schema)
                     sd = Replace(sd, "{{{entity}}}", Entity)
                     sd = Replace(sd, "{{{domain}}}", Domain)
+                    sd = Replace(sd, "{{{ak_columnset}}}", cs)
+                    cs = NewColumnSetChunk("d", 3, "case when @NullOnDeletes=1 and d.[psa_dml_action]=N'D' then null else ", " end", AttributeType.Variable)
+                    cs = Left(cs, Len(cs) - 1) ' remove the last comma
                     sd = Replace(sd, "{{{columnset}}}", cs)
                     Return sd
                 End Get
@@ -1565,6 +1574,31 @@ nextc:
                     Return Left(rstr, Len(rstr) - 2)
                 End Get
             End Property
+
+
+            Private ReadOnly Property NewColumnSetChunk(Optional ByVal ColumnSetAlias As String = "", Optional ByVal ColumnPadding As UShort = 0, _
+                                                        Optional ByVal ColumnPrefix As String = "", Optional ByVal ColumnSuffix As String = "", _
+                                                        Optional ByVal AttributeTypesToInclude As AttributeType = AttributeType.Both) As String
+                Get
+                    Dim bia As EntityAttribute = Nothing
+                    Dim rstr As String = ""
+                    Dim pad As New String(" ", ColumnPadding)
+                    ColumnSetAlias = If(ColumnSetAlias = "", "", ColumnSetAlias & ".")
+
+                    For Each bia In _attribute.OrderBy(Function(EntityAttribute) EntityAttribute.BusinessIdentifier).ThenBy(Function(EntityAttribute) EntityAttribute.Ordinal)
+
+                        If (bia.BusinessIdentifier = YesNoType.Yes And AttributeTypesToInclude = AttributeType.BusinessIdentifier) Or _
+                           (bia.BusinessIdentifier = YesNoType.No And AttributeTypesToInclude = AttributeType.Variable) Or _
+                           AttributeTypesToInclude = AttributeType.Both Then
+                            rstr += pad & ColumnPrefix & ColumnSetAlias & "[" & bia.Name & "]" & ColumnSuffix & " [" & bia.Name & "]," & vbCrLf
+                        End If
+
+                    Next
+
+                    Return Left(rstr, Len(rstr) - 2)
+                End Get
+            End Property
+
 
 #End Region
 

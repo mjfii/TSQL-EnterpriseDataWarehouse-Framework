@@ -135,20 +135,18 @@ Public Class ARA
 
     Private Shared Sub ProcessConstruct(pc As Construct, SqlCnn As SqlConnection, VerifyOnly As Boolean, DeleteObjects As Boolean)
 
-        Dim st As Date = Now()
+        Dim StartTime As Date = Now()
         Dim c As Integer = 0
         Dim e As Construct.Entity = Nothing
         Dim s As String = Nothing
         Dim fmt As String = "yyyy-MM-dd HH:mm:ss.ff"
         Dim cmd As New SqlCommand
-        'Dim ls As String ' logical signature
-        'Dim cs As String ' construct signature
         Dim lbl As String = "" ' updating label
         Dim plbl As String = "" ' printed label
 
         ' print header information
         PrintClientMessage(vbCrLf)
-        PrintClientMessage("• Process construct started at " & st.ToString(fmt))
+        PrintClientMessage("• Process construct started at " & StartTime.ToString(fmt))
         PrintClientMessage("• Database Name: " & pc.DatabaseName)
         PrintClientMessage("• Database Compatibility: " & pc.DatabaseCompatibility.ToString)
 
@@ -158,29 +156,30 @@ Public Class ARA
         ' move through each entity
         For c = 0 To (i - 1)
 
-            PrintClientMessage(pc.Entities(c).Domain.ToString & " : " & pc.Entities(c).CreateEntity.ToString & " : " & pc.Entities(c).DeleteEntity.ToString)
-       
+            PrintClientMessage(pc.Entities(c).Domain.ToString)
+            PrintClientMessage("  Create Entity ? " & pc.Entities(c).CreateEntity.ToString)
+            PrintClientMessage("  Delete Entity ? " & pc.Entities(c).DeleteEntity.ToString)
+
             ix = pc.Entities(c).AttributeCount
 
-            'Dim bi As Construct.Entity.EntityAttribute() = pc.Entities(c).BusinessIdentifiers
+            Dim bi As Construct.Entity.EntityAttribute() = pc.Entities(c).BusinessIdentifiers
 
-            'If Not IsNothing(bi) Then
+            If Not IsNothing(bi) Then
 
-            '    For Each att In pc.Entities(c).BusinessIdentifiers
-            '        PrintClientMessage(att.Name.ToString)
-            '        'PrintClientMessage(pc.Entities(c).Attributes(r).Datatype)
-            '    Next
+                For Each att In pc.Entities(c).BusinessIdentifiers
+                    PrintClientMessage(att.Name.ToString)
+                    'PrintClientMessage(pc.Entities(c).Attributes(r).Datatype)
+                Next
 
-            'End If
+            End If
 
-        Next
-
+        Next c
 
         Dim ed As Date = Now()
         PrintClientMessage(vbCrLf & "• Process ended at " & ed.ToString(fmt))
 
-        Dim min As Integer = DateDiff(DateInterval.Minute, st, ed)
-        Dim sec As Integer = DateDiff(DateInterval.Second, st, ed) Mod 60
+        Dim min As Integer = DateDiff(DateInterval.Minute, StartTime, ed)
+        Dim sec As Integer = DateDiff(DateInterval.Second, StartTime, ed) Mod 60
         PrintClientMessage("• Time to execute " & min.ToString & " min(s) " & sec.ToString & " sec(s)")
 
     End Sub
@@ -298,7 +297,6 @@ Public Class ARA
                 Dim adt As DataTable = _construct.Tables("ara_attribute_definition")
                 Dim e As Entity
                 Dim i As Integer = 0
-                Dim DisposeEntity As Boolean
 
                 _databasename = CStr(dpt.Rows(0).Item("database_name").ToString)
                 _databasecompatibility = CUShort(dpt.Rows(0).Item("compatibility_level").ToString)
@@ -306,7 +304,6 @@ Public Class ARA
                 ' determine entites to add or update or do nothing
                 For Each edr In edt.Rows
 
-                    DisposeEntity = False
                     ReDim Preserve _entities(i)
 
                     e = New Entity(edr("ara_entity"), _
@@ -328,7 +325,13 @@ Public Class ARA
                                              adr("ara_attribute_optional"), _
                                              adr("ara_attribute_business_identifier"), _
                                              If(IsDBNull(adr("ara_attribute_description")), "", adr("ara_attribute_description")), _
-                                             adr("ara_attribute_distribution"))
+                                             adr("ara_attribute_distribution"),
+                                             adr("ara_attribute_add_column"), _
+                                             adr("ara_attribute_delete_column"), _
+                                             adr("ara_attribute_alter_column"), _
+                                             adr("ara_attribute_alter_foreign_key"), _
+                                             adr("ara_attribute_alter_default"), _
+                                             adr("ara_attribute_alter_alternate_key"))
 
                     Next adr
 
@@ -435,7 +438,6 @@ Public Class ARA
             Private _createentity As Boolean
             Private _deleteentity As Boolean
             Private _attribute As EntityAttribute()
-
 #End Region
 
 #Region "Entity Properties"
@@ -485,20 +487,20 @@ Public Class ARA
                 End Set
             End Property
 
-            Property CreateEntity
+            Property CreateEntity As Boolean
                 Get
                     Return _createentity
                 End Get
-                Set(value)
+                Set(value As Boolean)
                     _createentity = value
                 End Set
             End Property
 
-            Property DeleteEntity
+            Property DeleteEntity As Boolean
                 Get
                     Return _deleteentity
                 End Get
-                Set(value)
+                Set(value As Boolean)
                     _deleteentity = value
                 End Set
             End Property
@@ -674,8 +676,14 @@ Public Class ARA
             ReadOnly Property BusinessIdentifiers As EntityAttribute()
                 Get
                     Dim a As EntityAttribute() = Nothing
+                    Dim x As EntityAttribute
+
+                    If IsNothing(_attribute) Then
+                        Return Nothing
+                    End If
 
                     For Each x In _attribute
+
                         If x.BusinessIdentifier = YesNoType.Yes Then
                             If IsNothing(a) Then
                                 ReDim a(0)
@@ -691,11 +699,15 @@ Public Class ARA
                 End Get
             End Property
 
-
 #End Region
 
-            Sub New(ByVal NewEntity As String, ByVal NewDescription As String, ByVal NewEntityType As String, ByVal NewHashLargeObjects As String, _
-                    ByVal NewExistingEntityType As String, ByVal NewEntityCreate As Boolean, ByVal NewEntityDelete As Boolean)
+            Sub New(ByVal NewEntity As String, _
+                    ByVal NewDescription As String, _
+                    ByVal NewEntityType As String, _
+                    ByVal NewHashLargeObjects As String, _
+                    ByVal NewExistingEntityType As String, _
+                    ByVal NewEntityCreate As Boolean, _
+                    ByVal NewEntityDelete As Boolean)
 
                 Entity = NewEntity
                 Description = NewDescription
@@ -707,45 +719,75 @@ Public Class ARA
 
             End Sub
 
-            Sub AddEntityAttribute(ByVal AttributeName As String, ByVal AttributeReferencedEntity As String, ByVal AttributeDatatype As String, _
-                                   ByVal AttributeDefault As String, ByVal AttributeOrdinal As Integer,
-                                   ByVal AttributeSortOrder As String, ByVal AttributeOptionality As String, _
-                                   ByVal AttributeBusinessIdentifier As String, ByVal AttributeDescription As String, _
-                                   ByVal AttributeDistribution As String)
+            Sub AddEntityAttribute(ByVal AttributeName As String, _
+                                   ByVal AttributeReferencedEntity As String, _
+                                   ByVal AttributeDatatype As String, _
+                                   ByVal AttributeDefault As String, _
+                                   ByVal AttributeOrdinal As Integer, _
+                                   ByVal AttributeSortOrder As String, _
+                                   ByVal AttributeOptionality As String, _
+                                   ByVal AttributeBusinessIdentifier As String, _
+                                   ByVal AttributeDescription As String, _
+                                   ByVal AttributeDistribution As String, _
+                                   ByVal AttributeAddColumn As Boolean, _
+                                   ByVal AttributeDeleteColumn As Boolean, _
+                                   ByVal AttributeAlterColumn As Boolean, _
+                                   ByVal AttributeAlterForeignKey As Boolean, _
+                                   ByVal AttributeAlterDefault As Boolean, _
+                                   ByVal AttributeAlterAlternateKey As Boolean)
 
                 Dim ao As UShort = If(AttributeOptionality = "No", 2, 1)
-                Dim bi As UShort = If(AttributeBusinessIdentifier = "No", 2, 1)
+                Dim bi As UShort = If(AttributeBusinessIdentifier = "Yes", 1, 2)
                 Dim so As UShort = If(AttributeSortOrder = "desc", 2, 1)
+                Dim sd As UShort = If(AttributeDistribution = "D", 1, 2)
+
+                Dim AttributeNumber As Integer = 0
 
                 If IsNothing(_attribute) Then
-                    ReDim _attribute(0)
-                    _attribute(0) = New EntityAttribute(AttributeName, AttributeReferencedEntity, AttributeDatatype, _
-                                                        AttributeDefault, AttributeOrdinal, _
-                                                        so, ao, _
-                                                        bi, AttributeDescription, _
-                                                        AttributeDistribution)
+                    AttributeNumber = 0
+                    ReDim _attribute(AttributeNumber)
                 Else
-                    ReDim Preserve _attribute(_attribute.Length)
-                    _attribute(_attribute.Length - 1) = New EntityAttribute(AttributeName, AttributeReferencedEntity, AttributeDatatype, _
-                                                                            AttributeDefault, AttributeOrdinal, _
-                                                                            so, ao, _
-                                                                            bi, AttributeDescription, _
-                                                                            AttributeDistribution)
+                    AttributeNumber = _attribute.Length - 1
+                    ReDim Preserve _attribute(AttributeNumber)
                 End If
+
+                _attribute(AttributeNumber) = New EntityAttribute(AttributeName, _
+                                                                  AttributeReferencedEntity, _
+                                                                  AttributeDatatype, _
+                                                                  AttributeDefault,
+                                                                  AttributeOrdinal, _
+                                                                  so,
+                                                                  ao, _
+                                                                  bi,
+                                                                  AttributeDescription, _
+                                                                  sd, _
+                                                                  AttributeAddColumn, _
+                                                                  AttributeDeleteColumn, _
+                                                                  AttributeAlterColumn, _
+                                                                  AttributeAlterForeignKey, _
+                                                                  AttributeAlterDefault, _
+                                                                  AttributeAlterAlternateKey)
 
             End Sub
 
             Class EntityAttribute
+
                 Private _name As String
                 Private _referencedentity As String
-                Private _ordinal As Integer
                 Private _datatype As String
+                Private _defaultvalue As String
+                Private _ordinal As Integer
                 Private _sortorder As SortOrderType
                 Private _optionality As YesNoType
                 Private _businessidentifier As YesNoType
                 Private _description As String
-                Private _defaultvalue As String
                 Private _statisticaldistribution As StatiticalDistribution
+                Private _add_column As Boolean
+                Private _delete_column As Boolean
+                Private _alter_column As Boolean
+                Private _alter_foreign_key As Boolean
+                Private _alter_default As Boolean
+                Private _alter_alternate_key As Boolean
 
                 Property Name As String
                     Get
@@ -762,15 +804,6 @@ Public Class ARA
                     End Get
                     Set(value As String)
                         _referencedentity = value
-                    End Set
-                End Property
-
-                Property Ordinal As Integer
-                    Get
-                        Return _ordinal
-                    End Get
-                    Set(value As Integer)
-                        _ordinal = value
                     End Set
                 End Property
 
@@ -795,6 +828,24 @@ Public Class ARA
                     End Get
                     Set(value As String)
                         _datatype = value
+                    End Set
+                End Property
+
+                Property DefaultValue As String
+                    Get
+                        Return _defaultvalue
+                    End Get
+                    Set(value As String)
+                        _defaultvalue = value
+                    End Set
+                End Property
+
+                Property Ordinal As Integer
+                    Get
+                        Return _ordinal
+                    End Get
+                    Set(value As Integer)
+                        _ordinal = value
                     End Set
                 End Property
 
@@ -834,15 +885,6 @@ Public Class ARA
                     End Set
                 End Property
 
-                Property DefaultValue As String
-                    Get
-                        Return _defaultvalue
-                    End Get
-                    Set(value As String)
-                        _defaultvalue = value
-                    End Set
-                End Property
-
                 Property Distribution As StatiticalDistribution
                     Get
                         Return _statisticaldistribution
@@ -852,13 +894,78 @@ Public Class ARA
                     End Set
                 End Property
 
+                Property AddColumn As Boolean
+                    Get
+                        Return _add_column
+                    End Get
+                    Set(value As Boolean)
+                        _add_column = value
+                    End Set
+                End Property
+
+                Property DeleteColumn As Boolean
+                    Get
+                        Return _delete_column
+                    End Get
+                    Set(value As Boolean)
+                        _delete_column = value
+                    End Set
+                End Property
+
+                Property AlterColumn As Boolean
+                    Get
+                        Return _alter_column
+                    End Get
+                    Set(value As Boolean)
+                        _alter_column = value
+                    End Set
+                End Property
+
+                Property AlterForeignKey As Boolean
+                    Get
+                        Return _alter_foreign_key
+                    End Get
+                    Set(value As Boolean)
+                        _alter_foreign_key = value
+                    End Set
+                End Property
+
+                Property AlterDefault As Boolean
+                    Get
+                        Return _alter_default
+                    End Get
+                    Set(value As Boolean)
+                        _alter_default = value
+                    End Set
+                End Property
+
+                Property AlterAlternateKey As Boolean
+                    Get
+                        Return _alter_alternate_key
+                    End Get
+                    Set(value As Boolean)
+                        _alter_alternate_key = value
+                    End Set
+                End Property
+
 #Region "Contructors"
 
-                Sub New(ByVal AttributeName As String, ByVal AttributeReferencedEntity As String, ByVal AttributeDatatype As String, _
-                        ByVal AttributeDefaultValue As String, ByVal AttributeOrdinal As Integer,
-                        ByVal AttributeSortOrder As SortOrderType, ByVal AttributeOptionality As YesNoType, _
-                        ByVal AttributeBusinessIdentifier As YesNoType, ByVal AttributeDescription As String, _
-                        ByVal AttributeDistribution As String)
+                Sub New(ByVal AttributeName As String, _
+                        ByVal AttributeReferencedEntity As String, _
+                        ByVal AttributeDatatype As String, _
+                        ByVal AttributeDefaultValue As String, _
+                        ByVal AttributeOrdinal As Integer,
+                        ByVal AttributeSortOrder As SortOrderType, _
+                        ByVal AttributeOptionality As YesNoType, _
+                        ByVal AttributeBusinessIdentifier As YesNoType, _
+                        ByVal AttributeDescription As String, _
+                        ByVal AttributeDistribution As StatiticalDistribution, _
+                        ByVal AttributeAddColumn As Boolean, _
+                        ByVal AttributeDeleteColumn As Boolean, _
+                        ByVal AttributeAlterColumn As Boolean, _
+                        ByVal AttributeAlterForeignKey As Boolean, _
+                        ByVal AttributeAlterDefault As Boolean, _
+                        ByVal AttributeAlterAlternateKey As Boolean)
 
                     Name = AttributeName
                     ReferencedEntity = AttributeReferencedEntity
@@ -869,7 +976,13 @@ Public Class ARA
                     Optionality = AttributeOptionality
                     BusinessIdentifier = AttributeBusinessIdentifier
                     Description = AttributeDescription
-                    ' distribution
+                    Distribution = AttributeDistribution
+                    AddColumn = AttributeAddColumn
+                    DeleteColumn = AttributeDeleteColumn
+                    AlterColumn = AttributeAlterColumn
+                    AlterForeignKey = AttributeAlterForeignKey
+                    AlterDefault = AttributeAlterDefault
+                    AlterAlternateKey = AttributeAlterAlternateKey
 
                 End Sub
 
