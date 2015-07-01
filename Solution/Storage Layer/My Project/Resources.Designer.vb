@@ -122,6 +122,37 @@ Namespace My.Resources
         End Property
         
         '''<summary>
+        '''  Looks up a localized string similar to declare @msg nvarchar(4000);
+        '''select @msg=N&apos;{{{creation log}}}&apos;
+        '''
+        '''if object_id(N&apos;[dbo].[{{{entity}}}.SPK]&apos;,N&apos;SO&apos;) is null begin;
+        '''
+        '''   create sequence [dbo].[{{{entity}}}.SPK] as int
+        '''      start with 1
+        '''      increment by 1
+        '''      minvalue 1
+        '''      maxvalue 2000000000
+        '''      cycle
+        '''      cache 100;
+        '''
+        '''   raiserror(@msg,0,0,&apos;[dbo].[{{{entity}}}.SPK]&apos;) with log;
+        '''
+        '''end;
+        '''
+        '''create table [dbo].[{{{entity}}}.Keystore]
+        ''' (
+        '''   [{{{entity}}}Key] int not null
+        '''
+        '''   -- call the sequence
+        '''   constraint [df : dbo.{{ [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property ARA_KeyStoreDefinition() As String
+            Get
+                Return ResourceManager.GetString("ARA_KeyStoreDefinition", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
         '''  Looks up a localized string similar to if object_id(N&apos;[dbo].[ara_batch_control]&apos;,N&apos;U&apos;) is null begin;
         '''
         '''   create table [dbo].[ara_batch_control] 
@@ -138,6 +169,16 @@ Namespace My.Resources
         Friend ReadOnly Property ARA_LoggingDefinition() As String
             Get
                 Return ResourceManager.GetString("ARA_LoggingDefinition", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to EDW::ARA Object %s created.
+        '''Slalom Consulting | Copyright © 2015 | www.slalom.com.
+        '''</summary>
+        Friend ReadOnly Property ARA_ObjectCreationLogMessage() As String
+            Get
+                Return ResourceManager.GetString("ARA_ObjectCreationLogMessage", resourceCulture)
             End Get
         End Property
         

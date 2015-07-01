@@ -8,7 +8,7 @@ Imports System.Runtime.InteropServices
 Imports EDW.Common.SqlClientOutbound
 Imports EDW.Common.InstanceSettings
 Imports EDW.AnalyticReportingArea.FrameworkInstallation
-
+Imports System.Linq
 
 Public Class ARA
 
@@ -74,6 +74,7 @@ Public Class ARA
                                    ByVal del As Boolean)
 
         Dim cnn As New SqlConnection("context connection=true")
+
         cnn.Open()
 
         PrintHeader()
@@ -104,7 +105,7 @@ Public Class ARA
 
                     ' with we have records, we can begin with the DDL process, otherwise, alert client and exit
                     If cons.EntityCount > 0 Then
-                        ProcessConstruct(cons, cnn, vo, del)
+                        ProcessConstruct(cons, cnn, vo)
                     Else
                         PrintClientMessage(vbCrLf)
                         PrintClientMessage("There is not defined metadata for the ARA in [dbo].[ara_entity_definition] and/or [dbo].[ara_attribute_definition] in the [master] database.")
@@ -133,47 +134,108 @@ Public Class ARA
 
     End Sub
 
-    Private Shared Sub ProcessConstruct(pc As Construct, SqlCnn As SqlConnection, VerifyOnly As Boolean, DeleteObjects As Boolean)
+    Private Shared Sub ProcessConstruct(ContructToProcess As Construct, SqlCnn As SqlConnection, VerifyOnly As Boolean)
+
+        Const space As String = " "
+
+        Dim Entity As Construct.Entity = Nothing
+        Dim Entities As Construct.Entity() = Nothing
+        Dim EntityAttributes As Construct.Entity.EntityAttribute() = Nothing
+        Dim EntityNumber As Integer
+        Dim ModelInvalid As Boolean
 
         Dim StartTime As Date = Now()
-        Dim c As Integer = 0
-        Dim e As Construct.Entity = Nothing
-        Dim s As String = Nothing
-        Dim fmt As String = "yyyy-MM-dd HH:mm:ss.ff"
+        Dim fmt As String = "yyyy-MM-dd HH:mm:ss.ff..."
         Dim cmd As New SqlCommand
-        Dim lbl As String = "" ' updating label
-        Dim plbl As String = "" ' printed label
 
         ' print header information
         PrintClientMessage(vbCrLf)
         PrintClientMessage("• Process construct started at " & StartTime.ToString(fmt))
-        PrintClientMessage("• Database Name: " & pc.DatabaseName)
-        PrintClientMessage("• Database Compatibility: " & pc.DatabaseCompatibility.ToString)
+        PrintClientMessage("• Database Name: " & ContructToProcess.DatabaseName)
+        PrintClientMessage("• Database Compatibility: " & ContructToProcess.DatabaseCompatibility.ToString)
 
-        Dim i As Integer = pc.EntityCount
-        Dim ix As Integer = 0
+        Dim EntityCount As Integer = ContructToProcess.EntityCount - 1
 
-        ' move through each entity
-        For c = 0 To (i - 1)
+        ' notify of invalidations to the model
+        PrintClientMessage("• Determining model validation: ")
 
-            PrintClientMessage(pc.Entities(c).Domain.ToString)
-            PrintClientMessage("  Create Entity ? " & pc.Entities(c).CreateEntity.ToString)
-            PrintClientMessage("  Delete Entity ? " & pc.Entities(c).DeleteEntity.ToString)
+        For EntityNumber = 0 To EntityCount
+            Entity = ContructToProcess.Entities(EntityNumber)
+            If Not Entity.HasBusinessKey And Not Entity.DeleteEntity Then
+                PrintClientMessage(New String(space, 3) & Entity.Domain.ToString & " -> Missing Business Identifiers")
+                ModelInvalid = True
+            End If
+        Next EntityNumber
 
-            ix = pc.Entities(c).AttributeCount
+        If ModelInvalid Then
+            PrintClientMessage("  -> Data model is INVALID ")
+        Else
+            PrintClientMessage("  -> Data model is VALID ")
+        End If
 
-            Dim bi As Construct.Entity.EntityAttribute() = pc.Entities(c).BusinessIdentifiers
+        ' notify of warnings to the model
+        PrintClientMessage("• Identifying non-fatal issues: ")
+        PrintClientMessage(New String(space, 2) & "-> No issues / warnings found")
 
-            If Not IsNothing(bi) Then
+        ' notify esitmated changes in model
+        PrintClientMessage("• Estimated changes to data model: ")
 
-                For Each att In pc.Entities(c).BusinessIdentifiers
-                    PrintClientMessage(att.Name.ToString)
-                    'PrintClientMessage(pc.Entities(c).Attributes(r).Datatype)
-                Next
+        For EntityNumber = 0 To EntityCount
+
+            PrintClientMessage(space)
+
+            Entity = ContructToProcess.Entities(EntityNumber)
+            EntityAttributes = Entity.Attributes
+
+            If Entity.CreateEntity Then
+                PrintClientMessage(New String(space, 3) & Entity.Domain.ToString & " -> Create Entity")
+
+            ElseIf Entity.DeleteEntity Then
+                PrintClientMessage(New String(space, 3) & Entity.Domain.ToString & " -> Delete Entity")
+
+            ElseIf EntityAttributes IsNot Nothing Then
+
+                PrintClientMessage(New String(space, 3) & Entity.Domain.ToString & " -> Update Entity")
+
+                If Entity.HasAlterAlternateKey Then PrintClientMessage(New String(space, 6) & Entity.Entity.ToString & " -> Business Identifier Change")
+
+                For Each att In EntityAttributes
+
+                    If att.AddColumn = True Then PrintClientMessage(New String(space, 6) & att.ColumnName.ToString & " -> Add Column")
+                    If att.DeleteColumn = True Then PrintClientMessage(New String(space, 6) & att.ColumnName.ToString & " -> Delete Column")
+                    If att.AlterColumn = True Then PrintClientMessage(New String(space, 6) & att.ColumnName.ToString & " -> Alter Column")
+                    If att.AlterDefault = True Then PrintClientMessage(New String(space, 6) & att.ColumnName.ToString & " -> Alter Default")
+                    If att.AlterForeignKey = True Then PrintClientMessage(New String(space, 6) & att.ColumnName.ToString & " -> Alter Foreign Key")
+
+                Next att
 
             End If
 
-        Next c
+        Next EntityNumber
+
+        ' if validated and not verify
+
+        Try
+            ExecuteDDLCommand("begin transaction;", SqlCnn)
+
+            ' create new key stores
+            Entities = ContructToProcess.NewEntities
+            For Each Entity In Entities
+                ExecuteDDLCommand(Entity.KeystoreDefintion, SqlCnn)
+            Next Entity
+
+            '
+
+
+            ExecuteDDLCommand("commit transaction", SqlCnn)
+
+        Catch ex As Exception
+            PrintClientMessage(ex.Message, 3)
+            PrintClientMessage(vbCrLf)
+
+            ExecuteDDLCommand("rollback transaction", SqlCnn)
+        End Try
+
 
         Dim ed As Date = Now()
         PrintClientMessage(vbCrLf & "• Process ended at " & ed.ToString(fmt))
@@ -282,6 +344,7 @@ Public Class ARA
         Private _entities As Entity()
         Private _databasecompatibility As SQLServerCompatibility
         Private _databasename As String
+        Private _new_entities As Entity()
 #End Region
 
 #Region "Construct Properties"
@@ -361,7 +424,7 @@ Public Class ARA
         ReadOnly Property Entities(EntityName As String) As Entity
             Get
                 Dim i As Integer
-
+                'TODO: fix with linq
                 For i = 0 To (EntityCount - 1)
                     If _entities(i).Entity = EntityName Then
                         Return _entities(i)
@@ -372,15 +435,21 @@ Public Class ARA
             End Get
         End Property
 
-        ReadOnly Property DatabaseName As String
+        Public ReadOnly Property DatabaseName As String
             Get
                 Return _databasename
             End Get
         End Property
 
-        ReadOnly Property DatabaseCompatibility As SQLServerCompatibility
+        Public ReadOnly Property DatabaseCompatibility As SQLServerCompatibility
             Get
                 Return _databasecompatibility
+            End Get
+        End Property
+
+        Public ReadOnly Property NewEntities As Entity()
+            Get
+                Return (From ne As Entity In _entities Where ne.CreateEntity = True Select ne).ToArray
             End Get
         End Property
 
@@ -438,6 +507,18 @@ Public Class ARA
             Private _createentity As Boolean
             Private _deleteentity As Boolean
             Private _attribute As EntityAttribute()
+
+            Private _has_business_key As Boolean
+
+            Private _has_add_column As Boolean
+            Private _has_delete_column As Boolean
+            Private _has_alter_column As Boolean
+            Private _has_alter_foreign_key As Boolean
+            Private _has_alter_default As Boolean
+            Private _has_alter_alternate_key As Boolean
+
+            Public Const Spacer As String = " "
+            Public Const EmptyString As String = ""
 #End Region
 
 #Region "Entity Properties"
@@ -536,6 +617,68 @@ Public Class ARA
                     Return "dbo." & Entity
                 End Get
             End Property
+
+            ReadOnly Property KeystoreDefintion As String
+                Get
+                    Dim ReturnString As String = EmptyString
+
+                    If EntityType = ARA.Construct.EntityType.Fact Then
+                        ReturnString = "-- Keystore dimension does not exist for measure groups"
+                    Else
+                        ReturnString = My.Resources.ARA_KeyStoreDefinition
+                        ReturnString = Replace(ReturnString, "{{{creation log}}}", My.Resources.ARA_ObjectCreationLogMessage)
+                        ReturnString = Replace(ReturnString, "{{{entity}}}", Entity)
+                        ReturnString = Replace(ReturnString, "{{{table column set}}}", TableColumnDefinition(BusinessIdentifiers, 3, False))
+                        ReturnString = Replace(ReturnString, "{{{index column set}}}", IndexColumnDefinition(BusinessIdentifiers, 3, True))
+                    End If
+
+                    Return ReturnString
+                End Get
+            End Property
+
+
+            Private ReadOnly Property TableColumnDefinition(ByVal ColumnSet As EntityAttribute(), _
+                                                            Optional ByVal Padding As Integer = 0, _
+                                                            Optional ByVal RemoveTrailingComma As Boolean = True) As String
+                Get
+                    Dim ReturnString As String = EmptyString
+
+                    For Each Column In ColumnSet
+                        ReturnString += New String(Spacer, Padding) & Column.ColumnName & Spacer & Column.Datatype & Spacer & _
+                                        If(Column.Optionality = YesNoType.Yes, "null,", "not null,") & vbCrLf
+                    Next Column
+
+                    If RemoveTrailingComma Then
+                        ReturnString = Left(ReturnString, Len(ReturnString) - 3)
+                    Else
+                        ReturnString = Left(ReturnString, Len(ReturnString) - 2)
+                    End If
+
+                    Return ReturnString
+                End Get
+            End Property
+
+            Private ReadOnly Property IndexColumnDefinition(ByVal ColumnSet As EntityAttribute(), _
+                                                            Optional ByVal Padding As Integer = 0, _
+                                                            Optional ByVal RemoveTrailingComma As Boolean = True) As String
+                Get
+                    Dim ReturnString As String = EmptyString
+                    For Each Column In ColumnSet
+                        ReturnString += New String(Spacer, Padding) & Column.ColumnName & Spacer & _
+                                        Column.SortOrder.ToString & "," & vbCrLf
+                    Next
+
+                    If RemoveTrailingComma Then
+                        ReturnString = Left(ReturnString, Len(ReturnString) - 3)
+                    Else
+                        ReturnString = Left(ReturnString, Len(ReturnString) - 2)
+                    End If
+
+                    Return ReturnString
+                End Get
+            End Property
+
+
 
             ReadOnly Property EntityMetadataDefinition As String
                 Get
@@ -673,29 +816,55 @@ Public Class ARA
                 End Get
             End Property
 
+
             ReadOnly Property BusinessIdentifiers As EntityAttribute()
                 Get
                     Dim a As EntityAttribute() = Nothing
-                    Dim x As EntityAttribute
 
                     If IsNothing(_attribute) Then
                         Return Nothing
                     End If
 
-                    For Each x In _attribute
+                    If _has_business_key = False Then
+                        Return Nothing
+                    End If
 
-                        If x.BusinessIdentifier = YesNoType.Yes Then
-                            If IsNothing(a) Then
-                                ReDim a(0)
-                                a(0) = x
-                            Else
-                                ReDim Preserve a(a.Length)
-                                a(a.Length - 1) = x
-                            End If
+                    For Each x In _attribute.OrderBy(Function(EntityAttribute) EntityAttribute.Ordinal)
+                        If IsNothing(a) Then
+                            ReDim a(0)
+                            a(0) = x
+                        Else
+                            ReDim Preserve a(a.Length)
+                            a(a.Length - 1) = x
                         End If
                     Next
 
                     Return a
+                End Get
+            End Property
+
+            ReadOnly Property Attributes As EntityAttribute()
+                Get
+                    Return _attribute
+                End Get
+            End Property
+
+
+            Public ReadOnly Property HasBusinessKey As Boolean
+                Get
+                    Return _has_business_key
+                End Get
+            End Property
+
+            Public ReadOnly Property HasAddColumn As Boolean
+                Get
+                    Return _has_add_column
+                End Get
+            End Property
+
+            Public ReadOnly Property HasAlterAlternateKey As Boolean
+                Get
+                    Return _has_alter_alternate_key
                 End Get
             End Property
 
@@ -737,18 +906,18 @@ Public Class ARA
                                    ByVal AttributeAlterAlternateKey As Boolean)
 
                 Dim ao As UShort = If(AttributeOptionality = "No", 2, 1)
-                Dim bi As UShort = If(AttributeBusinessIdentifier = "Yes", 1, 2)
+                Dim bi As YesNoType = If(AttributeBusinessIdentifier = "Yes", YesNoType.Yes, YesNoType.No)
                 Dim so As UShort = If(AttributeSortOrder = "desc", 2, 1)
                 Dim sd As UShort = If(AttributeDistribution = "D", 1, 2)
 
-                Dim AttributeNumber As Integer = 0
+                Dim AttributeNumber As Integer
 
                 If IsNothing(_attribute) Then
+                    ReDim _attribute(0)
                     AttributeNumber = 0
-                    ReDim _attribute(AttributeNumber)
                 Else
+                    ReDim Preserve _attribute(_attribute.Length)
                     AttributeNumber = _attribute.Length - 1
-                    ReDim Preserve _attribute(AttributeNumber)
                 End If
 
                 _attribute(AttributeNumber) = New EntityAttribute(AttributeName, _
@@ -767,6 +936,17 @@ Public Class ARA
                                                                   AttributeAlterForeignKey, _
                                                                   AttributeAlterDefault, _
                                                                   AttributeAlterAlternateKey)
+
+
+
+                If bi = YesNoType.Yes Then _has_business_key = True
+
+                If AttributeAddColumn = True Then _has_add_column = True
+                If AttributeDeleteColumn = True Then _has_delete_column = True
+                If AttributeAlterColumn = True Then _has_alter_column = True
+                If AttributeAlterForeignKey = True Then _has_alter_foreign_key = True
+                If AttributeAlterDefault = True Then _has_alter_default = True
+                If AttributeAlterAlternateKey = True Then _has_alter_alternate_key = True
 
             End Sub
 
@@ -796,6 +976,12 @@ Public Class ARA
                     Set(value As String)
                         _name = value
                     End Set
+                End Property
+
+                Public ReadOnly Property ColumnName As String
+                    Get
+                        Return "[" & Replace(Replace(_name, "]", ""), "[", "") & "]"
+                    End Get
                 End Property
 
                 Property ReferencedEntity As String

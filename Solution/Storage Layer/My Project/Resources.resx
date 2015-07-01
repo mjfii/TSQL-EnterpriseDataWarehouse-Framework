@@ -3044,4 +3044,60 @@ from
 order by
    ks.[ara_entity],isnull(nm.[ara_attribute_ordinal],9999);</value>
   </data>
+  <data name="ARA_KeyStoreDefinition" xml:space="preserve">
+    <value>declare @msg nvarchar(4000);
+select @msg=N'{{{creation log}}}'
+
+if object_id(N'[dbo].[{{{entity}}}.SPK]',N'SO') is null begin;
+
+   create sequence [dbo].[{{{entity}}}.SPK] as int
+      start with 1
+      increment by 1
+      minvalue 1
+      maxvalue 2000000000
+      cycle
+      cache 100;
+
+   raiserror(@msg,0,0,'[dbo].[{{{entity}}}.SPK]') with log;
+
+end;
+
+create table [dbo].[{{{entity}}}.Keystore]
+ (
+   [{{{entity}}}Key] int not null
+
+   -- call the sequence
+   constraint [df : dbo.{{{entity}}}.Keystore :: {{{entity}}}Key]
+   default next value for [dbo].[{{{entity}}}.SPK],   
+
+   -- define primary key
+   constraint [pk : dbo.{{{entity}}}.Keystore] 
+   primary key clustered ([{{{entity}}}Key])
+   with (fillfactor=100,data_compression=page), 
+
+   -- define the alternate key
+{{{table column set}}}
+
+   -- define the metadata
+   [psa_create_timestamp] datetime2(7) not null,
+   [psa_member_inferred] bit not null,
+   [psa_member_metadata] sql_variant null
+ );
+
+exec sys.sp_MS_marksystemobject N'[{{{entity}}}.Keystore]';
+
+raiserror(@msg,0,0,'[dbo].[{{{entity}}}.Keystore]') with log;
+
+create unique nonclustered index [ak : dbo.{{{entity}}}.Keystore] on [dbo].[{{{entity}}}.Keystore]
+ (
+{{{index column set}}}
+ )
+with (fillfactor=80,data_compression=page);
+
+raiserror(@msg,0,0,'[ak : dbo.{{{entity}}}.Keystore]') with log;</value>
+  </data>
+  <data name="ARA_ObjectCreationLogMessage" xml:space="preserve">
+    <value>EDW::ARA Object %s created.
+Slalom Consulting | Copyright © 2015 | www.slalom.com</value>
+  </data>
 </root>
