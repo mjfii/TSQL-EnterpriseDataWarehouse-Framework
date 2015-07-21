@@ -1,26 +1,9 @@
 ﻿Imports System.Data.SqlTypes
 Imports Microsoft.SqlServer.Server
 Imports System.Data.SqlClient
-Imports System.Security.Cryptography.SHA1
 Imports EDW.Common.SqlClientOutbound
 
 Namespace Common
-
-    Partial Public Class Methods
-
-        <Microsoft.SqlServer.Server.SqlFunction> _
-        Public Shared Function StringHash(ByVal HashingString As String) As SqlBinary
-            Return If(IsNothing(HashingString), New SqlBinary, _
-                      Security.Cryptography.SHA1.Create.ComputeHash _
-                      (Text.UnicodeEncoding.Unicode.GetBytes(HashingString)))
-        End Function
-
-    End Class ' Methods
-
-    Partial Public Class Aggregates
-
-
-    End Class ' Aggregates
 
     Partial Public Class SqlClientOutbound
 
@@ -64,13 +47,17 @@ Namespace Common
 
         Friend Shared Function UserIsSysAdmin(SqlCnn As SqlConnection) As Boolean
 
-            Dim cmd As SqlCommand
+            Dim SqlCmd As New SqlCommand
             Dim oid As Integer
 
-            cmd = New SqlCommand("select is_srvrolemember(N'sysadmin') [ninja]", SqlCnn)
-            oid = cmd.ExecuteScalar()
+            With SqlCmd
+                .Connection = SqlCnn
+                .CommandText = "select is_srvrolemember(N'sysadmin') [ninja]"
+                oid = SqlCmd.ExecuteScalar()
+            End With
 
             If oid = 0 Then
+                PrintClientMessage(vbCrLf)
                 PrintClientMessage("You need elevated privileges (sysadmin) to manage this framework. Contact the database administrator.")
                 Return False
             End If
@@ -78,7 +65,30 @@ Namespace Common
             Return True
         End Function
 
+        Friend Shared Function DatabaseIsValid(DatabaseName As String, SqlConn As SqlConnection) As Boolean
+
+            Dim SqlCmd As New SqlCommand
+            Dim DatabaseID As Integer
+
+            With SqlCmd
+                .Connection = SqlConn
+                .Parameters.Add("@DatabaseName", SqlDbType.NVarChar).Value = DatabaseName
+                .CommandText = "select isnull(db_id(@DatabaseName),-1) N'?';"
+                DatabaseID = CInt(.ExecuteScalar.ToString)
+            End With
+
+            ' if i have a invalid database id then return false and alert
+            If DatabaseID < 0 Then
+                PrintClientMessage(vbCrLf)
+                PrintClientMessage(String.Format("A database with the name [{0}] does not exist.  Create that database or use an alternate one.", DatabaseName))
+                Return False
+            End If
+
+            Return True
+        End Function
+
     End Class
+
 
 End Namespace
 
@@ -118,21 +128,13 @@ Namespace PersistentStagingArea
                 EntityString += ";"
                 AttributeString += ";"
 
+                ' the following commands are under the 'master' database
                 Dim chngstr As String = "use [master];"
                 Dim chngdb As New SqlCommand(chngstr, DatabaseConnection)
                 chngdb.ExecuteNonQuery()
 
-                ' the following commands are under the 'master' database
-                Dim cmd As New SqlCommand(EntityString, DatabaseConnection)
+                Dim cmd As New SqlCommand(My.Resources.SYS_InstanceProperties, DatabaseConnection)
                 Dim da As New SqlDataAdapter(cmd)
-                da.Fill(GetMetadata, "psa_entity_definition")
-
-                cmd = New SqlCommand(AttributeString, DatabaseConnection)
-                da = New SqlDataAdapter(cmd)
-                da.Fill(GetMetadata, "psa_attribute_definition")
-
-                cmd = New SqlCommand(My.Resources.SYS_InstanceProperties, DatabaseConnection)
-                da = New SqlDataAdapter(cmd)
                 da.Fill(GetMetadata, "psa_instance_properties")
 
                 ' this command the passed in database name
@@ -143,6 +145,14 @@ Namespace PersistentStagingArea
                 cmd = New SqlCommand(My.Resources.SYS_DatabaseProperties, DatabaseConnection)
                 da = New SqlDataAdapter(cmd)
                 da.Fill(GetMetadata, "psa_database_properties")
+
+                cmd = New SqlCommand(EntityString, DatabaseConnection)
+                da = New SqlDataAdapter(cmd)
+                da.Fill(GetMetadata, "psa_entity_definition")
+
+                cmd = New SqlCommand(AttributeString, DatabaseConnection)
+                da = New SqlDataAdapter(cmd)
+                da.Fill(GetMetadata, "psa_attribute_definition")
 
             End If
 
@@ -184,7 +194,7 @@ Namespace PersistentStagingArea
             ExecuteDDLCommand(My.Resources.SYS_ColumnMetadataDefinition, InstanceConnection)
             PrintClientMessage("• Metadata managers in place [instance]")
 
-            ExecuteDDLCommand(My.Resources.PSA_ServiceBrokerLoginDefinition, InstanceConnection) ' TODO: replace with rando pw
+            ExecuteDDLCommand(My.Resources.PSA_ServiceBrokerLoginDefinition, InstanceConnection)
             PrintClientMessage("• Service broker login exists [instance]")
 
         End Sub
@@ -205,6 +215,7 @@ Namespace PersistentStagingArea
             PrintClientMessage("• Change tracking methodology in place [database]")
 
             ' execute hashing algorithm needs
+            ExecuteDDLCommand(My.Resources.SYS_LocalMethodInstall, InstanceConnection)
             ExecuteDDLCommand(My.Resources.PSA_HashingAlgorithm, InstanceConnection)
             PrintClientMessage("• Hashing algorithms are intact [database]")
 
@@ -232,47 +243,45 @@ Namespace AnalyticReportingArea
             ' handle null values by flipping them to an empty string
             If IsNothing(DatabaseName) Then DatabaseName = ""
 
-            If Not SystemObjectsInstalled(DatabaseConnection) Then ' test database exists and filegroups exist
-                GetMetadata = Nothing
-            Else
+            If Not SystemObjectsInstalled(DatabaseConnection) Then Return Nothing
 
-                Dim cmd As SqlCommand
-                Dim da As SqlDataAdapter
+            Dim cmd As SqlCommand
+            Dim da As SqlDataAdapter
 
-                GetMetadata = New DataSet
+            GetMetadata = New DataSet
 
-                Dim EntityQuery As String = My.Resources.SYS_ARAEntityDefinition
-                Dim AttributeQuery As String = My.Resources.SYS_ARAAttributeDefinition
-                Dim InstanceQuery As String = My.Resources.SYS_InstanceProperties
-                Dim DatabaseQuery As String = My.Resources.SYS_DatabaseProperties
+            Dim EntityQuery As String = My.Resources.SYS_ARAEntityDefinition
+            Dim AttributeQuery As String = My.Resources.SYS_ARAAttributeDefinition
+            Dim InstanceQuery As String = My.Resources.SYS_InstanceProperties
+            Dim DatabaseQuery As String = My.Resources.SYS_DatabaseProperties
 
-                Dim chngstr As String = "use [master];"
-                Dim chngdb As New SqlCommand(chngstr, DatabaseConnection)
-                chngdb.ExecuteNonQuery()
+            Dim chngstr As String = "use [master];"
+            Dim chngdb As New SqlCommand(chngstr, DatabaseConnection)
+            chngdb.ExecuteNonQuery()
 
-                ' the following commands are under the 'master' database
-                cmd = New SqlCommand(InstanceQuery, DatabaseConnection)
-                da = New SqlDataAdapter(cmd)
-                da.Fill(GetMetadata, "ara_instance_properties")
+            ' the following commands are under the 'master' database
+            cmd = New SqlCommand(InstanceQuery, DatabaseConnection)
+            da = New SqlDataAdapter(cmd)
+            da.Fill(GetMetadata, "ara_instance_properties")
 
-                ' this command the passed in database name
-                chngstr = "use [" & DatabaseName & "];"
-                chngdb = New SqlCommand(chngstr, DatabaseConnection)
-                chngdb.ExecuteNonQuery()
+            ' this command the passed in database name
+            chngstr = "use [" & DatabaseName & "];"
+            chngdb = New SqlCommand(chngstr, DatabaseConnection)
+            chngdb.ExecuteNonQuery()
 
-                cmd = New SqlCommand(DatabaseQuery, DatabaseConnection)
-                da = New SqlDataAdapter(cmd)
-                da.Fill(GetMetadata, "ara_database_properties")
+            cmd = New SqlCommand(DatabaseQuery, DatabaseConnection)
+            da = New SqlDataAdapter(cmd)
+            da.Fill(GetMetadata, "ara_database_properties")
 
-                cmd = New SqlCommand(EntityQuery, DatabaseConnection)
-                da = New SqlDataAdapter(cmd)
-                da.Fill(GetMetadata, "ara_entity_definition")
+            cmd = New SqlCommand(EntityQuery, DatabaseConnection)
+            da = New SqlDataAdapter(cmd)
+            da.Fill(GetMetadata, "ara_entity_definition")
 
-                cmd = New SqlCommand(AttributeQuery, DatabaseConnection)
-                da = New SqlDataAdapter(cmd)
-                da.Fill(GetMetadata, "ara_attribute_definition")
+            cmd = New SqlCommand(AttributeQuery, DatabaseConnection)
+            da = New SqlDataAdapter(cmd)
+            da.Fill(GetMetadata, "ara_attribute_definition")
 
-            End If
+            Return GetMetadata
 
         End Function
 
@@ -324,13 +333,12 @@ Namespace AnalyticReportingArea
             ExecuteDDLCommand(My.Resources.ARA_RoleDefinitions, InstanceConnection)
             PrintClientMessage("• Database role requirements synced [database]")
 
-            ' make sure change tracking is turned on
-            ExecuteDDLCommand(Replace(My.Resources.ARA_DatabaseChangeTrackingDefinition, "{{{db}}}", DatabaseName), InstanceConnection)
-            ExecuteDDLCommand(My.Resources.ARA_ChangeTrackingSystemDefinition, InstanceConnection)
-            PrintClientMessage("• Change tracking methodology in place [database]")
+            ' make sure an audit trigger is in place
+            ExecuteDDLCommand(My.Resources.ARA_Audit, InstanceConnection)
+            PrintClientMessage("• DDL audit trigger is in place [database]")
 
             ' execute hashing algorithm needs
-            ExecuteDDLCommand(My.Resources.ARA_HashingAlgorithm, InstanceConnection)
+            'ExecuteDDLCommand(My.Resources.ARA_HashingAlgorithm, InstanceConnection)
             PrintClientMessage("• Hashing algorithms are intact [database]")
 
             ' execute service broker security needs

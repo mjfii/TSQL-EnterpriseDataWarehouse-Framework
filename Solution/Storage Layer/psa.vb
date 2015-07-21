@@ -52,6 +52,8 @@ Partial Public Class PSA
     <Microsoft.SqlServer.Server.SqlProcedure> _
     Public Shared Sub SetModel(ByVal model As SqlXml)
 
+        PrintHeader()
+
         If IsNothing(model) Then
             PrintClientMessage("You cannot process a null model.")
             Exit Sub
@@ -62,7 +64,13 @@ Partial Public Class PSA
         Dim cnn As New SqlConnection("context connection=true")
         cnn.Open()
 
-        ExecuteDDLCommand(model_query, cnn)
+        Try
+            ExecuteDDLCommand(model_query, cnn)
+            PrintClientMessage("The external model has been set successfully!")
+        Catch ex As Exception
+            PrintClientMessage("There was an error building setting the external model:")
+            PrintClientMessage(ex.Message)
+        End Try
 
         cnn.Close()
 
@@ -1192,103 +1200,103 @@ nextc:
                 Get
                     Dim ep As String = ""
 
-                    ep += My.Resources.PSA_TablePropertyDefintion
+                    ep += My.Resources.SYS_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "Domain")
                     ep = Replace(ep, "{{{value}}}", Domain)
                     ep += vbCrLf
 
-                    ep += My.Resources.PSA_TablePropertyDefintion
+                    ep += My.Resources.SYS_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "Description")
                     ep = Replace(ep, "{{{value}}}", Replace(Description, "'", "''"))
                     ep += vbCrLf
 
-                    ep += My.Resources.PSA_TablePropertyDefintion
+                    ep += My.Resources.SYS_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "Source Statement")
                     ep = Replace(ep, "{{{value}}}", Replace(SourceStatement, "'", "''"))
                     ep += vbCrLf
 
-                    ep += My.Resources.PSA_TablePropertyDefintion
+                    ep += My.Resources.SYS_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "Source Predicate Values")
                     ep = Replace(ep, "{{{value}}}", Replace(SourcePredicateValues, "'", "''"))
                     ep += vbCrLf
 
-                    ep += My.Resources.PSA_TablePropertyDefintion
+                    ep += My.Resources.SYS_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "Source Schema")
                     ep = Replace(ep, "{{{value}}}", Replace(SourceSchema, "'", "''"))
                     ep += vbCrLf
 
-                    ep += My.Resources.PSA_TablePropertyDefintion
+                    ep += My.Resources.SYS_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "Source Entity")
                     ep = Replace(ep, "{{{value}}}", Replace(SourceEntity, "'", "''"))
                     ep += vbCrLf
 
-                    ep += My.Resources.PSA_TablePropertyDefintion
+                    ep += My.Resources.SYS_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "Use Large Object Hashing Algorithm")
                     ep = Replace(ep, "{{{value}}}", HashLargeObjects.ToString)
                     ep += vbCrLf
 
-                    ep += My.Resources.PSA_TablePropertyDefintion
+                    ep += My.Resources.SYS_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "Infer Deltions from Source Domain")
                     ep = Replace(ep, "{{{value}}}", InferDeletions.ToString)
                     ep += vbCrLf
 
-                    ep += My.Resources.PSA_TablePropertyDefintion
+                    ep += My.Resources.SYS_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "ETL Build Group")
                     ep = Replace(ep, "{{{value}}}", Replace(BuildGroup, "'", "''"))
                     ep += vbCrLf
 
-                    ep += My.Resources.PSA_TablePropertyDefintion
+                    ep += My.Resources.SYS_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "Assembly")
                     ep = Replace(ep, "{{{value}}}", "Slalom.Framework")
                     ep += vbCrLf
 
-                    ep += My.Resources.PSA_TablePropertyDefintion
+                    ep += My.Resources.SYS_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "Copyright")
                     ep = Replace(ep, "{{{value}}}", "Slalom Consulting © 2014")
                     ep += vbCrLf
 
-                    ep += My.Resources.PSA_TablePropertyDefintion
+                    ep += My.Resources.SYS_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "Website")
                     ep = Replace(ep, "{{{value}}}", "www.slalom.com")
                     ep += vbCrLf
 
-                    ep += My.Resources.PSA_TablePropertyDefintion
+                    ep += My.Resources.SYS_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "Build Timestamp")
                     ep = Replace(ep, "{{{value}}}", Now.ToString())
                     ep += vbCrLf
 
-                    ep += My.Resources.PSA_TablePropertyDefintion
+                    ep += My.Resources.SYS_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "Logical Signature")
                     ep = Replace(ep, "{{{value}}}", LogicalSignature)
                     ep += vbCrLf
 
-                    ep += My.Resources.PSA_TablePropertyDefintion
+                    ep += My.Resources.SYS_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "Construct Signature")
                     ep = Replace(ep, "{{{value}}}", ConstructSignature)
                     ep += vbCrLf
 
-                    ep += My.Resources.PSA_TablePropertyDefintion
+                    ep += My.Resources.SYS_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "ETL Max Threads")
                     ep = Replace(ep, "{{{value}}}", MaxThreads)
                     ep += vbCrLf
 
-                    ep += My.Resources.PSA_TablePropertyDefintion
+                    ep += My.Resources.SYS_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "ETL Max Records Per Thread")
                     ep = Replace(ep, "{{{value}}}", MaxRecordCount)
@@ -1305,68 +1313,68 @@ nextc:
 
                     For Each bia In _attribute.OrderBy(Function(EntityAttribute) EntityAttribute.BusinessIdentifier).ThenBy(Function(EntityAttribute) EntityAttribute.Ordinal)
 
-                        ep += My.Resources.PSA_ColumnPropertyDefinition
+                        ep += My.Resources.SYS_ColumnPropertyDefinition
                         ep = Replace(ep, "{{{domain}}}", Domain)
                         ep = Replace(ep, "{{{attribute}}}", bia.Name)
                         ep = Replace(ep, "{{{property}}}", "Domain")
                         ep = Replace(ep, "{{{value}}}", Domain)
                         ep += vbCrLf
 
-                        ep += My.Resources.PSA_ColumnPropertyDefinition
+                        ep += My.Resources.SYS_ColumnPropertyDefinition
                         ep = Replace(ep, "{{{domain}}}", Domain)
                         ep = Replace(ep, "{{{attribute}}}", bia.Name)
                         ep = Replace(ep, "{{{property}}}", "Description")
                         ep = Replace(ep, "{{{value}}}", Replace(bia.Description, "'", "''"))
                         ep += vbCrLf
 
-                        ep += My.Resources.PSA_ColumnPropertyDefinition
+                        ep += My.Resources.SYS_ColumnPropertyDefinition
                         ep = Replace(ep, "{{{domain}}}", Domain)
                         ep = Replace(ep, "{{{attribute}}}", bia.Name)
                         ep = Replace(ep, "{{{property}}}", "Sort Order")
                         ep = Replace(ep, "{{{value}}}", bia.SortOrder)
                         ep += vbCrLf
 
-                        ep += My.Resources.PSA_ColumnPropertyDefinition
+                        ep += My.Resources.SYS_ColumnPropertyDefinition
                         ep = Replace(ep, "{{{domain}}}", Domain)
                         ep = Replace(ep, "{{{attribute}}}", bia.Name)
                         ep = Replace(ep, "{{{property}}}", "Ordinal")
                         ep = Replace(ep, "{{{value}}}", bia.Ordinal)
                         ep += vbCrLf
 
-                        ep += My.Resources.PSA_ColumnPropertyDefinition
+                        ep += My.Resources.SYS_ColumnPropertyDefinition
                         ep = Replace(ep, "{{{domain}}}", Domain)
                         ep = Replace(ep, "{{{attribute}}}", bia.Name)
                         ep = Replace(ep, "{{{property}}}", "Optionality")
                         ep = Replace(ep, "{{{value}}}", bia.Optionality)
                         ep += vbCrLf
 
-                        ep += My.Resources.PSA_ColumnPropertyDefinition
+                        ep += My.Resources.SYS_ColumnPropertyDefinition
                         ep = Replace(ep, "{{{domain}}}", Domain)
                         ep = Replace(ep, "{{{attribute}}}", bia.Name)
                         ep = Replace(ep, "{{{property}}}", "Datatype")
                         ep = Replace(ep, "{{{value}}}", bia.Datatype)
                         ep += vbCrLf
 
-                        ep += My.Resources.PSA_ColumnPropertyDefinition
+                        ep += My.Resources.SYS_ColumnPropertyDefinition
                         ep = Replace(ep, "{{{domain}}}", Domain)
                         ep = Replace(ep, "{{{attribute}}}", bia.Name)
                         ep = Replace(ep, "{{{property}}}", "Business Identifier")
                         ep = Replace(ep, "{{{value}}}", bia.BusinessIdentifier)
                         ep += vbCrLf
 
-                        ep += My.Resources.PSA_TablePropertyDefintion
+                        ep += My.Resources.SYS_TablePropertyDefintion
                         ep = Replace(ep, "{{{domain}}}", Domain)
                         ep = Replace(ep, "{{{property}}}", "Assembly")
                         ep = Replace(ep, "{{{value}}}", "Slalom.Framework")
                         ep += vbCrLf
 
-                        ep += My.Resources.PSA_TablePropertyDefintion
+                        ep += My.Resources.SYS_TablePropertyDefintion
                         ep = Replace(ep, "{{{domain}}}", Domain)
                         ep = Replace(ep, "{{{property}}}", "Copyright")
                         ep = Replace(ep, "{{{value}}}", "Slalom Consulting © 2014")
                         ep += vbCrLf
 
-                        ep += My.Resources.PSA_TablePropertyDefintion
+                        ep += My.Resources.SYS_TablePropertyDefintion
                         ep = Replace(ep, "{{{domain}}}", Domain)
                         ep = Replace(ep, "{{{property}}}", "Website")
                         ep = Replace(ep, "{{{value}}}", "www.slalom.com")

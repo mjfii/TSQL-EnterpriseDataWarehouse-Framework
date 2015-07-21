@@ -350,6 +350,9 @@ set ansi_warnings on;</value>
   <data name="PSA_RenameDefinition" xml:space="preserve">
     <value>if object_id(N'{{{domain}}}',N'U') is not null begin;
 
+   -- any existing change control
+   delete [dbo].[psa_change_tracking_entity_version] where [psa_object_id]=object_id('{{{domain}}}',N'U');
+
    exec [sys].[sp_rename] N'{{{domain}}}', N'{{{label}}}.{{{ext}}}';
    alter schema [dbo] transfer [{{{schema}}}].[{{{label}}}.{{{ext}}}];
 
@@ -383,9 +386,6 @@ set ansi_warnings on;</value>
       drop trigger [dbo].[tr : {{{label}}} {Temporal Governor}]
 
    end;
-
-   -- any existing change control
-   delete [dbo].[psa_change_tracking_entity_version] where [psa_object_id]=object_id('{{{domain}}}',N'U');
 
 end;</value>
   </data>
@@ -592,23 +592,21 @@ begin;
 end;</value>
   </data>
   <data name="PSA_HashingAlgorithm" xml:space="preserve">
-    <value>if object_id(N'[dbo].[psa_hash]',N'FN') is null begin;
+    <value>if object_id(N'[dbo].[psa_hash]',N'FS') is not null drop function [dbo].[psa_hash];
 
-   exec sys.sp_executesql
-   N'
-   create function [dbo].[psa_hash] 
-    (
-      @string nvarchar(max)
-    ) 
-   returns varbinary(20) with encryption
-   as 
-   begin;
-      return master.dbo.[fn_hash](@string);
-   end;
-   '
-   exec sys.sp_MS_marksystemobject 'psa_hash';
+exec sys.sp_executesql
+N'
+create function [dbo].[psa_hash] 
+ (
+   @string nvarchar(max)
+ ) 
+returns varbinary(20) with execute as owner
+as external name [Slalom.Framework.Methods].[EDW.Common.Methods].[StringHash];'
 
-end;</value>
+exec sys.sp_MS_marksystemobject 'psa_hash';
+
+grant execute on [dbo].[psa_hash] to [psa_etl_manager];
+grant execute on [dbo].[psa_hash] to [psa_owner];</value>
   </data>
   <data name="SYS_TableMetadataDefinition" xml:space="preserve">
     <value>if object_id('[dbo].[sp_manage_table_properties]',N'P') is not null drop procedure [dbo].[sp_manage_table_properties];
@@ -670,7 +668,7 @@ return 0;
 
 exec sys.sp_MS_marksystemobject 'sp_manage_table_properties';</value>
   </data>
-  <data name="PSA_TablePropertyDefintion" xml:space="preserve">
+  <data name="SYS_TablePropertyDefintion" xml:space="preserve">
     <value>exec [dbo].[sp_manage_table_properties] N'{{{domain}}}',N'{{{property}}}',N'{{{value}}}';</value>
   </data>
   <data name="SYS_ColumnMetadataDefinition" xml:space="preserve">
@@ -1060,7 +1058,7 @@ begin;
 
 end;</value>
   </data>
-  <data name="PSA_ColumnPropertyDefinition" xml:space="preserve">
+  <data name="SYS_ColumnPropertyDefinition" xml:space="preserve">
     <value>exec [dbo].[sp_manage_column_properties] N'{{{domain}}}',N'{{{attribute}}}',N'{{{property}}}',N'{{{value}}}';</value>
   </data>
   <data name="PSA_ControlDeleteDefinition" xml:space="preserve">
@@ -1101,7 +1099,7 @@ begin;
 end;</value>
   </data>
   <data name="SYS_PSAAttributeDefinition" xml:space="preserve">
-    <value>select * from [dbo].[psa_attribute_definition] where 1=1</value>
+    <value>select * from [master].[dbo].[psa_attribute_definition] where 1=1</value>
   </data>
   <data name="SYS_PSAEntityDefinition" xml:space="preserve">
     <value>with x as
@@ -1118,7 +1116,7 @@ end;</value>
       right(convert(nvarchar(42),hashbytes(N'sha1',[psa_attribute_optional]),1),40)+N' : '+
       right(convert(nvarchar(42),hashbytes(N'sha1',[psa_attribute_business_identifier]),1),40)) [sig]
    from
-      [dbo].[psa_attribute_definition]
+      [master].[dbo].[psa_attribute_definition]
  ), [sel] as
  (
    select
@@ -1132,15 +1130,15 @@ end;</value>
       e.[hash_large_objects],
       e.[psa_infer_deletions],
       e.[etl_build_group],
-      right(convert(nvarchar(42),[dbo].[fn_hash](e.[hash_large_objects]),1),40)+N' : '+
-      right(convert(nvarchar(42),[dbo].[fn_hash](e.[etl_max_threads]),1),40)+N' : '+
-      right(convert(nvarchar(42),[dbo].[fn_hash](e.[psa_infer_deletions]),1),40) [logic_sig],
+      right(convert(nvarchar(42),[dbo].[psa_hash](e.[hash_large_objects]),1),40)+N' : '+
+      right(convert(nvarchar(42),[dbo].[psa_hash](e.[etl_max_threads]),1),40)+N' : '+
+      right(convert(nvarchar(42),[dbo].[psa_hash](e.[psa_infer_deletions]),1),40) [logic_sig],
       rtrim(ca.ah) [construct_sig],
       isnull(c.[psa_attribute_count],0) [psa_attribute_count],
       e.[etl_max_threads],
       e.[etl_max_record_count]
    from
-      dbo.[psa_entity_definition] e
+      [master].dbo.[psa_entity_definition] e
       cross apply
        (
          select
@@ -1179,8 +1177,8 @@ select
    [hash_large_objects],
    [psa_infer_deletions],
    [etl_build_group],
-   isnull(right(convert(nvarchar(42),[dbo].[fn_hash]([logic_sig]),1),40),N'') [psa_logical_signature],
-   isnull(right(convert(nvarchar(42),[dbo].[fn_hash]([construct_sig]),1),40),N'')  [psa_construct_signature],
+   isnull(right(convert(nvarchar(42),[dbo].[psa_hash]([logic_sig]),1),40),N'') [psa_logical_signature],
+   isnull(right(convert(nvarchar(42),[dbo].[psa_hash]([construct_sig]),1),40),N'')  [psa_construct_signature],
    [psa_attribute_count],
    [etl_max_threads],
    [etl_max_record_count]
@@ -1805,7 +1803,7 @@ alter role [db_owner] add member [psa_sb_manager];</value>
       N'['+[psa_schema]+N'].['+[psa_entity]+N']' [@psa_domain],
       [psa_schema],
       [psa_entity],
-      [psa_entity_description],
+      replace([psa_entity_description],N'''',N'') [psa_entity_description],
       [psa_source_statement],
       [psa_source_predicate_values],
       [source_schema],
@@ -1827,7 +1825,7 @@ alter role [db_owner] add member [psa_sb_manager];</value>
             [psa_attribute_sort],
             [psa_attribute_optional],
             [psa_attribute_business_identifier],
-            [psa_attribute_description]
+            replace([psa_attribute_description],N'''',N'') [psa_attribute_description]
          from
             [dbo].[psa_attribute_definition] a
          where
@@ -2021,12 +2019,7 @@ grant execute on [dbo].[psa_end_batch] to [psa_etl_manager];</value>
    create table [dbo].[psa_entity_definition]
     (
       [psa_schema] nvarchar(4) collate Latin1_General_100_BIN2,
-      constraint [ck : dbo.psa_entity_definition :: psa_schema]
-      check (len([psa_schema])=4 and [psa_schema] not like '%[^0-9a-zA-Z]%'),
-
       [psa_entity] nvarchar(31) collate Latin1_General_100_BIN2,
-      constraint [ck : dbo.psa_entity_definition :: psa_entity]
-      check ([psa_entity] not like '%[^0-9a-zA-Z]%'),
       constraint [pk : dbo.psa_entity_definition {domain}]
       primary key clustered ([psa_schema],[psa_entity]),
 
@@ -2043,8 +2036,6 @@ grant execute on [dbo].[psa_end_batch] to [psa_etl_manager];</value>
       constraint [ck : dbo.psa_entity_definition :: psa_infer_deletions]
       check ([psa_infer_deletions] in(N'Yes',N'No')),
       [etl_build_group] nvarchar(128) collate Latin1_General_100_BIN2 null,
-      constraint [ck : dbo.psa_entity_definition :: etl_build_group]
-      check ([etl_build_group] not like '%[^0-9a-zA-Z]%'),
       [etl_max_threads] int not null,
       [etl_max_record_count] int not null
     );
@@ -2383,9 +2374,7 @@ return @@error;</value>
    create table [dbo].[ara_entity_definition]
     (
       [ara_entity] nvarchar(25) collate Latin1_General_100_BIN2,
-      constraint [ck : dbo.ara_entity_definition :: ara_entity]
-      check ([ara_entity] not like '%[^0-9a-zA-Z]%'),
-      constraint [pk : dbo.ara_entity_definition {domain}]
+      constraint [pk : dbo.ara_entity_definition]
       primary key clustered ([ara_entity]),
 
       [ara_entity_description] nvarchar(4000) collate Latin1_General_100_BIN2 null,
@@ -2417,11 +2406,11 @@ if object_id(N'[dbo].[ara_attribute_definition]',N'U') is null begin;
       primary key clustered ([ara_entity],[ara_attribute]),
 
       [ara_attribute_referenced_entity] nvarchar(25) collate Latin1_General_100_BIN2 null,
-      constraint [fk : dbo.ara_attribute_definition $$ dbo.ara_entity_definition]
+      constraint [fk : dbo.ara_attribute_definition $ dbo.ara_entity_definition $$ referenced]
       foreign key ([ara_attribute_referenced_entity])
       references [dbo].[ara_entity_definition] ([ara_entity]),
 
-      [ara_attribute_referenced_entity_role] nvarchar(10) collate Latin1_General_100_BIN2 null,
+      [ara_attribute_referenced_entity_role] nvarchar(25) collate Latin1_General_100_BIN2 null,
       
       [ara_attribute_name] as convert(nvarchar(53),case when [ara_attribute_referenced_entity] is null 
                                                         then [ara_attribute] 
@@ -2451,262 +2440,11 @@ if object_id(N'[dbo].[ara_attribute_definition]',N'U') is null begin;
 
       [ara_attribute_distribution] nvarchar(1) collate Latin1_General_100_BIN2 not null,
       constraint [ck : dbo.ara_attribute_definition :: ara_attribute_distribution]
-      check ([ara_attribute_distribution] in(N'D',N'C',N'N'))
+      check ([ara_attribute_distribution] in(N'D',N'C',N'N')),
+      [ara_attribute_default] [nvarchar](max) collate Latin1_General_100_BIN2 null
     );
 
    exec sys.sp_MS_marksystemobject N'ara_attribute_definition';
-
-end;</value>
-  </data>
-  <data name="ARA_ChangeTrackingSystemDefinition" xml:space="preserve">
-    <value>set nocount on;
-set quoted_identifier on;
-set ansi_nulls on;
-
-exec sys.sp_executesql 
-N'
-if object_id(N''[dbo].[ara_change_tracking_entity_version]'',N''U'') is null begin;
-
-create table [dbo].[ara_change_tracking_entity_version]
- (
-   [ara_object_id] int not null,
-   [ara_activity] nvarchar(10) not null,
-   constraint [pk : dbo.ara_change_tracking_entity_version] 
-   primary key clustered ([ara_activity],[ara_object_id]),
-
-   [ara_schema] sysname not null,
-   [ara_entity] sysname not null,
-   [ara_domain] as quotename([ara_schema])+N''.''+quotename([ara_entity]) persisted,
-
-   [ara_change_tracking_get] bigint,
-   [ara_change_tracking_set] bigint
- );
-
-create statistics [st : dbo.ara_change_tracking_entity_version :: ara_object_id] on [dbo].[ara_change_tracking_entity_version]
- (
-   [ara_object_id]
- );
-
-create statistics [st : dbo.ara_change_tracking_entity_version :: ara_schema] on [dbo].[ara_change_tracking_entity_version]
- (
-   [ara_schema]
- );
-
-create statistics [st : dbo.ara_change_tracking_entity_version :: ara_entity] on [dbo].[ara_change_tracking_entity_version]
- (
-   [ara_entity]
- );
-
-create statistics [st : dbo.ara_change_tracking_entity_version :: ara_domain] on [dbo].[ara_change_tracking_entity_version]
- (
-   [ara_domain]
- );
-
-create statistics [st : dbo.ara_change_tracking_entity_version :: ara_activity] on [dbo].[ara_change_tracking_entity_version]
- (
-   [ara_activity]
- );
-
-exec sys.sp_MS_marksystemobject N''ara_change_tracking_entity_version'';
-end;
-';
-
-exec sys.sp_executesql 
-N'
-if object_id(N''[dbo].[ara_get_change_tracking_entity_version]'',N''P'') is not null drop procedure [dbo].[ara_get_change_tracking_entity_version];
-';
-
-exec sys.sp_executesql 
-N'
-create procedure [dbo].[ara_get_change_tracking_entity_version] 
- (
-   @entity sysname,
-   @activity nvarchar(10),
-   @current_version bigint output
- ) with execute as ''dbo''
-as
-set nocount on;
-
-declare
-   @oid int=null;
-
-select
-   @oid=[object_id]
-from
-   sys.change_tracking_tables ctt
-where
-   [object_id]=object_id(@entity);
-
-if @oid is null begin;
-   raiserror(''ARA entity %s does not exist and cannot be accessed for change tracking versioning.'',16,1,@entity) with log;
-   return -1;
-end;
-
-with merge_source as
- (
-   select
-      @oid [ara_object_id],
-      @activity [ara_activity],
-      change_tracking_current_version() [ara_change_tracking_set],
-      change_tracking_min_valid_version(@oid) [ara_change_tracking_get],
-      object_schema_name(@oid) [ara_schema],
-      object_name(@oid) [ara_entity]
- )
-merge
-   [dbo].[ara_change_tracking_entity_version] t
-using
-   merge_source s on t.[ara_object_id]=s.[ara_object_id]
-                 and t.[ara_activity]=s.[ara_activity]
-when matched then
-   update
-      -- [dbo].[ara_change_tracking_entity_version]
-   set
-      [ara_change_tracking_set]=s.[ara_change_tracking_set]
-when not matched by target then
-   insert -- [dbo].[ara_change_tracking_entity_version]
-    (
-      [ara_object_id],
-      [ara_activity],
-      [ara_schema],
-      [ara_entity],
-      [ara_change_tracking_get],
-      [ara_change_tracking_set]
-    )
-   values
-    (
-      s.[ara_object_id],
-      s.[ara_activity],
-      s.[ara_schema],
-      s.[ara_entity],
-      s.[ara_change_tracking_get],
-      s.[ara_change_tracking_set]
-    );
-
-declare
-   @rv bigint;
-
-select
-   @rv=[ara_change_tracking_get]
-from
-   [dbo].[ara_change_tracking_entity_version]
-where
-   [ara_object_id]=@oid
-   and
-   [ara_activity]=@activity;
-
-select
-   @current_version=@rv;
-
-return @rv;
-';
-
-exec sys.sp_executesql 
-N'
-exec sys.sp_MS_marksystemobject N''ara_get_change_tracking_entity_version'';
-';
-
-exec sys.sp_executesql 
-N'
-if object_id(N''[dbo].[ara_set_change_tracking_entity_version]'',N''P'') is not null drop procedure [dbo].[ara_set_change_tracking_entity_version];
-';
-
-exec sys.sp_executesql 
-N'
-create procedure [dbo].[ara_set_change_tracking_entity_version]
- (
-   @entity sysname,
-   @activity nvarchar(10)
- ) with execute as ''dbo''
-as
-set nocount on;
-
-declare
-   @oid int=null;
-
-select
-   @oid=[object_id]
-from
-   sys.change_tracking_tables ctt
-where
-   [object_id]=object_id(@entity);
-
-if @oid is null begin;
-   raiserror(''ARA entity %s does not exist and cannot be accessed for change tracking versioning.'',16,1,@entity) with log;
-   return -1;
-end;
-
-with merge_source as
- (
-   select
-      @oid [ara_object_id],
-      @activity [ara_activity],
-      change_tracking_min_valid_version(@oid) [ara_change_tracking_get],
-      object_schema_name(@oid) [ara_schema],
-      object_name(@oid) [ara_entity]
- )
-merge
-   [dbo].[ara_change_tracking_entity_version] t
-using
-   merge_source s on t.[ara_object_id]=s.[ara_object_id]
-                 and t.[ara_activity]=s.[ara_activity]
-when matched then
-   update
-      -- [dbo].[ara_change_tracking_entity_version]
-   set
-      [ara_change_tracking_get]=t.[ara_change_tracking_set]
-when not matched by target then
-   insert -- [dbo].[ara_change_tracking_entity_version]
-    (
-      [ara_object_id],
-      [ara_activity],
-      [ara_schema],
-      [ara_entity],
-      [ara_change_tracking_get],
-      [ara_change_tracking_set]
-    )
-   values
-    (
-      s.[ara_object_id],
-      s.[ara_activity],
-      s.[ara_schema],
-      s.[ara_entity],
-      s.[ara_change_tracking_get],
-      s.[ara_change_tracking_get]
-    );
-
-return @@error;
-';
-
-exec sys.sp_executesql 
-N'
-exec sys.sp_MS_marksystemobject N''ara_set_change_tracking_entity_version'';
-';
-
-grant select,insert,update,delete on [dbo].[ara_change_tracking_entity_version] to [ara_owner];
-grant execute on [dbo].[ara_get_change_tracking_entity_version] to [ara_owner];
-grant execute on [dbo].[ara_set_change_tracking_entity_version] to [ara_owner];</value>
-  </data>
-  <data name="ARA_DatabaseChangeTrackingDefinition" xml:space="preserve">
-    <value>if not exists(select 1 from sys.change_tracking_databases where [database_id]=db_id()) begin;
-   alter database [{{{db}}}] set change_tracking=on (change_retention=5 days,auto_cleanup=on);
-end;</value>
-  </data>
-  <data name="ARA_HashingAlgorithm" xml:space="preserve">
-    <value>if object_id(N'[dbo].[ara_hash]',N'FN') is null begin;
-
-   exec sys.sp_executesql
-   N'
-   create function [dbo].[ara_hash] 
-    (
-      @string nvarchar(max)
-    ) 
-   returns varbinary(20) with encryption
-   as 
-   begin;
-      return master.dbo.[fn_hash](@string);
-   end;
-   '
-   exec sys.sp_MS_marksystemobject 'ara_hash';
 
 end;</value>
   </data>
@@ -2862,19 +2600,22 @@ from
     <value>with [new_model] as
  (
    select
-      [ara_entity],
-      [ara_attribute_name],
-      isnull([ara_attribute_referenced_entity],N'') [ara_attribute_referenced_entity],
-      case when [ara_attribute_referenced_entity] is null then [ara_attribute_datatype] else N'int' end [ara_attribute_datatype],
-      N'' [ara_attribute_default],
-      [ara_attribute_ordinal],
-      [ara_attribute_sort],
-      [ara_attribute_optional],
-      [ara_attribute_business_identifier],
-      [ara_attribute_description],
-      [ara_attribute_distribution]
+      a.[ara_entity],
+      a.[ara_attribute_name],
+      isnull(a.[ara_attribute_referenced_entity],N'') [ara_attribute_referenced_entity],
+      isnull(e.[ara_entity_type],N'') [ara_attribute_referenced_entity_type],
+      case when a.[ara_attribute_referenced_entity] is null then a.[ara_attribute_datatype] else N'int' end [ara_attribute_datatype],
+      isnull(a.[ara_attribute_default],N'') [ara_attribute_default],
+      a.[ara_attribute_ordinal],
+      a.[ara_attribute_sort],
+      a.[ara_attribute_optional],
+      a.[ara_attribute_business_identifier],
+      isnull(a.[ara_attribute_description],a.[ara_attribute_name]+N' Description...') [ara_attribute_description],
+      a.[ara_attribute_distribution]
    from 
-      [master].[dbo].[ara_attribute_definition]
+      [master].[dbo].[ara_attribute_definition] a
+      left join
+      [master].[dbo].[ara_entity_definition] e on a.[ara_attribute_referenced_entity]=e.[ara_entity]
  ), [existing_bids] as
  (
    select
@@ -2885,10 +2626,10 @@ from
       sys.index_columns ic
       inner join
       sys.indexes i on ic.[object_id]=i.[object_id]
-                     and ic.[index_id]=i.[index_id]
+                   and ic.[index_id]=i.[index_id]
       inner join
       sys.columns c on ic.[object_id]=c.[object_id]
-                     and ic.[column_id]=c.[column_id]
+                   and ic.[column_id]=c.[column_id]
       inner join
       sys.tables t on c.[object_id]=t.[object_id]
    where
@@ -2929,8 +2670,8 @@ from
    select
       fkc.[parent_object_id] [object_id],
       fkc.[parent_column_id] [column_id],
-      object_name(fkc.[parent_object_id]) [ara_attribute_referenced_entity]
-   from 
+      replace(object_name(fkc.[referenced_object_id]),N'.Keystore','') [ara_attribute_referenced_entity]
+   from
       sys.foreign_key_columns fkc
  ), [existing_model] as
  (
@@ -2938,19 +2679,19 @@ from
       o.[name] [ara_entity],
       c.[name] [ara_attribute_name],
       isnull(er.[ara_attribute_referenced_entity],N'') [ara_attribute_referenced_entity],
-      case y.[Name]
-         when N'char' then y.[Name]+N'('+convert(nvarchar(10),c.[max_length])+N')'
-         when N'nchar' then y.[Name]+N'('+convert(nvarchar(10),c.[max_length]/2)+N')'
-         when N'varchar' then y.[Name]+N'('+ isnull(nullif(convert(nvarchar(10),c.[max_length]),N'-1'),N'max') +N')'
-         when N'nvarchar' then y.[Name]+N'('+ isnull(nullif(convert(nvarchar(10),c.[max_length]/2),N'-1'),N'max') +N')'
-         when N'binary' then y.[Name]+N'('+isnull(nullif(convert(nvarchar(10),c.[max_length]),N'-1'),N'max')+N')'
-         when N'varbinary' then y.[Name]+N'('+isnull(nullif(convert(nvarchar(10),c.[max_length]),N'-1'),N'max')+N')'
-         when N'datetime2' then y.[Name]+N'('+convert(nvarchar(10),c.[scale])+N')'
-         when N'decimal' then y.[Name]+N'('+convert(nvarchar(10),c.[precision])+N','+convert(nvarchar(10),c.[scale])+N')'
-         when N'numeric' then y.[Name]+N'('+convert(nvarchar(10),c.[precision])+N','+convert(nvarchar(10),c.[scale])+N')'
-         else y.[Name]
+      case y.[name]
+         when N'char' then y.[name]+N'('+convert(nvarchar(10),c.[max_length])+N')'
+         when N'nchar' then y.[name]+N'('+convert(nvarchar(10),c.[max_length]/2)+N')'
+         when N'varchar' then y.[name]+N'('+ isnull(nullif(convert(nvarchar(10),c.[max_length]),N'-1'),N'max') +N')'
+         when N'nvarchar' then y.[name]+N'('+ isnull(nullif(convert(nvarchar(10),c.[max_length]/2),N'-1'),N'max') +N')'
+         when N'binary' then y.[name]+N'('+isnull(nullif(convert(nvarchar(10),c.[max_length]),N'-1'),N'max')+N')'
+         when N'varbinary' then y.[name]+N'('+isnull(nullif(convert(nvarchar(10),c.[max_length]),N'-1'),N'max')+N')'
+         when N'datetime2' then y.[name]+N'('+convert(nvarchar(10),c.[scale])+N')'
+         when N'decimal' then y.[name]+N'('+convert(nvarchar(10),c.[precision])+N','+convert(nvarchar(10),c.[scale])+N')'
+         when N'numeric' then y.[name]+N'('+convert(nvarchar(10),c.[precision])+N','+convert(nvarchar(10),c.[scale])+N')'
+         else y.[name]
        end [ara_attribute_datatype],
-      lower(isnull(df.[definition],N'')) [ara_attribute_default],
+      isnull(df.[definition],N'') [ara_attribute_default],
       row_number() over(partition by o.[name] order by c.[column_id]) [ara_attribute_ordinal],
       case when sq.[is_descending_key]=1 then 'desc' else N'asc' end [ara_attribute_sort],
       case c.[is_nullable] when 1 then N'Yes' else N'No' end [ara_attribute_optional],
@@ -2989,6 +2730,7 @@ select
    ks.[ara_entity],
    ks.[ara_attribute_name],
    isnull(nm.[ara_attribute_referenced_entity],N'') [ara_attribute_referenced_entity],
+   isnull(nm.[ara_attribute_referenced_entity_type],N'') [ara_attribute_referenced_entity_type],
    isnull(nm.[ara_attribute_datatype],N'') [ara_attribute_datatype],
    isnull(nm.[ara_attribute_default],N'') [ara_attribute_default],
    isnull(nm.[ara_attribute_ordinal],0) [ara_attribute_ordinal],
@@ -3013,6 +2755,18 @@ select
     end [ara_attribute_alter_column],
    case when em.[ara_entity] is null or nm.[ara_entity] is null 
         then convert(bit,0)
+        when em.[ara_attribute_datatype]!=nm.[ara_attribute_datatype]
+        then convert(bit,1)
+        else convert(bit,0)
+    end [ara_attribute_alter_datatype],
+   case when em.[ara_entity] is null or nm.[ara_entity] is null 
+        then convert(bit,0)
+        when em.[ara_attribute_optional]!=nm.[ara_attribute_optional]
+        then convert(bit,1)
+        else convert(bit,0)
+    end [ara_attribute_alter_optionality],
+   case when em.[ara_entity] is null or nm.[ara_entity] is null 
+        then convert(bit,0)
         when isnull(em.[ara_attribute_referenced_entity],N'')!=isnull(nm.[ara_attribute_referenced_entity],N'')
         then convert(bit,1)
         else convert(bit,0)
@@ -3023,9 +2777,9 @@ select
         then convert(bit,1)
         else convert(bit,0)
     end [ara_attribute_alter_default],
-   case when em.[ara_entity] is null or nm.[ara_entity] is null 
-        then convert(bit,0)
-        when em.[ara_entity] is null and nm.[ara_attribute_business_identifier]=N'Yes'
+   case when em.[ara_entity] is null and nm.[ara_attribute_business_identifier]=N'Yes'
+        then convert(bit,1)
+        when em.[ara_attribute_business_identifier]=N'Yes' and nm.[ara_entity] is null 
         then convert(bit,1)
         when em.[ara_attribute_business_identifier]!=nm.[ara_attribute_business_identifier]
         then convert(bit,1)
@@ -3044,11 +2798,62 @@ from
 order by
    ks.[ara_entity],isnull(nm.[ara_attribute_ordinal],9999);</value>
   </data>
-  <data name="ARA_KeyStoreDefinition" xml:space="preserve">
-    <value>declare @msg nvarchar(4000);
-select @msg=N'{{{creation log}}}'
+  <data name="ARA_AddColumnDefinitionTypeI" xml:space="preserve">
+    <value>if not exists(select N'?' from sys.columns where object_name([object_id])=N'{{{entity}}}' and [name]=N'{{{name}}}') begin;
+   alter table [dbo].[{{{entity}}}] add {{{column name}}} {{{datatype}}} {{{optionality}}}{{{default clause}}};
+end;</value>
+  </data>
+  <data name="ARA_AddColumnDefinitionTypeII" xml:space="preserve">
+    <value>if not exists(select N'?' from sys.columns where object_name([object_id])=N'{{{entity}}}.Keystore' and [name]=N'{{{name}}}') begin;
+   alter table [dbo].[{{{entity}}}.Keystore] add {{{column name}}} {{{datatype}}} {{{optionality}}};
+end;
+if not exists(select N'?' from sys.columns where object_name([object_id])=N'{{{entity}}}' and [name]=N'{{{name}}}') begin;
+   alter table [dbo].[{{{entity}}}] add {{{column name}}} {{{datatype}}} {{{optionality}}};
+end;</value>
+  </data>
+  <data name="ARA_AlterColumnDefinitionTypeI" xml:space="preserve">
+    <value>alter table [dbo].[{{{entity}}}] alter column {{{column name}}} {{{datatype}}}{{{default}}}{{{optionality}}};</value>
+  </data>
+  <data name="ARA_AlterColumnDefinitionTypeII" xml:space="preserve">
+    <value>if not exists(select N'?' from sys.columns where object_name([object_id])=N'{{{entity}}}.Keystore' and [name]=N'{{{name}}}') begin;
+   alter table [dbo].[{{{entity}}}.Keystore] alter column {{{column name}}} {{{datatype}}}{{{default}}}{{{optionality}}};
+end;
+if not exists(select N'?' from sys.columns where object_name([object_id])=N'{{{entity}}}' and [name]=N'{{{name}}}') begin;
+   alter table [dbo].[{{{entity}}}] alter column {{{column name}}} {{{datatype}}}{{{default}}}{{{optionality}}};
+end;</value>
+  </data>
+  <data name="ARA_CreateAlternateKeyDefinitionTypeII" xml:space="preserve">
+    <value>create unique nonclustered index [ak : {{{entity}}}.Keystore] on [dbo].[{{{entity}}}.Keystore]
+ (
+{{{alternate key index column set}}}
+ )
+with (fillfactor=80,data_compression=page);
 
-if object_id(N'[dbo].[{{{entity}}}.SPK]',N'SO') is null begin;
+create unique nonclustered index [ak : {{{entity}}}] on [dbo].[{{{entity}}}]
+ (
+{{{alternate key index column set 2}}}
+   [ara_member_sequence] desc
+ )
+with (fillfactor=80,data_compression=page);</value>
+  </data>
+  <data name="ARA_DropAlternateKeyDefinition" xml:space="preserve">
+    <value>if exists(select N'?' from sys.indexes where [name]=N'ak : {{{entity}}}.Keystore' and object_name([object_id])=N'{{{entity}}}.Keystore') begin;
+   drop index [ak : {{{entity}}}.Keystore] on [dbo].[{{{entity}}}.Keystore];
+end;
+if exists(select N'?' from sys.indexes where [name]=N'ak : {{{entity}}}' and object_name([object_id])=N'{{{entity}}}') begin;
+   drop index [ak : {{{entity}}}] on [dbo].[{{{entity}}}];
+end;</value>
+  </data>
+  <data name="ARA_DropColumnDefinition" xml:space="preserve">
+    <value>if exists(select N'?' from sys.columns where [name]=N'{{{attribute name}}}' and [object_id]=object_id(N'[dbo].[{{{entity}}}.Keystore]')) begin;
+   alter table [dbo].[{{{entity}}}.Keystore] drop column {{{column name}}};
+end;
+if exists(select N'?' from sys.columns where [name]=N'{{{attribute name}}}' and [object_id]=object_id(N'[dbo].[{{{entity}}}]')) begin;
+   alter table [dbo].[{{{entity}}}] drop column {{{column name}}};
+end;</value>
+  </data>
+  <data name="ARA_EntityDefinitionTypeII" xml:space="preserve">
+    <value>if object_id(N'[dbo].[{{{entity}}}.SPK]',N'SO') is null begin;
 
    create sequence [dbo].[{{{entity}}}.SPK] as int
       start with 1
@@ -3058,46 +2863,543 @@ if object_id(N'[dbo].[{{{entity}}}.SPK]',N'SO') is null begin;
       cycle
       cache 100;
 
-   raiserror(@msg,0,0,'[dbo].[{{{entity}}}.SPK]') with log;
+end;
+
+if object_id(N'[dbo].[{{{entity}}}.Keystore]',N'U') is null begin;
+
+   create table [dbo].[{{{entity}}}.Keystore]
+    (
+      [{{{entity}}}Key] int not null
+
+      -- call the sequence
+      constraint [df : {{{entity}}}.Keystore :: {{{entity}}}Key]
+      default next value for [dbo].[{{{entity}}}.SPK],   
+
+      -- define primary key
+      constraint [pk : {{{entity}}}.Keystore] 
+      primary key clustered ([{{{entity}}}Key])
+      with (fillfactor=100,data_compression=page), 
+
+      -- define the alternate key
+{{{alternate key table column set}}}
+
+      -- define the metadata
+      [ara_create_timestamp] datetime2(7) not null,
+      [ara_member_inferred] bit not null,
+      [ara_member_metadata] sql_variant null
+    );
+
+   create statistics [st : {{{entity}}}.Keystore :: ara_create_timestamp] on [dbo].[{{{entity}}}.Keystore] ([ara_create_timestamp]);   
+   create statistics [st : {{{entity}}}.Keystore :: ara_member_inferred] on [dbo].[{{{entity}}}.Keystore] ([ara_member_inferred]);  
+   create statistics [st : {{{entity}}}.Keystore :: ara_member_metadata] on [dbo].[{{{entity}}}.Keystore] ([ara_member_metadata]);  
 
 end;
 
-create table [dbo].[{{{entity}}}.Keystore]
- (
-   [{{{entity}}}Key] int not null
-
-   -- call the sequence
-   constraint [df : dbo.{{{entity}}}.Keystore :: {{{entity}}}Key]
-   default next value for [dbo].[{{{entity}}}.SPK],   
-
-   -- define primary key
-   constraint [pk : dbo.{{{entity}}}.Keystore] 
-   primary key clustered ([{{{entity}}}Key])
-   with (fillfactor=100,data_compression=page), 
-
-   -- define the alternate key
-{{{table column set}}}
-
-   -- define the metadata
-   [psa_create_timestamp] datetime2(7) not null,
-   [psa_member_inferred] bit not null,
-   [psa_member_metadata] sql_variant null
- );
-
 exec sys.sp_MS_marksystemobject N'[{{{entity}}}.Keystore]';
 
-raiserror(@msg,0,0,'[dbo].[{{{entity}}}.Keystore]') with log;
+if object_id(N'[dbo].[{{{entity}}}]',N'U') is null begin;
 
-create unique nonclustered index [ak : dbo.{{{entity}}}.Keystore] on [dbo].[{{{entity}}}.Keystore]
- (
-{{{index column set}}}
- )
-with (fillfactor=80,data_compression=page);
+   create table [dbo].[{{{entity}}}]
+    (
+      -- define the surrogate key
+      [{{{entity}}}Key] int not null,
+      [ara_member_sequence] int not null,
 
-raiserror(@msg,0,0,'[ak : dbo.{{{entity}}}.Keystore]') with log;</value>
+      -- define the alternate key
+{{{alternate key table column set}}}
+
+      -- define the metadata
+      [ara_start_period] datetime2(7) not null,
+      [ara_end_period] datetime2(7) null,
+      [ara_active_state] bit not null,
+      [ara_dml_action] as case when [ara_end_period] is null then N'I' when [ara_active_state]=0 then N'D' else N'U' end persisted not null,
+      [ara_current_flag]  AS convert(bit,case when [ara_end_period] is null then 1 else 0 end) persisted not null,
+      [ara_batch_id] uniqueidentifier null,
+      [ara_hash_id] varbinary(20) not null,
+
+      -- attributes
+{{{atomic table column set}}}
+
+      -- add primary key constraint
+      constraint [pk : {{{entity}}}]
+      primary key clustered ([{{{entity}}}Key] asc,[ara_member_sequence] desc)
+      with (fillfactor=100,data_compression=page),
+
+      -- relation to keystore
+      constraint [fk : {{{entity}}} $ dbo.{{{entity}}}.Keystore]
+      foreign key ([{{{entity}}}Key])
+      references [dbo].[{{{entity}}}.Keystore] ([{{{entity}}}Key])
+    );
+
+   create statistics [st : {{{entity}}} :: ara_member_sequence] on [dbo].[{{{entity}}}] ([ara_member_sequence]);
+   create statistics [st : {{{entity}}} :: ara_start_period] on [dbo].[{{{entity}}}] ([ara_start_period]);
+   create statistics [st : {{{entity}}} :: ara_end_period] on [dbo].[{{{entity}}}] ([ara_end_period]);
+   create statistics [st : {{{entity}}} :: ara_active_state] on [dbo].[{{{entity}}}] ([ara_active_state]);
+   create statistics [st : {{{entity}}} :: ara_dml_action] on [dbo].[{{{entity}}}] ([ara_dml_action]);
+   create statistics [st : {{{entity}}} :: ara_current_flag] on [dbo].[{{{entity}}}] ([ara_current_flag]);
+   create statistics [st : {{{entity}}} :: ara_batch_id] on [dbo].[{{{entity}}}] ([ara_batch_id]);
+   create statistics [st : {{{entity}}} :: ara_hash_id] on [dbo].[{{{entity}}}] ([ara_hash_id]);
+
+end;</value>
   </data>
-  <data name="ARA_ObjectCreationLogMessage" xml:space="preserve">
-    <value>EDW::ARA Object %s created.
-Slalom Consulting | Copyright © 2015 | www.slalom.com</value>
+  <data name="ARA_EntityDefinitionTypeI" xml:space="preserve">
+    <value>if object_id(N'[dbo].[{{{entity}}}.SPK]',N'SO') is null begin;
+
+   create sequence [dbo].[{{{entity}}}.SPK] as int
+      start with 1
+      increment by 1
+      minvalue 1
+      maxvalue 2000000000
+      cycle
+      cache 100;
+
+end;
+
+if object_id(N'[dbo].[{{{entity}}}]',N'U') is null begin;
+
+   create table [dbo].[{{{entity}}}]
+    (
+      -- define the surrogate key
+      [{{{entity}}}Key] int not null
+
+      -- call the sequence
+      constraint [df : {{{entity}}} :: {{{entity}}}Key]
+      default next value for [dbo].[{{{entity}}}.SPK],
+
+      -- define the alternate key
+{{{alternate key table column set}}}
+
+      -- define the metadata
+      [ara_start_period] datetime2(7) not null,
+      [ara_modify_period] datetime2(7) null,
+      [ara_active_state] bit not null,
+      [ara_dml_action] as case when [ara_modify_period] is null then N'I' when [ara_active_state]=0 then N'D' else N'U' end persisted not null,
+      [ara_batch_id] uniqueidentifier null,
+      [ara_hash_id] varbinary(20) not null,
+
+      -- attributes
+{{{atomic table column set}}}
+
+      -- add primary key constraint
+      constraint [pk : {{{entity}}}]
+      primary key clustered ([{{{entity}}}Key] asc)
+      with (fillfactor=100,data_compression=page)
+    );
+
+   create statistics [st : {{{entity}}} :: ara_start_period] on [dbo].[{{{entity}}}] ([ara_start_period]);
+   create statistics [st : {{{entity}}} :: ara_modify_period] on [dbo].[{{{entity}}}] ([ara_modify_period]);
+   create statistics [st : {{{entity}}} :: ara_active_state] on [dbo].[{{{entity}}}] ([ara_active_state]);
+   create statistics [st : {{{entity}}} :: ara_dml_action] on [dbo].[{{{entity}}}] ([ara_dml_action]);
+   create statistics [st : {{{entity}}} :: ara_batch_id] on [dbo].[{{{entity}}}] ([ara_batch_id]);
+   create statistics [st : {{{entity}}} :: ara_hash_id] on [dbo].[{{{entity}}}] ([ara_hash_id]);
+
+end;</value>
+  </data>
+  <data name="ARA_DeleteEntityDefinition" xml:space="preserve">
+    <value>if object_id(N'[dbo].[{{{entity}}}]',N'U') is not null drop table [dbo].[{{{entity}}}];
+if object_id(N'[dbo].[{{{entity}}}.Keystore]',N'U') is not null drop table [dbo].[{{{entity}}}.Keystore];</value>
+  </data>
+  <data name="SYS_LocalMethodInstall" xml:space="preserve">
+    <value>if not exists(select N'?' from sys.assemblies where [name]=N'Slalom.Framework.Methods')
+create assembly [Slalom.Framework.Methods]
+from 0x4D5A90000300000004000000FFFF0000B800000000000000400000000000000000000000000000000000000000000000000000000000000000000000800000000E1FBA0E00B409CD21B8014CCD21546869732070726F6772616D2063616E6E6F742062652072756E20696E20444F53206D6F64652E0D0D0A2400000000000000504500004C01040024D09F550000000000000000E00002210B010B00002A00000034000000000000FE47000000200000006000000000400000200000000200000400000000000000060000000000000000E000000004000000000000020060850000100000100000000010000010000000000000100000000000000000000000B04700004B00000000800000E02F00000000000000000000000000000000000000C000000C000000006000001C0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000200000080000000000000000000000082000004800000000000000000000002E746578740000000428000000200000002A000000040000000000000000000000000000200000602E73646174610000380100000060000000020000002E0000000000000000000000000000400000C02E72737263000000E02F0000008000000030000000300000000000000000000000000000400000402E72656C6F6300000C00000000C000000002000000600000000000000000000000000000400000420000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000E047000000000000480000000200050004290000AC1E0000010000000000000050200000B800000000000000000000000000000000000000000000000000000000000000000000000000000000000000B4000000CECAEFBE01000000910000006C53797374656D2E5265736F75726365732E5265736F757263655265616465722C206D73636F726C69622C2056657273696F6E3D342E302E302E302C2043756C747572653D6E65757472616C2C205075626C69634B6579546F6B656E3D623737613563353631393334653038392353797374656D2E5265736F75726365732E52756E74696D655265736F7572636553657402000000000000000000000050414450414450B40000005A7326000006280100000A740B000002800B000004002A002602280200000A00002A0000133001000B00000001000011007E0B0000040A2B00062A00133001000B000000020000110028270000060A2B00062A002602280A00000A00002A00002A0002280B00000A00002A00AA730D00000A8001000004730E00000A8002000004730F00000A8003000004731000000A8004000004002A00133001001000000003000011007E010000046F1100000A0A2B00062A133001001000000004000011007E020000046F1200000A0A2B00062A133001001000000005000011007E030000046F1300000A0A2B00062A133001001000000006000011007E040000046F1400000A0A2B00062A133002001200000007000011000203281500000A281600000A0A2B00062A0000133001000C000000080000110002281700000A0A2B00062A13300100100000000900001100D005000002281800000A0A2B00062A133001000C0000000A0000110002281900000A0A2B00062A13300200200000000B00001100028C0100001B14FE010B072C0A280100002B0A2B082B0500020A2B0100062A13300200120000000C00001100031200FE150200001B06810200001B002A00002A0002281B00000A00002A0013300200340000000D00001100027B1D00000A6F1E00000A0B078C0300001B14FE010D092C13280200002B0B027B1D00000A076F1F00000A0000070A2B00062A560002281B00000A0002732000000A7D1D00000A002A00002A0002281B00000A00002A001B300200430000000E0000110000026F2200000A0C2B11086F2300000A0B076F2400000A0ADE2600086F2500000A0D092DE500DE140814FE0116FE010D092C07086F2600000A0000DC140A2B00062A00011000000200020027290014000000001B300200410000000F0000110000026F2200000A0B2B13076F2300000A0A06036F2700000A00002B0B00076F2500000A0C082DE300DE140714FE0116FE010C082C07076F2600000A0000DC002A0000000110000002000200292B0014000000001B30020049000000100000110000026F2200000A0C2B17086F2300000A0B07036F2800000A282900000A0ADE2600086F2500000A0D092DDF00DE140814FE0116FE010D092C07086F2600000A0000DC140A2B00062A00000001100000020002002D2F0014000000001B30030042000000110000110000026F2200000A0B2B14076F2300000A0A0603046F2A00000A00002B0B00076F2500000A0C082DE200DE140714FE0116FE010C082C07076F2600000A0000DC002A000001100000020002002A2C0014000000001330020012000000120000110002036F2800000A282900000A0A2B00062A000032000203046F2A00000A00002A000000133002001F00000013000011000314FE010B072C04140A2B10000203281500000A732B00000A0A2B00062A00133002001C000000140000110002036F2C00000A732B00000A0A06036F2D00000A00060B2B00072A133004005400000015000011000514FE0116FE010D092C410575080000010B0714FE0116FE010D092C0E02030407281C0000060A2B282B200005750D0000010C0814FE0116FE010D092C0C02030408281B0000060A2B07000000050A2B00062A133004006800000016000011000514FE0116FE010C082C5505750A00001B0B0714FE0116FE010C082C1F07020304731D00000625FE071E000006732E00000A280300002B0A2B2B2B230005280400002B020304731D00000625FE071F000006733100000A280500002B0A2B060000050A2B00062A133002009801000017000011000514FE0116FE01131011103980010000056F3200000A0B3864010000076F3300000A0C076F3400000A13101110394A010000076F0600002B0D076F3600000A6F3700000A13040914FE0116FE01131011103925010000022C03032D03162B011700131111112C58028EB717DA1305161105130E13082B3E0211089A13070311089A1306110411076F3800000A131111112C1B091106283900000A131011102C07076F3A00000A0000140B002B120000110817D613081108110E1312111231B8000714FE0116FE011311111139AA0000000414FE0116FE01131011102C7F046F3B00000A17DA1309161109130F130D2B6204110D6F3C00000A130A110A6F3600000A6F3700000A130C110A6F0600002B130B110B14FE0116FE01131111112C2B1104110C6F3800000A131011102C1B09110B283900000A131311132C07076F3A00000A0000140B002B13000000110D17D6130D110D110F131211123194000714FE0116FE01131311132C0F076F3A00000A0004076F3D00000A0000000000080B000714FE0116FE01131311133A8CFEFFFF00050A2B00062A7E0002281B00000A0002037D0600000402047D0700000402057D08000004002A133004001E0000001800001100027B06000004027B07000004027B0800000403281C0000060A2B00062A0000133004003800000019000011000375080000010A0614FE0116FE010C082C1D027B06000004027B07000004027B0800000406281C0000060B2B082B0500030B2B0100072A2602281B00000A00002A000013300300330000001A0000110002283F00000A2D1C284000000A284100000A026F4200000A6F4300000A284400000A2B091201FE150E000001070A2B00062A00133002003B0000001B000011007E0900000414284600000A0C082C207201000070D00A000002281800000A6F4700000A734800000A0B078009000004007E090000040A2B00062A00133001000B0000001C000011007E0A0000040A2B00062A00260002800A000004002A000042534A4201000100000000000C00000076342E302E33303331390000000005006C000000C40B0000237E0000300C0000280C000023537472696E67730000000058180000200000002355530078180000100000002347554944000000881800002406000023426C6F6200000000000000020000015715A209090F000000FA253300160000010000003B0000000C0000000B000000280000002700000054000000570000001C000000060000000C000000100000000E0000000100000006000000010000000300000003000000060000000000090C0100000000000A002501FB000A0059013B010600690162010A00C101FB0006003F0262010A00C102970206000103E6020E001F030F030E0049030F030E007A030F030E0095030F030600BC03E6020600190406041200AB0496040600DF04CE0406001005FB041600750560051600C70560051600F705E10516001006E10516003D0625060600740654060600A2068F060A00E606BF060A00FE061300160033071607060048078F0606006007540606007E0762010600A20762010A00BB0713000600F507D60706000908E6020600310806040600460862010E0094080F030600AA0862011A00C908BD080600420962010600730954060A00860913000600B9099C090600D109C5090600EF099C091200300A150A0600670A550A0600950A8F06BF00A90A00000600B80A54060600D80A54060600100BF60A0600290B550A0600460BD6070600540B550A06006F0B550A06008A0B550A0600A30B550A0600BC0B550A0600D90B550A00000000010000000000010001000000000029003700050001000100000000003E00370009000100020000011000490037000D000100030005010000530000000D000500080005010000610000000D0005000F00000100007C0037000D0006001100030100008E0000000D0006001D0001000000AF00B7000D000900200000010000C200CC000D000900220000011000DD00370045000B00250000010000E80037000D000C0028003100840120003100AD012D003100CF013A003100F40147002100D002900021003C043F0121004E04430121005A0448011100EF04710111001C05750111008D0593015C2100000000061835011300010068210000000006183501130001007421000000001118700117000100A02100000000130877011B000100BC210000000013089D0128000100D821000000001308C60135000100F421000000001308E4014200010010220000000046022A02630001003022000000004602330268000200482200000000830044026C00020064220000000046024C02710002007C22000000001100550278000200A822000000000100730280000300C822000000000618350113000400D42200000000030887028B00040014230000000006183501130004002C23000000000118350113000400382300000000160828039D00040098230000000016083903A7000500F8230000000016084F03B200070060240000000016086703BE000900C0240000000016084F03CB000C00E0240000000016086703D3000E00F0240000000016008503DC0011001C25000000001600A003E40013004425000000001600C303ED001500A425000000001600C303FD0019001826000000001600C3030F011D00BC27000000000318350150012100DC2700000000030067045F01240008280000000003007C04660125004C280000000006183501130026005828000000001600B5046B01260098280000000013082C0579012700E02800000000130840057E012700F8280000000013084C0583012700082100000000111870011700280020210000000006183501130028002C210000000016089D05970128004421000000001308B10597012800000001003102000001006A02000001006A0200000100320300000100320300000200430300000100320300000200620300000100320300000200620300000300430300000100320300000200620300000100320300000200620300000300430300000100620300000200430300000100620300000200B90300000100DD0300000200ED0300000300F70300000400020400000100DD0300000200ED0300000300F70300000400020400000100DD0300000200ED0300000300F70300000400250400000100DD0300000200ED0300000300F70300000100770400000100020400000100C0040000010027049100D405A10189003501130099003501AD01A9003501BC01B10035011300B90035011300C10035011300C90035011300D10035012102090035011300110035011300D900350113002400350113002C00350113003400350113003C0035011300240087028B002C0087028B00340087028B003C0087028B00E1006F07CF0219002A02630019003302680029009007DC0219004C027100F100AC07EC02190035011300F900350102034400D00290004C0028038B004C0039037F034C0035011300010135018F0354001708A1035C0025088B0041002803710011013D08B30319015208130041003903210241005A08D20351006408D90341007008DF0351003501DF0359008208710021019C08EC03640035010B043101D40811043101DB0831046C0035010B044100E0085A045100F3085A0451000509B303210120095F0451002B096A0449003409710039012A026F0459004909740451005509130074005C09680074006609830474006F097F0341013501130049019209B3045101BE09B8045901DA09BE045901E609C4046101FD09CA047100090AD1046901350113001900450ADF042900700AE50479003501EB04790135014105890135014805910135011300990135012102A10135012102A90135012102B10135012102B90135012102C10135012102C90135012102D10135012102D90135012102200033001C0229004B0089022E00930294032E00530256052E005B025F052E008B0217062E009B0294032E00A30217062E004B024D052E0063027E052E006B02C8052E007302D5052E000B0194032E007B0294032E008302FF05400063001C0240001B00370243001B00370243002300400249004B00A702600033001C0263002300400263001B00370269004B009A02800063001C02830023004002830043001C0283003B001C0289004B00BB02A00063001C02A3001B003702A300E3000A03C00063001C02C3001B003702C3000B019403C900F3011C02E00063001C02E3001B003702E30033001C02E3002B001C02E900F3011C0200011B003702000163001C0203012B001C0203011B003702030133001C020901F3011C02200163001C0220011B00370229011B00B301400163001C0240011B003702430133001C02430143001C0243012300000543013B001C0243012B001C0249011B00B301600163001C0260011B00370263012B001C0263011B00B30163012300C201800163001C02830133001C0283012B001C0283013B001C02830143001C0289014B002602A00163001C02C00163001C02C0011B003702E00163001C0200021B003702000263001C0220021B00370200031B00370220031B00370240031B00370260031B00370280031B003702A0031B003702C0031B003702E0031B003702000433001C0220042B021C02C00433001C02A801A80175027A027F028402D402D802E302E802F702FD028503B703C503B703C503E802E603F103F8034E048904A704AC04D804F304FB040400010006000500070006000A0009000B000B000C000C00000059014F000000120254000000C101590000001E025E000000DA02980000002704210100002D042B0100002D0437010000DF048901000058058E010000A9059C010000BE059C0102000400030002000500050002000600070002000700090002000F000B00020012000D00010013000D00020014000F00010015000F000200160011000100170011000200220013000200230015000100240015000200270017000200280019007500750088005902600267026E026C0373039A03AB03010441047C04048000000100000000000000000000000000F00B000004000000000000000000000001000A00000000000A00000000000000000000000A0013000000000004000000000000000000000001000F030000000004000000000000000000000001008A040000000004000000000000000000000001006201000000000400000000000000000000000100B1080000000000000000010000007D0A0000050004000600040008000700000010000C0068020000100019006802000000001B0068023500F20235007A035F002A0461003D045F0049046B00650400000000003C4D6F64756C653E006D73636F726C6962004D6963726F736F66742E56697375616C4261736963004D794170706C69636174696F6E004544572E4D79004D79436F6D7075746572004D7950726F6A656374004D79576562536572766963657300546872656164536166654F626A65637450726F7669646572603100496E7465726E616C586D6C48656C7065720052656D6F76654E616D65737061636541747472696275746573436C6F73757265004D6574686F6473004544572E436F6D6D6F6E005265736F7572636573004544572E4D792E5265736F7572636573004D7953657474696E6773004D7953657474696E677350726F7065727479004D6963726F736F66742E56697375616C42617369632E4170706C69636174696F6E5365727669636573004170706C69636174696F6E42617365002E63746F72004D6963726F736F66742E56697375616C42617369632E4465766963657300436F6D70757465720053797374656D004F626A656374002E6363746F72006765745F436F6D7075746572006D5F436F6D70757465724F626A65637450726F7669646572006765745F4170706C69636174696F6E006D5F4170704F626A65637450726F76696465720055736572006765745F55736572006D5F557365724F626A65637450726F7669646572006765745F5765625365727669636573006D5F4D7957656253657276696365734F626A65637450726F7669646572004170706C69636174696F6E00576562536572766963657300457175616C73006F0047657448617368436F64650054797065004765745479706500546F537472696E67004372656174655F5F496E7374616E63655F5F005400696E7374616E636500446973706F73655F5F496E7374616E63655F5F006765745F476574496E7374616E6365004D6963726F736F66742E56697375616C42617369632E4D7953657276696365732E496E7465726E616C00436F6E7465787456616C75656031006D5F436F6E7465787400476574496E7374616E63650053797374656D2E436F6C6C656374696F6E732E47656E657269630049456E756D657261626C6560310053797374656D2E586D6C2E4C696E710058456C656D656E74006765745F56616C756500736F75726365007365745F56616C75650076616C756500584E616D65006765745F41747472696275746556616C7565006E616D65007365745F41747472696275746556616C756500584174747269627574650043726561746541747472696275746500584E616D657370616365004372656174654E616D657370616365417474726962757465006E73004C69737460310052656D6F76654E616D6573706163654174747269627574657300696E53636F7065507265666978657300696E53636F70654E730061747472696275746573006F626A0053797374656D2E436F6C6C656374696F6E730049456E756D657261626C6500650056616C75650041747472696275746556616C7565006D5F696E53636F70655072656669786573006D5F696E53636F70654E73006D5F617474726962757465730050726F6365737358456C656D656E7400656C656D0050726F636573734F626A6563740053797374656D2E446174610053797374656D2E446174612E53716C54797065730053716C42696E61727900537472696E67486173680048617368696E67537472696E670053797374656D2E5265736F7572636573005265736F757263654D616E61676572007265736F757263654D616E0053797374656D2E476C6F62616C697A6174696F6E0043756C74757265496E666F007265736F7572636543756C74757265006765745F5265736F757263654D616E61676572006765745F43756C74757265007365745F43756C747572650043756C747572650053797374656D2E436F6E66696775726174696F6E004170706C69636174696F6E53657474696E6773426173650064656661756C74496E7374616E6365006765745F44656661756C740044656661756C74006765745F53657474696E67730053657474696E67730053657474696E6773426173650053796E6368726F6E697A65640053797374656D2E436F6D706F6E656E744D6F64656C00456469746F7242726F777361626C6541747472696275746500456469746F7242726F777361626C6553746174650053797374656D2E436F6465446F6D2E436F6D70696C65720047656E657261746564436F64654174747269627574650053797374656D2E52756E74696D652E436F6D70696C6572536572766963657300436F6D70696C657247656E6572617465644174747269627574650053797374656D2E446961676E6F73746963730044656275676765724E6F6E55736572436F6465417474726962757465004D6963726F736F66742E56697375616C42617369632E436F6D70696C65725365727669636573005374616E646172644D6F64756C6541747472696275746500486964654D6F64756C654E616D654174747269627574650053797374656D2E436F6D706F6E656E744D6F64656C2E44657369676E0048656C704B6579776F726441747472696275746500446562756767657248696464656E4174747269627574650052756E74696D6548656C70657273004765744F626A65637456616C75650052756E74696D655479706548616E646C65004765745479706546726F6D48616E646C6500416374697661746F7200437265617465496E7374616E6365004D7947726F7570436F6C6C656374696F6E4174747269627574650053797374656D2E52756E74696D652E496E7465726F70536572766963657300436F6D56697369626C654174747269627574650049456E756D657261746F72603100476574456E756D657261746F72006765745F43757272656E740049456E756D657261746F72004D6F76654E6578740049446973706F7361626C6500446973706F736500417474726962757465006F705F4578706C696369740053657441747472696275746556616C7565006765745F4E616D6573706163654E616D6500584F626A65637400416464416E6E6F746174696F6E0046756E6360320053797374656D2E436F72650053797374656D2E4C696E7100456E756D657261626C650053656C6563740043617374006765745F4669727374417474726962757465006765745F4E657874417474726962757465006765745F49734E616D6573706163654465636C61726174696F6E00416E6E6F746174696F6E006765745F4E616D65006765745F4C6F63616C4E616D6500537472696E67006F705F457175616C6974790052656D6F7665006765745F436F756E74006765745F4974656D0041646400457874656E73696F6E41747472696275746500496E666F726D6174696F6E0049734E6F7468696E670053797374656D2E53656375726974792E43727970746F6772617068790053484131004372656174650053797374656D2E5465787400456E636F64696E67006765745F556E69636F64650047657442797465730048617368416C676F726974686D00436F6D7075746548617368006F705F496D706C69636974004D6963726F736F66742E53716C5365727665722E5365727665720053716C46756E6374696F6E417474726962757465005265666572656E6365457175616C730053797374656D2E5265666C656374696F6E00417373656D626C79006765745F417373656D626C79004544572E5265736F75726365732E7265736F75726365730044656275676761626C6541747472696275746500446562756767696E674D6F64657300436F6D70696C6174696F6E52656C61786174696F6E734174747269627574650052756E74696D65436F6D7061746962696C6974794174747269627574650053797374656D2E52756E74696D652E56657273696F6E696E67005461726765744672616D65776F726B41747472696275746500417373656D626C7946696C6556657273696F6E417474726962757465004775696441747472696275746500417373656D626C7954726164656D61726B41747472696275746500417373656D626C79436F7079726967687441747472696275746500417373656D626C7950726F6475637441747472696275746500417373656D626C79436F6D70616E7941747472696275746500417373656D626C794465736372697074696F6E41747472696275746500417373656D626C795469746C6541747472696275746500536C616C6F6D2E4672616D65776F726B2E4D6574686F647300536C616C6F6D2E4672616D65776F726B2E4D6574686F64732E646C6C000000001B4500440057002E005200650073006F007500720063006500730000000000CC94F06C2ADF77469F85D8A4DC0CD72E0008B77A5C561934E08908B03F5F7F11D50A3A0320000103000001040000120C070615121801120C040000120807061512180112080400001211070615121801121104000012140706151218011214040800120C040800120804080012110408001214042001021C0320000804200012150320000E021E00071001011E001E000730010101101E000213000420001300070615121901130004280013000900010E15121D0112210A00020115121D0112210E0B00020E15121D01122112250C00030115121D01122112250E0700020E1221122508000301122112250E070002122912251C08000212291225122D0F00041C1D0E1D122D1512310112291C11000412351D0E1D122D151231011229123511000412211D0E1D122D15123101122912210908010E15121D0112210B08020E15121D01122112250708020E1221122503061D0E04061D122D07061512310112290E2003011D0E1D122D151231011229062001122112210420011C1C05000111390E0306123D03061241040000123D0400001241050001011241040800123D04080012410306122C040000122C040800122C06000112491249040701122C052001011151080100020000000000052002010E0E5901004B4D6963726F736F66742E56697375616C53747564696F2E456469746F72732E53657474696E677344657369676E65722E53657474696E677353696E676C6546696C6547656E657261746F720831322E302E302E3000000401000000042001010E1001000B4D792E53657474696E677300000801000100000000001801000A4D7954656D706C6174650831312E302E302E3000000615121801120C061512180112080615121801121106151218011214040701120C0407011208040701121104070112141001000B4D792E436F6D707574657200000C0100074D792E5573657200001301000E4D792E4170706C69636174696F6E00001301000E4D792E576562536572766963657300000400011C1C03070102030701080600011215117504070112150307010E051001001E00040A011E000507021E00020407011E00072004010E0E0E0E6101003453797374656D2E5765622E53657276696365732E50726F746F636F6C732E536F617048747470436C69656E7450726F746F636F6C124372656174655F5F496E7374616E63655F5F13446973706F73655F5F496E7374616E63655F5F0000000615121801130006151219011300040A0113000520010113000907041300130013000204200101020501000000000615121D011221092000151280850113000715128085011221032000020D07040E122115128085011221020C070312211512808501122102062001122912250500010E12290620020112251C050702122902042001011C060702122912290807041C122112350209151280950212211221052002011C181810020215121D011E0115121D011E0015128095021E001E01060A02122112210B10010115121D011E001235030A011C0715128095021C1C040A021C1C0B0703123515121D011221020420001229053001001E00040A01122D0420001225042001020E07000202122D122D061512310112290520011300081D0714122112291229122D0E08122D0E08081229122D0E08080802020802040701122106070312211C02040001021C0500001280A90500001280AD0520011D050E0620011D051D0506000111391D0506070211391139050002021C1C0520001280B9072002010E1280B9070703123D123D0204070112414001003353797374656D2E5265736F75726365732E546F6F6C732E5374726F6E676C7954797065645265736F757263654275696C64657207342E302E302E300000062001011180C104200101080801000701000000000801000800000000001E01000100540216577261704E6F6E457863657074696F6E5468726F7773014901001A2E4E45544672616D65776F726B2C56657273696F6E3D76342E350100540E144672616D65776F726B446973706C61794E616D65122E4E4554204672616D65776F726B20342E350C010007312E302E302E3000002901002461363966333666622D383235622D343664322D396365382D623931616364316664323539000017010012436F7079726967687420C2A920203230313500000C0100074D6574686F64730000D84700000000000000000000EE470000002000000000000000000000000000000000000000000000E04700000000000000005F436F72446C6C4D61696E006D73636F7265652E646C6C0000000000FF2500204000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000024D09F5500000000020000001C0100001C6000001C2E000052534453C4C1CB9FBDB44641B43BA1B9E510091801000000433A5C55736572735C6D666C616E6967616E5C536F7572636520436F64655C4769744875625C456E74657270726973652D446174612D57617265686F7573652D4672616D65776F726B5C4D6574686F64735C6F626A5C44656275675C536C616C6F6D2E4672616D65776F726B2E4D6574686F64732E706462000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000030003000000280000800E0000007000008010000000880000800000000000000000000000000000070002000000A000008003000000B800008004000000D000008005000000E800008006000000000100800700000018010080080000003001008000000000000000000000000000000100007F0000480100800000000000000000000000000000010001000000600100800000000000000000000000000000010000000000780100000000000000000000000000000000010000000000880100000000000000000000000000000000010000000000980100000000000000000000000000000000010000000000A80100000000000000000000000000000000010000000000B80100000000000000000000000000000000010000000000C80100000000000000000000000000000000010000000000D80100000000000000000000000000000000010000000000E80100000000000000000000000000000000010000000000F8010000F0840000E80200000000000000000000D887000028010000000000000000000000890000A80800000000000000000000A891000068050000000000000000000010970000530300000000000000000000689A0000A8100000000000000000000010AB000068040000000000000000000078AF000068000000000000000000000008820000E80200000000000000000000E80234000000560053005F00560045005200530049004F004E005F0049004E0046004F0000000000BD04EFFE00000100000001000000000000000100000000003F000000000000000400000002000000000000000000000000000000440000000100560061007200460069006C00650049006E0066006F00000000002400040000005400720061006E0073006C006100740069006F006E00000000000000B00448020000010053007400720069006E006700460069006C00650049006E0066006F000000240200000100300030003000300030003400620030000000380008000100460069006C0065004400650073006300720069007000740069006F006E00000000004D006500740068006F00640073000000300008000100460069006C006500560065007200730069006F006E000000000031002E0030002E0030002E00300000005C001D00010049006E007400650072006E0061006C004E0061006D006500000053006C0061006C006F006D002E004600720061006D00650077006F0072006B002E004D006500740068006F00640073002E0064006C006C00000000004800120001004C006500670061006C0043006F007000790072006900670068007400000043006F0070007900720069006700680074002000A900200020003200300031003500000064001D0001004F0072006900670069006E0061006C00460069006C0065006E0061006D006500000053006C0061006C006F006D002E004600720061006D00650077006F0072006B002E004D006500740068006F00640073002E0064006C006C0000000000300008000100500072006F0064007500630074004E0061006D006500000000004D006500740068006F00640073000000340008000100500072006F006400750063007400560065007200730069006F006E00000031002E0030002E0030002E003000000038000800010041007300730065006D0062006C0079002000560065007200730069006F006E00000031002E0030002E0030002E0030000000280000002000000040000000010004000000000000020000000000000000000000000000000000000000000000008000008000000080800080000000800080008080000080808000C0C0C0000000FF0000FF000000FFFF00FF000000FF00FF00FFFF0000FFFFFF00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF7777777777777777777777777777FFFF7777777777777777777777777777FFFF77FFFFFFFFFFFFFFFFFFFFFFFF77FFFF77FFFFFFFFFFFFFFFFFFFFFFFF77FFFF77FFFFFFFFFFFFFFFFFFFFFFFF77FFFF77FFFFFFFFFFFFFFFFFFFFFFFF77FFFF77FFFFFFFFFFFFFFFFFFFFFFFF77FFFF77FFFFFFFFFFFFFFFFFFFFFFFF77FFFF77FFFFFFFFFFFFFFFFFFFFFFFF77FFFF77FFFFFFFFFFFFFFFFFFFFFFFF77FFFF77FFFFFFFFFFFFFFFFFFFFFFFF77FFFF77FFFFFFFFFFFFFFFFFFFFFFFF77FFFF77FFFFFFFFFFFFFFFFFFFFFFFF77FFFF77FFFFFFFFFFFFFFFFFFFFFFFF77FFFF77FFFFFFFFFFFFFFFFFFFFFFFF77FFFF77FFFFFFFFFFFFFFFFFFFFFFFF77FFFF77FFFFFFFFFFFFFFFFFFFFFFFF77FFFF7777777777777777777777777777FFFF7777777777777777777777777777FFFF7777777777777777777777777777FFFF7777777777777777777777777777FFFF7777777777777777777777777777FFFF7777777777777777777777777777FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF0000000000000000000000000000000000000000000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000FFFFFFFFFFFFFFFF280000001000000020000000010004000000000080000000000000000000000000000000000000000000000000008000008000000080800080000000800080008080000080808000C0C0C0000000FF0000FF000000FFFF00FF000000FF00FF00FFFF0000FFFFFF000000000000000000FFFFFFFFFFFFFFFFF77777777777777FF7FFFFFFFFFFFF7FF7FFFFFFFFFFFF7FF7FFFFFFFFFFFF7FF7FFFFFFFFFFFF7FF7FFFFFFFFFFFF7FF7FFFFFFFFFFFF7FF7FFFFFFFFFFFF7FF7FFFFFFFFFFFF7FF77777777777777FF77777777777777FF77777777777777FFFFFFFFFFFFFFFFF0000000000000000FFFF00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000FFFF0000280000002000000040000000010008000000000000040000000000000000000000010000000100000000000042424200F1EFF000F6F6F6000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000FFFFFF0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030301010101010101010101010101010101010101010101010101010101030303030101010101010101010101010101010101010101010101010101010103030303010102020202020202020202020202020202020202020202020201010303030301010202020202020202020202020202020202020202020202020101030303030101020202020202020202020202020202020202020202020202010103030303010102020202020202020202020202020202020202020202020201010303030301010202020202020202020202020202020202020202020202020101030303030101020202020202020202020202020202020202020202020202010103030303010102020202020202020202020202020202020202020202020201010303030301010202020202020202020202020202020202020202020202020101030303030101020202020202020202020202020202020202020202020202010103030303010102020202020202020202020202020202020202020202020201010303030301010202020202020202020202020202020202020202020202020101030303030101020202020202020202020202020202020202020202020202010103030303010102020202020202020202020202020202020202020202020201010303030301010202020202020202020202020202020202020202020202020101030303030101020202020202020202020202020202020202020202020202010103030303010101010101010101010101010101010101010101010101010101010303030301010101010101010101010101010101010101010101010101010101030303030101010101010101010101010101010101010101010101010101010103030303010101010101010101010101010101010101010101010101010101010303030301010101010101010101010101010101010101010101010101010101030303030101010101010101010101010101010101010101010101010101010103030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000FFFFFFFFFFFFFFFF280000001000000020000000010008000000000000010000000000000000000000010000000100000000000042424200F1EFF000F6F6F6000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000FFFFFF0000000000000000000000000000000000030303030303030303030303030303030301010101010101010101010101010303010202020202020202020202020103030102020202020202020202020201030301020202020202020202020202010303010202020202020202020202020103030102020202020202020202020201030301020202020202020202020202010303010202020202020202020202020103030102020202020202020202020201030301010101010101010101010101010303010101010101010101010101010103030101010101010101010101010101030303030303030303030303030303030300000000000000000000000000000000FFFF00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000FFFF000089504E470D0A1A0A0000000D49484452000001000000010008060000005C72A866000000097048597300000EC300000EC301C76FA8640000030549444154789CEDD63B8EC240140551405E9E13609D3393786D9DC21EF8E88D54E7E476DFA8F44E27000000000000000000000000000000E0BF39AFB51ED323801997E901C01C0180300180300180300180300180300180300180300180300180300180300180300180300180300180B0EDDD1FECFBFE891DC00B8EE378EB7B1700840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900840900846DD3037E7FFEA627C098DBFD3AFABE0B00C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C20400C2B6E901B7FB757A0264B900204C00204C00204C00204C00204C00204C00204C00204C00204C00204C00204C00204C00204C00204C0020ECBCD67A4C8F0066B800204C00204C00204C00204C00204C00204C00204C00204C00204C00204C00204C00204C00204C00204C00000000000000000000000000000000000000000000000000E00B9E2022106DC722E5510000000049454E44AE426082000000000028000000200000004000000001002000000000008010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000F6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FF424242FF424242FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FF424242FF424242FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FF424242FF424242FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FF424242FF424242FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FF424242FF424242FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FF424242FF424242FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FF424242FF424242FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FF424242FF424242FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FF424242FF424242FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FF424242FF424242FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FF424242FF424242FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FF424242FF424242FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FF424242FF424242FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FF424242FF424242FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FF424242FF424242FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FF424242FF424242FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FF424242FF424242FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FF424242FF424242FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FF424242FF424242FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FF424242FF424242FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FF424242FF424242FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FF424242FF424242FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FF424242FF424242FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FF424242FF424242FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FF424242FF424242FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FF424242FF424242FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FF424242FF424242FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FF424242FF424242FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FF424242FF424242FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FF424242FF424242FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FF00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFF000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000FFFFFFFFFFFFFFFF2800000010000000200000000100200000000000400400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000F6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FFF6F6F6FFF6F6F6FF424242FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FF424242FFF6F6F6FFF6F6F6FF424242FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FF424242FFF6F6F6FFF6F6F6FF424242FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FF424242FFF6F6F6FFF6F6F6FF424242FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FF424242FFF6F6F6FFF6F6F6FF424242FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FF424242FFF6F6F6FFF6F6F6FF424242FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FF424242FFF6F6F6FFF6F6F6FF424242FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FF424242FFF6F6F6FFF6F6F6FF424242FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FFF1EFF0FF424242FFF6F6F6FFF6F6F6FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FFF6F6F6FFF6F6F6FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FFF6F6F6FFF6F6F6FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FF424242FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FFF6F6F6FF00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000FFFF00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000FFFF00000000010007002020100001000400E8020000020010101000010004002801000003002020000001000800A80800000400101000000100080068050000050000000000010020005303000006002020000001002000A8100000070010100000010020006804000008000000000000000000000000000000000000000000000000000000000000000000004000000C000000003800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+with permission_set = safe;</value>
+  </data>
+  <data name="ARA_ConstraintForeignKeyDefinition" xml:space="preserve">
+    <value>if col_length('[dbo].[{{{entity}}}]','{{{column name}}}') is not null and object_id(N'[dbo].[fk : {{{entity}}} $ {{{referenced entity}}}{{{referenced entity type}}}{{{role}}}]',N'F') is null begin;
+   alter table [dbo].[{{{entity}}}] with check add constraint [fk : {{{entity}}} $ {{{referenced entity}}}{{{referenced entity type}}}{{{role}}}] 
+   foreign key([{{{column name}}}]) references [dbo].[{{{referenced entity}}}{{{referenced entity type}}}] ([{{{referenced entity}}}Key]);
+end;
+if col_length('[dbo].[{{{entity}}}.Keystore]','{{{column name}}}') is not null and object_id(N'[dbo].[fk : {{{entity}}}.Keystore $ {{{referenced entity}}}{{{referenced entity type}}}{{{role}}}]',N'F') is null begin;
+   alter table [dbo].[{{{entity}}}.Keystore] with check add constraint [fk : {{{entity}}}.Keystore $ {{{referenced entity}}}{{{referenced entity type}}}{{{role}}}] 
+   foreign key([{{{column name}}}]) references [dbo].[{{{referenced entity}}}{{{referenced entity type}}}] ([{{{referenced entity}}}Key]);
+end;</value>
+  </data>
+  <data name="ARA_CreateAlternateKeyDefinitionTypeI" xml:space="preserve">
+    <value>create unique nonclustered index [ak : {{{entity}}}] on [dbo].[{{{entity}}}]
+ (
+{{{alternate key index column set}}}
+ )
+with (fillfactor=80,data_compression=page);</value>
+  </data>
+  <data name="ARA_DropColumnConstraints" xml:space="preserve">
+    <value>while 1!=2 begin;
+
+   select top 1
+      @drop_constraints=N'alter table [dbo].['+object_name(fk.[parent_object_id])+N'] drop constraint ['+fk.[name]+N'];'
+   from
+      sys.foreign_key_columns fkc
+      inner join
+      sys.foreign_keys fk on fkc.[constraint_object_id]=fk.[object_id]
+      inner join
+      sys.columns c on fkc.[parent_object_id]=c.[object_id] and fkc.[parent_column_id]=c.[column_id]
+   where
+      (object_name(fk.[parent_object_id])=N'{{{entity}}}' or object_name(fk.[parent_object_id])=N'{{{entity}}}.Keystore')
+      and
+      c.[name]=N'{{{attribute name}}}';
+
+    if @@rowcount = 0 break;
+
+    exec sys.sp_executesql @drop_constraints;  
+end;
+while 1!=2 begin;
+
+   select top 1
+      @drop_constraints=N'alter table [dbo].['+object_name(dc.[parent_object_id])+N'] drop constraint ['+dc.[name]+N'];'
+   from
+      sys.default_constraints dc
+      inner join
+      sys.columns c on dc.[parent_object_id]=c.[object_id] and dc.[parent_column_id]=c.[column_id]
+   where
+      (object_name(dc.[parent_object_id])=N'{{{entity}}}' or object_name(dc.[parent_object_id])=N'{{{entity}}}.Keystore')
+      and
+      c.[name]=N'{{{attribute name}}}';
+
+    if @@rowcount = 0 break;
+
+    exec sys.sp_executesql @drop_constraints;  
+end;</value>
+  </data>
+  <data name="ARA_ModelGet" xml:space="preserve">
+    <value>with attr as
+ (
+   select
+      N'[dbo].['+[ara_entity]+N']' [@ara_domain],
+      [ara_entity],
+      replace([ara_entity_description],N'''',N'') [ara_entity_description],
+      [ara_entity_type],
+      [ara_hash_large_objects],
+      convert(xml,sq.[attribute]) [attributes]
+   from
+      [master].[dbo].[ara_entity_definition] e
+      cross apply
+       (
+         select
+            [ara_attribute],
+            [ara_attribute_referenced_entity],
+            [ara_attribute_referenced_entity_role],
+            [ara_attribute_name],
+            [ara_attribute_datatype],
+            [ara_attribute_ordinal],
+            [ara_attribute_sort],
+            [ara_attribute_optional],
+            [ara_attribute_business_identifier],
+            replace([ara_attribute_description],N'''',N'') [ara_attribute_description],
+            [ara_attribute_distribution],
+            [ara_attribute_default]
+         from
+            [dbo].[ara_attribute_definition] a
+         where
+            e.[ara_entity]=a.[ara_entity]
+         for xml path('attribute')
+       ) sq(attribute)
+ ), ent([ara_model]) as
+ (
+   select
+      [@ara_domain],
+      [ara_entity],
+      [ara_entity_description],
+      [ara_entity_type],
+      [ara_hash_large_objects],
+      [attributes]
+   from
+      attr
+   for xml path('entity')
+ ) 
+select
+   convert(xml,N'&lt;entities&gt;'+[ara_model]+N'&lt;/entities&gt;') [ara_model]
+from
+   ent;</value>
+  </data>
+  <data name="ARA_ModelSet" xml:space="preserve">
+    <value>set nocount on;
+declare @xml xml='{{{xml}}}';
+
+begin try;
+
+   delete [master].[dbo].[ara_attribute_definition];
+   delete [master].[dbo].[ara_entity_definition];
+
+   insert [master].[dbo].[ara_entity_definition]
+    (
+      [ara_entity],
+      [ara_entity_description],
+      [ara_entity_type],
+      [ara_hash_large_objects]
+    )
+   select
+      x.e.value('./ara_entity[1]',N'nvarchar(25)') [ara_entity],
+      x.e.value('./ara_entity_description[1]',N'nvarchar(4000)') [ara_entity_description],
+      x.e.value('./ara_entity_type[1]',N'nvarchar(1)') [ara_entity_type],
+      x.e.value('./ara_hash_large_objects[1]',N'nvarchar(3)') [ara_hash_large_objects]
+   from
+      @xml.nodes('/entities/entity') x(e);
+
+   insert [master].[dbo].[ara_attribute_definition]
+    (
+      [ara_entity],
+      [ara_attribute],
+      [ara_attribute_referenced_entity],
+      [ara_attribute_referenced_entity_role],
+      [ara_attribute_datatype],
+      [ara_attribute_ordinal],
+      [ara_attribute_sort],
+      [ara_attribute_optional],
+      [ara_attribute_business_identifier],
+      [ara_attribute_description],
+      [ara_attribute_distribution],
+      [ara_attribute_default]
+    )
+   select
+      p.e.value('./ara_entity[1]',N'nvarchar(25)') [ara_entity],
+      c.a.value('./ara_attribute[1]',N'nvarchar(25)') [ara_attribute],
+      c.a.value('./ara_attribute_referenced_entity[1]',N'nvarchar(25)') [ara_attribute_referenced_entity],
+      c.a.value('./ara_attribute_referenced_entity_role[1]',N'nvarchar(25)') [ara_attribute_referenced_entity_role],
+      c.a.value('./ara_attribute_datatype[1]',N'sysname') [ara_attribute_datatype],
+      c.a.value('./ara_attribute_ordinal[1]',N'int') [ara_attribute_ordinal],
+      c.a.value('./ara_attribute_sort[1]',N'nvarchar(4)') [ara_attribute_sort],
+      c.a.value('./ara_attribute_optional[1]',N'nvarchar(3)') [ara_attribute_optional],
+      c.a.value('./ara_attribute_business_identifier[1]',N'nvarchar(3)') [ara_attribute_business_identifier],
+      c.a.value('./ara_attribute_description[1]',N'nvarchar(4000)') [ara_attribute_description],
+      c.a.value('./ara_attribute_distribution[1]',N'nvarchar(1)') [ara_attribute_distribution],
+      c.a.value('./ara_attribute_default[1]',N'nvarchar(max)') [ara_attribute_default]
+   from
+      @xml.nodes('/entities/entity') p(e)
+      cross apply
+      p.e.nodes('./attributes/attribute') c(a);
+
+end try begin catch;
+
+      declare @ErrorMessage nvarchar(4000)=error_message();
+      declare @ErrorSeverity int=error_severity();
+      declare @ErrorState int=error_state();
+      raiserror(@ErrorMessage,@ErrorSeverity,@ErrorState) with log;
+end catch;</value>
+  </data>
+  <data name="ARA_ControlCreateDefinitionTypeI" xml:space="preserve">
+    <value>create view [dbo].[{{{entity}}}.Control] with schemabinding
+-- EDW Framework - Analytics &amp; Reporting Area ('ARA') Definition
+-- Slalom Consulting | Copyright © 2015 | www.slalom.com
+-- Do NOT alter/add/extend this view
+as
+select 
+{{{column set}}}
+from
+   [dbo].[{{{entity}}}];</value>
+  </data>
+  <data name="ARA_ControlCreateDefinitionTypeII" xml:space="preserve">
+    <value>create view [dbo].[{{{entity}}}.Control] with schemabinding
+as
+select 
+{{{column set}}}
+from
+   [dbo].[{{{entity}}}]
+where
+   [ara_current_flag]=1;</value>
+  </data>
+  <data name="ARA_ControlDeleteDefinitionTypeI" xml:space="preserve">
+    <value>create trigger [dbo].[tr : dbo.{{{entity}}}.Control !! delete] on [dbo].[{{{entity}}}.Control]
+instead of delete
+-- EDW Framework - Analytics &amp; Reporting Area ('ARA') Definition
+-- Slalom Consulting | Copyright © 2015 | www.slalom.com
+-- Do NOT alter/add/extend this instead-of trigger
+as
+begin;
+
+   set nocount on;
+
+   declare @k smallint=4;
+   declare @ts datetime2(7)=sysutcdatetime();
+   declare @batch uniqueidentifier=try_convert(uniqueidentifier,context_info());
+
+   with [delete_source] as
+    (
+      select
+{{{column set}}}
+         @batch [ara_batch_id]
+      from
+         [deleted] i
+    )
+   update
+      [dbo].[{{{entity}}}]
+   set
+      [ara_modify_period]=@ts,
+      [ara_active_state]=0,
+      [ara_batch_id]=s.[ara_batch_id],
+      [ara_hash_id]=0x
+   from
+      [dbo].[{{{entity}}}] t
+      inner join
+      [delete_source] s on @k=@k
+{{{join set}}}
+                       and t.[ara_active_state]=1;           
+
+end;</value>
+  </data>
+  <data name="ARA_ControlDeleteDefinitionTypeII" xml:space="preserve">
+    <value>--&gt;</value>
+  </data>
+  <data name="ARA_ControlDropDefinition" xml:space="preserve">
+    <value>if object_id(N'[dbo].[{{{entity}}}.Control]',N'V') is not null drop view [dbo].[{{{entity}}}.Control];</value>
+  </data>
+  <data name="ARA_ControlInsertDefinitionTypeI" xml:space="preserve">
+    <value>create trigger [dbo].[tr : dbo.{{{entity}}}.Control !! insert] on [dbo].[{{{entity}}}.Control]
+instead of insert
+-- EDW Framework - Analytics &amp; Reporting Area ('ARA') Definition
+-- Slalom Consulting | Copyright © 2015 | www.slalom.com
+-- Do NOT alter/add/extend this instead-of trigger
+as
+begin;
+
+   set nocount on;
+   
+   declare @ts datetime2(7)=sysutcdatetime();
+   declare @batch uniqueidentifier=try_convert(uniqueidentifier,context_info());
+
+   insert [dbo].[{{{entity}}}]
+    (
+{{{column set}}}
+      [ara_start_period],
+      [ara_modify_period],
+      [ara_active_state],
+      [ara_batch_id],
+      [ara_hash_id]
+    )
+   select
+{{{column set}}}
+      @ts,
+      null,
+      1,
+      @batch,
+      hashbytes(N'sha1',(select {{{hash list}}}N'Slalom.Framework' [HA] for xml raw, binary base64))
+   from
+      [inserted] i;
+
+end;</value>
+  </data>
+  <data name="ARA_ControlInsertDefinitionTypeII" xml:space="preserve">
+    <value>--&gt;</value>
+  </data>
+  <data name="ARA_ControlUpdateDefinitionTypeI" xml:space="preserve">
+    <value>create trigger [dbo].[tr : dbo.{{{entity}}}.Control !! update] on [dbo].[{{{entity}}}.Control]
+instead of update
+-- EDW Framework - Analytics &amp; Reporting Area ('ARA') Definition
+-- Slalom Consulting | Copyright © 2015 | www.slalom.com
+-- Do NOT alter/add/extend this instead-of trigger
+as
+begin;
+
+   set nocount on;
+   
+   declare @k smallint=2;
+   declare @ts datetime2(7)=sysutcdatetime();
+   declare @batch uniqueidentifier=try_convert(uniqueidentifier,context_info());
+   declare @bs nvarchar(36)=convert(nvarchar(36),@batch);
+   declare @dbname sysname=db_name();
+   declare @method sysname=object_name(@@procid);
+   declare @errmsg nvarchar(1000)=N'A [business identifier | alternate key] cannot be updated; '
+   select @errmsg+=N'Batch:={%s}; '
+   select @errmsg+=N'Entity:=[%s].[%s].[%s]; '
+   select @errmsg+=N'Control:=[dbo].[{{{entity}}}.Control]; ' 
+   select @errmsg+=N'Method:=[%s];' 
+
+{{{key update check}}}
+   with [update_source] as
+    (
+      select
+{{{column set}}}
+         hashbytes(N'sha1',(select {{{hash set}}}N'Slalom.Framework' [HA] for xml raw, binary base64)) [ara_hash_id]
+      from
+         [inserted] s
+    )
+   update
+      [dbo].[{{{entity}}}]
+   set
+{{{set set}}}
+      [ara_modify_period]=@ts,
+      [ara_active_state]=1,
+      [ara_batch_id]=@batch,
+      [ara_hash_id]=s.[ara_hash_id]
+   from
+      [dbo].[{{{entity}}}] t
+      inner join
+      [update_source] s on @k=@k
+{{{join set}}}
+                       and t.[ara_hash_id]!=s.[ara_hash_id];
+
+end;</value>
+  </data>
+  <data name="ARA_ControlUpdateDefinitionTypeII" xml:space="preserve">
+    <value>--&gt;</value>
+  </data>
+  <data name="ARA_ControlUpdateInvalidation" xml:space="preserve">
+    <value>   if update({{{column name}}}) begin;
+      raiserror(@errmsg,16,1,@bs,@dbname,N'dbo',N'{{{entity}}}',@method) with log;
+   end;</value>
+  </data>
+  <data name="ARA_Audit" xml:space="preserve">
+    <value>if not exists(select N'?' from sys.triggers where name='ara_audit' and [parent_class]=0) begin;
+
+exec sys.sp_executesql N'create trigger [ara_audit] on database for DDL_DATABASE_LEVEL_EVENTS
+as
+begin;
+   set nocount on;
+
+   declare
+      @EventData xml=eventdata(),
+      @EventType nvarchar(128),
+      @HostName nvarchar(128),
+      @LoginName nvarchar(128),
+      @DatabaseName nvarchar(128),
+      @ObjectType nvarchar(128),
+      @SchemaName nvarchar(128),
+      @ObjectName nvarchar(128),
+      @TargetObjectName nvarchar(128),
+      @TargetObjectType nvarchar(128);
+ 
+   select
+      @EventType=@EventData.value(''(/EVENT_INSTANCE/EventType)[1]'',''nvarchar(128)''),
+      @HostName=host_name(),
+      @LoginName=@EventData.value(''(/EVENT_INSTANCE/LoginName)[1]'',''nvarchar(128)''),
+      @DatabaseName=@EventData.value(''(/EVENT_INSTANCE/DatabaseName)[1]'',''nvarchar(128)''),
+      @ObjectType=@EventData.value(''(/EVENT_INSTANCE/ObjectType)[1]'',''nvarchar(128)''),
+      @SchemaName=@EventData.value(''(/EVENT_INSTANCE/SchemaName)[1]'',''nvarchar(128)''),
+      @ObjectName=@EventData.value(''(/EVENT_INSTANCE/ObjectName)[1]'',''nvarchar(128)''),
+      @TargetObjectName=@EventData.value(''(/EVENT_INSTANCE/TargetObjectName)[1]'',''nvarchar(128)''),
+      @TargetObjectType=@EventData.value(''(/EVENT_INSTANCE/TargetObjectType)[1]'',''nvarchar(128)'');
+
+   declare
+      @msg nvarchar(1000)=N''There has been a DDL modification to the ARA.
+EventType := [%s];
+HostName := [%s];
+LoginName := [%s];
+DatabaseName := [%s];
+ObjectType := [%s];
+SchemaName := [%s];
+ObjectName := [%s];
+TargetObjectName := [%s];
+TargetObjectType := [%s];''
+
+   raiserror(@msg,-1,1,@EventType,@HostName,@LoginName,@DatabaseName,@ObjectType,@SchemaName,@ObjectName,@TargetObjectName,@TargetObjectType) with log;
+
+end;'
+
+end;</value>
+  </data>
+  <data name="ARA_ConstraintDefaultDefinition" xml:space="preserve">
+    <value>if col_length('[dbo].[{{{entity}}}]','{{{column name}}}') is not null begin; 
+   alter table [dbo].[{{{entity}}}] add constraint [df : {{{entity}}} :: {{{column name}}}] default ({{{default value}}}) for [{{{column name}}}];
+end;
+if col_length('[dbo].[{{{entity}}}.Keystore]','{{{column name}}}') is not null begin; 
+   alter table [dbo].[{{{entity}}}.Keystore] add constraint [df : {{{entity}}}.Keystore :: {{{column name}}}] default ({{{default value}}}) for [{{{column name}}}];
+end;</value>
+  </data>
+  <data name="ARA_ConstraintDefaultDefinitionOnAdd" xml:space="preserve">
+    <value>constraint [df : {{{entity}}} :: {{{attribute}}}] default ({{{default value}}})</value>
+  </data>
+  <data name="ARA_DropAlternateKeyDefinitionTypeII" xml:space="preserve">
+    <value>if col_length('[dbo].[{{{entity}}}.Keystore]','{{{attribute}}}') is not null begin;
+   alter table [dbo].[{{{entity}}}.Keystore] drop column {{{column name}}};
+end;</value>
   </data>
 </root>
