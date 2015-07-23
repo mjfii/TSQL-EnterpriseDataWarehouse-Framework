@@ -2415,7 +2415,7 @@ if object_id(N'[dbo].[ara_attribute_definition]',N'U') is null begin;
       [ara_attribute_name] as convert(nvarchar(53),case when [ara_attribute_referenced_entity] is null 
                                                         then [ara_attribute] 
                                                         else isnull([ara_attribute_referenced_entity_role],N'')+[ara_attribute_referenced_entity]+N'Key'
-                                                    end) persisted not null,
+                                                    end) collate Latin1_General_100_BIN2 persisted not null,
 
       constraint [ak : dbo.ara_attribute_definition {entity | attribute name}]
       unique nonclustered ([ara_entity],[ara_attribute_name]),
@@ -2434,17 +2434,62 @@ if object_id(N'[dbo].[ara_attribute_definition]',N'U') is null begin;
       constraint [ck : dbo.ara_attribute_definition :: ara_attribute_business_identifier]
       check ([ara_attribute_business_identifier] in(N'Yes',N'No')),
 
-
-
       [ara_attribute_description] nvarchar(4000) collate Latin1_General_100_BIN2 null,
 
-      [ara_attribute_distribution] nvarchar(1) collate Latin1_General_100_BIN2 not null,
-      constraint [ck : dbo.ara_attribute_definition :: ara_attribute_distribution]
-      check ([ara_attribute_distribution] in(N'D',N'C',N'N')),
       [ara_attribute_default] [nvarchar](max) collate Latin1_General_100_BIN2 null
     );
 
    exec sys.sp_MS_marksystemobject N'ara_attribute_definition';
+
+end;
+
+if object_id(N'[dbo].[ara_abstract_definition]',N'U') is null begin;
+
+   create table [dbo].[ara_abstract_definition]
+    (
+      [ara_abstract_security_group] nvarchar(10) collate Latin1_General_100_BIN2 not null,
+      [ara_abstract_name] nvarchar(25) collate Latin1_General_100_BIN2 not null,
+      constraint [pk : ara_abstract_definition]
+      primary key clustered ([ara_abstract_security_group],[ara_abstract_name]),
+
+      [ara_entity] nvarchar(25) collate Latin1_General_100_BIN2 not null,
+      constraint [fk : ara_abstract_definition $ ara_entity_definition]
+      foreign key ([ara_entity])
+      references [dbo].[ara_entity_definition] ([ara_entity]),
+
+      [ara_abstract_security_role] as N'ara_abstract_'+lower([ara_abstract_security_group])+N'_reader' collate Latin1_General_100_BIN2 persisted not null,
+      constraint [ak : ara_abstract_definition]
+      unique nonclustered ([ara_abstract_security_role],[ara_abstract_name]),
+
+      [ara_abstract_description] nvarchar(4000) collate Latin1_General_100_BIN2 null,
+      [ara_abstract_predicate] nvarchar(max) collate Latin1_General_100_BIN2 null
+    );
+
+   exec sys.sp_MS_marksystemobject N'ara_abstract_definition';
+
+end;
+
+if object_id(N'[dbo].[ara_abstract_column_definition]',N'U') is null begin;
+
+   create table [dbo].[ara_abstract_column_definition]
+    (
+      [ara_abstract_security_group] nvarchar(10) collate Latin1_General_100_BIN2 not null,
+      [ara_abstract_name] nvarchar(25) collate Latin1_General_100_BIN2 not null,
+
+      [ara_attribute_name] nvarchar(53) collate Latin1_General_100_BIN2 not null,
+      constraint [pk : ara_abstract_column_definition]
+      primary key clustered ([ara_abstract_security_group],[ara_abstract_name],[ara_attribute_name]),
+
+      [ara_entity] nvarchar(25) collate Latin1_General_100_BIN2 not null,
+      constraint [fk : ara_abstract_column_definition $ ara_attribute_definition]
+      foreign key ([ara_entity],[ara_attribute_name])
+      references [dbo].[ara_attribute_definition] ([ara_entity],[ara_attribute_name])
+      on update cascade on delete cascade,
+
+      [ara_abstract_alternate_name] nvarchar(25) collate Latin1_General_100_BIN2 null
+    );
+
+   exec sys.sp_MS_marksystemobject N'ara_abstract_column_definition';
 
 end;</value>
   </data>
@@ -2606,12 +2651,11 @@ from
       isnull(e.[ara_entity_type],N'') [ara_attribute_referenced_entity_type],
       case when a.[ara_attribute_referenced_entity] is null then a.[ara_attribute_datatype] else N'int' end [ara_attribute_datatype],
       isnull(a.[ara_attribute_default],N'') [ara_attribute_default],
-      a.[ara_attribute_ordinal],
+      row_number() over(partition by a.[ara_entity] order by a.[ara_attribute_ordinal]) [ara_attribute_ordinal],
       a.[ara_attribute_sort],
       a.[ara_attribute_optional],
       a.[ara_attribute_business_identifier],
-      isnull(a.[ara_attribute_description],a.[ara_attribute_name]+N' Description...') [ara_attribute_description],
-      a.[ara_attribute_distribution]
+      isnull(a.[ara_attribute_description],a.[ara_attribute_name]+N' Description...') [ara_attribute_description]
    from 
       [master].[dbo].[ara_attribute_definition] a
       left join
@@ -2738,7 +2782,6 @@ select
    isnull(nm.[ara_attribute_optional],N'') [ara_attribute_optional],
    isnull(nm.[ara_attribute_business_identifier],N'') [ara_attribute_business_identifier],
    isnull(nm.[ara_attribute_description],N'') [ara_attribute_description],
-   isnull(nm.[ara_attribute_distribution],N'') [ara_attribute_distribution],
    case when em.[ara_entity] is null
         then convert(bit,1)
         else convert(bit,0)
@@ -2784,6 +2827,10 @@ select
         when em.[ara_attribute_business_identifier]!=nm.[ara_attribute_business_identifier]
         then convert(bit,1)
         when nm.[ara_attribute_business_identifier]=N'Yes' and em.[ara_attribute_sort]!=nm.[ara_attribute_sort]
+        then convert(bit,1)
+        when nm.[ara_attribute_business_identifier]=N'Yes' and em.[ara_attribute_datatype]!=nm.[ara_attribute_datatype]
+        then convert(bit,1)
+        when nm.[ara_attribute_business_identifier]=N'Yes' and em.[ara_attribute_optional]!=nm.[ara_attribute_optional]
         then convert(bit,1)
         else convert(bit,0)
     end [ara_attribute_alter_alternate_key]
@@ -3058,13 +3105,34 @@ while 1!=2 begin;
     if @@rowcount = 0 break;
 
     exec sys.sp_executesql @drop_constraints;  
+end;
+while 1!=2 begin;
+   select --top 1
+      @drop_constraints=N'drop statistics [dbo].['+object_name(fk.[object_id])+N'].['+fk.[name]+N'];'
+   from
+      sys.stats_columns fkc
+      inner join
+      sys.stats fk on fkc.[stats_id]=fk.[stats_id]
+      inner join
+      sys.columns c on fkc.[object_id]=c.[object_id] and fkc.[column_id]=c.[column_id]
+   where
+      fk.[user_created]=1
+      and
+      (object_name(fk.[object_id])=N'{{{entity}}}' or object_name(fk.[object_id])=N'{{{entity}}}.Keystore')
+      and
+      c.[name]=N'{{{attribute name}}}';
+
+    if @@rowcount = 0 break;
+
+    exec sys.sp_executesql @drop_constraints;  
+
 end;</value>
   </data>
   <data name="ARA_ModelGet" xml:space="preserve">
-    <value>with attr as
+    <value>with [entity] ([entities]) as
  (
    select
-      N'[dbo].['+[ara_entity]+N']' [@ara_domain],
+      N'[dbo].['+[ara_entity]+N']' [@domain],
       [ara_entity],
       replace([ara_entity_description],N'''',N'') [ara_entity_description],
       [ara_entity_type],
@@ -3085,7 +3153,6 @@ end;</value>
             [ara_attribute_optional],
             [ara_attribute_business_identifier],
             replace([ara_attribute_description],N'''',N'') [ara_attribute_description],
-            [ara_attribute_distribution],
             [ara_attribute_default]
          from
             [dbo].[ara_attribute_definition] a
@@ -3093,23 +3160,48 @@ end;</value>
             e.[ara_entity]=a.[ara_entity]
          for xml path('attribute')
        ) sq(attribute)
- ), ent([ara_model]) as
+   for xml path('entity') 
+ ), [abstract] ([abstracts]) as
  (
    select
       [@ara_domain],
+      [ara_abstract_security_group],
+      [ara_abstract_name]
       [ara_entity],
-      [ara_entity_description],
-      [ara_entity_type],
-      [ara_hash_large_objects],
-      [attributes]
+      [ara_abstract_description],
+      [ara_abstract_predicate],
+      [columns]
    from
-      attr
-   for xml path('entity')
- ) 
+    ( 
+      select
+         N'['+lower([ara_abstract_security_group])+'].['+[ara_abstract_name]+N']' [@ara_domain],
+         [ara_abstract_security_group],
+         [ara_abstract_name],
+         [ara_entity],
+         isnull([ara_abstract_description],N'') [ara_abstract_description],
+         isnull([ara_abstract_predicate],N'') [ara_abstract_predicate],
+         convert(xml,sq.[attribute]) [columns]
+      from
+         [master].[dbo].[ara_abstract_definition] e
+         cross apply
+          (
+            select
+               [ara_attribute],
+               isnull([ara_abstract_alternate_name],N'') [ara_abstract_alternate_name]
+            from
+               [dbo].[ara_abstract_column_definition] a
+            where
+               e.[ara_abstract_security_group]=a.[ara_abstract_security_group]
+               and
+               e.[ara_abstract_name]=a.[ara_abstract_name]
+            for xml path('column')
+          ) sq(attribute)
+    ) ab 
+   for xml path('abstract')
+ )
 select
-   convert(xml,N'&lt;entities&gt;'+[ara_model]+N'&lt;/entities&gt;') [ara_model]
-from
-   ent;</value>
+   convert(xml,N'&lt;model&gt;&lt;entities&gt;'+(select [entities] from [entity])+N'&lt;/entities&gt;'+
+               N'&lt;abstracts&gt;'+(select [abstracts] from [abstract])+N'&lt;/abstracts&gt;&lt;/model&gt;') [ara_model];</value>
   </data>
   <data name="ARA_ModelSet" xml:space="preserve">
     <value>set nocount on;
@@ -3147,7 +3239,6 @@ begin try;
       [ara_attribute_optional],
       [ara_attribute_business_identifier],
       [ara_attribute_description],
-      [ara_attribute_distribution],
       [ara_attribute_default]
     )
    select
@@ -3161,7 +3252,6 @@ begin try;
       c.a.value('./ara_attribute_optional[1]',N'nvarchar(3)') [ara_attribute_optional],
       c.a.value('./ara_attribute_business_identifier[1]',N'nvarchar(3)') [ara_attribute_business_identifier],
       c.a.value('./ara_attribute_description[1]',N'nvarchar(4000)') [ara_attribute_description],
-      c.a.value('./ara_attribute_distribution[1]',N'nvarchar(1)') [ara_attribute_distribution],
       c.a.value('./ara_attribute_default[1]',N'nvarchar(max)') [ara_attribute_default]
    from
       @xml.nodes('/entities/entity') p(e)
@@ -3271,7 +3361,7 @@ begin;
       null,
       1,
       @batch,
-      hashbytes(N'sha1',(select {{{hash list}}}N'Slalom.Framework' [HA] for xml raw, binary base64))
+      {{{hash prefix}}}(select {{{hash list}}}N'Slalom.Framework' [HA] for xml raw, binary base64))
    from
       [inserted] i;
 
@@ -3308,7 +3398,7 @@ begin;
     (
       select
 {{{column set}}}
-         hashbytes(N'sha1',(select {{{hash set}}}N'Slalom.Framework' [HA] for xml raw, binary base64)) [ara_hash_id]
+         {{{hash prefix}}}(select {{{hash set}}}N'Slalom.Framework' [HA] for xml raw, binary base64)) [ara_hash_id]
       from
          [inserted] s
     )
@@ -3401,5 +3491,51 @@ end;</value>
     <value>if col_length('[dbo].[{{{entity}}}.Keystore]','{{{attribute}}}') is not null begin;
    alter table [dbo].[{{{entity}}}.Keystore] drop column {{{column name}}};
 end;</value>
+  </data>
+  <data name="ARA_HashingAlgorithm" xml:space="preserve">
+    <value>if object_id(N'[dbo].[ara_hash]',N'FS') is not null drop function [dbo].[ara_hash];
+
+exec sys.sp_executesql
+N'
+create function [dbo].[ara_hash] 
+ (
+   @string nvarchar(max)
+ ) 
+returns varbinary(20) with execute as owner
+as external name [Slalom.Framework.Methods].[EDW.Common.Methods].[StringHash];'
+
+exec sys.sp_MS_marksystemobject 'ara_hash';
+
+grant execute on [dbo].[ara_hash] to [ara_etl_manager];
+grant execute on [dbo].[ara_hash] to [ara_owner];</value>
+  </data>
+  <data name="ARA_EntityStatistics" xml:space="preserve">
+    <value>if col_length(N'[dbo].[{{{entity}}}]',N'{{{attribute}}}') is not null and not exists(select N'?' from sys.stats where [name]='st : {{{entity}}} :: {{{attribute}}}') begin;
+   create statistics [st : {{{entity}}} :: {{{attribute}}}] on [dbo].[{{{entity}}}]
+    (
+      [{{{attribute}}}]
+    );
+end;</value>
+  </data>
+  <data name="ARA_GetMetadataAbstract" xml:space="preserve">
+    <value>select
+   [ara_abstract_security_group],
+   [ara_abstract_name],
+   [ara_entity],
+   [ara_abstract_security_role],
+   isnull([ara_abstract_description],N'') [ara_abstract_description],
+   isnull([ara_abstract_predicate],N'') [ara_abstract_predicate]
+from
+   [master].[dbo].[ara_abstract_definition];</value>
+  </data>
+  <data name="ARA_GetMetadataAbstractColumn" xml:space="preserve">
+    <value>select
+   [ara_abstract_security_group],
+   [ara_abstract_name],
+   [ara_attribute_name],
+   [ara_entity],
+   isnull([ara_abstract_alternate_name],N'') [ara_abstract_alternate_name]
+from 
+   [master].[dbo].[ara_abstract_column_definition];</value>
   </data>
 </root>

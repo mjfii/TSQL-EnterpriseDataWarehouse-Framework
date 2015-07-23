@@ -250,10 +250,14 @@ Namespace AnalyticReportingArea
 
             GetMetadata = New DataSet
 
-            Dim EntityQuery As String = My.Resources.SYS_ARAEntityDefinition
-            Dim AttributeQuery As String = My.Resources.SYS_ARAAttributeDefinition
             Dim InstanceQuery As String = My.Resources.SYS_InstanceProperties
             Dim DatabaseQuery As String = My.Resources.SYS_DatabaseProperties
+
+            Dim EntityQuery As String = My.Resources.SYS_ARAEntityDefinition
+            Dim AttributeQuery As String = My.Resources.SYS_ARAAttributeDefinition
+            Dim AbstractQuery As String = My.Resources.ARA_GetMetadataAbstract
+            Dim AbstractColumnQuery As String = My.Resources.ARA_GetMetadataAbstractColumn
+
 
             Dim chngstr As String = "use [master];"
             Dim chngdb As New SqlCommand(chngstr, DatabaseConnection)
@@ -281,6 +285,14 @@ Namespace AnalyticReportingArea
             da = New SqlDataAdapter(cmd)
             da.Fill(GetMetadata, "ara_attribute_definition")
 
+            cmd = New SqlCommand(AbstractQuery, DatabaseConnection)
+            da = New SqlDataAdapter(cmd)
+            da.Fill(GetMetadata, "ara_abstract_definition")
+
+            cmd = New SqlCommand(AbstractColumnQuery, DatabaseConnection)
+            da = New SqlDataAdapter(cmd)
+            da.Fill(GetMetadata, "ara_abstract_column_definition")
+
             Return GetMetadata
 
         End Function
@@ -302,6 +314,20 @@ Namespace AnalyticReportingArea
             End If
 
             cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'ara_entity_definition' and [schema_id]=1;select @x;", SqlCnn)
+            oid = cmd.ExecuteScalar()
+
+            If oid = 0 Then
+                Return False
+            End If
+
+            cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'ara_abstract_definition' and [schema_id]=1;select @x;", SqlCnn)
+            oid = cmd.ExecuteScalar()
+
+            If oid = 0 Then
+                Return False
+            End If
+
+            cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'ara_abstract_column_definition' and [schema_id]=1;select @x;", SqlCnn)
             oid = cmd.ExecuteScalar()
 
             If oid = 0 Then
@@ -338,7 +364,8 @@ Namespace AnalyticReportingArea
             PrintClientMessage("• DDL audit trigger is in place [database]")
 
             ' execute hashing algorithm needs
-            'ExecuteDDLCommand(My.Resources.ARA_HashingAlgorithm, InstanceConnection)
+            ExecuteDDLCommand(My.Resources.SYS_LocalMethodInstall, InstanceConnection)
+            ExecuteDDLCommand(My.Resources.ARA_HashingAlgorithm, InstanceConnection)
             PrintClientMessage("• Hashing algorithms are intact [database]")
 
             ' execute service broker security needs
