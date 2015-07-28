@@ -18,7 +18,23 @@ Partial Public Class PSA
                                     ByVal DatabaseSchema As String, _
                                     ByVal DatabaseEntity As String)
 
-        ProcessCall(DatabaseName, DatabaseSchema, DatabaseEntity, False, False)
+        Dim SqlCnn As New SqlConnection("context connection=true")
+        SqlCnn.Open()
+
+        Try
+            PrintHeader()
+
+            ' if the user is part of the sysadmin role, move along
+            If Not UserIsSysAdmin(SqlCnn) Then SqlCnn.Close() : Exit Try
+
+            ProcessCall(SqlCnn, DatabaseName, DatabaseSchema, DatabaseEntity, False, False)
+
+        Catch ex As Exception
+            PrintClientError(New StackFrame().GetMethod().Name, ex)
+        End Try
+
+        SqlCnn.Close()
+
 
     End Sub
 
@@ -27,7 +43,22 @@ Partial Public Class PSA
                                      ByVal DatabaseSchema As String, _
                                      ByVal DatabaseEntity As String)
 
-        ProcessCall(DatabaseName, DatabaseSchema, DatabaseEntity, True, False)
+        Dim SqlCnn As New SqlConnection("context connection=true")
+        SqlCnn.Open()
+
+        Try
+            PrintHeader()
+
+            ' if the user is part of the sysadmin role, move along
+            If Not UserIsSysAdmin(SqlCnn) Then SqlCnn.Close() : Exit Try
+
+            ProcessCall(SqlCnn, DatabaseName, DatabaseSchema, DatabaseEntity, True, False)
+
+        Catch ex As Exception
+            PrintClientError(New StackFrame().GetMethod().Name, ex)
+        End Try
+
+        SqlCnn.Close()
 
     End Sub
 
@@ -36,113 +67,124 @@ Partial Public Class PSA
                                     ByVal DatabaseSchema As String, _
                                     ByVal DatabaseEntity As String)
 
-        ProcessCall(DatabaseName, DatabaseSchema, DatabaseEntity, False, True)
+        Dim SqlCnn As New SqlConnection("context connection=true")
+        SqlCnn.Open()
+
+        Try
+            PrintHeader()
+
+            ' if the user is part of the sysadmin role, move along
+            If Not UserIsSysAdmin(SqlCnn) Then SqlCnn.Close() : Exit Try
+
+            ProcessCall(SqlCnn, DatabaseName, DatabaseSchema, DatabaseEntity, False, True)
+
+        Catch ex As Exception
+            PrintClientError(New StackFrame().GetMethod().Name, ex)
+        End Try
+
+        SqlCnn.Close()
 
     End Sub
 
     <Microsoft.SqlServer.Server.SqlProcedure> _
     Public Shared Sub GetModel
 
-        Dim model_query As String = My.Resources.PSA_GetModel
+        Dim SqlCnn As New SqlConnection("context connection=true")
+        SqlCnn.Open()
 
-        ReturnClientResults(model_query)
+        Try
+            PrintHeader()
+
+            ' if the user is part of the sysadmin role, move along
+            If Not UserIsSysAdmin(SqlCnn) Then SqlCnn.Close() : Exit Try
+
+            Dim model_query As String = My.Resources.PSA_GetModel
+            ReturnClientResults(SqlCnn, model_query)
+
+        Catch ex As Exception
+            PrintClientError(New StackFrame().GetMethod().Name, ex)
+        End Try
+
+        SqlCnn.Close()
 
     End Sub
 
     <Microsoft.SqlServer.Server.SqlProcedure> _
     Public Shared Sub SetModel(ByVal model As SqlXml)
 
-        PrintHeader()
-
-        If IsNothing(model) Then
-            PrintClientMessage("You cannot process a null model.")
-            Exit Sub
-        End If
-
-        Dim model_query As String = Replace(My.Resources.PSA_SetModel, "{{{xml}}}", model.Value.ToString)
-
-        Dim cnn As New SqlConnection("context connection=true")
-        cnn.Open()
+        Dim SqlCnn As New SqlConnection("context connection=true")
+        SqlCnn.Open()
 
         Try
-            ExecuteDDLCommand(model_query, cnn)
-            PrintClientMessage("The external model has been set successfully!")
+            PrintHeader()
+
+            ' if the user is part of the sysadmin role, move along
+            If Not UserIsSysAdmin(SqlCnn) Then SqlCnn.Close() : Exit Try
+
+            If IsNothing(model) Then SqlCnn.Close() : PrintClientMessage("You cannot process a null model.") : Exit Try
+
+            Dim model_query As String = Replace(My.Resources.PSA_SetModel, "{{{xml}}}", model.Value.ToString)
+            ExecuteDDLCommand(model_query, SqlCnn)
+
         Catch ex As Exception
-            PrintClientMessage("There was an error building setting the external model:")
-            PrintClientMessage(ex.Message)
+            PrintClientError(New StackFrame().GetMethod().Name, ex)
         End Try
 
-        cnn.Close()
+        SqlCnn.Close()
 
     End Sub
 
 #End Region
 
-    Private Shared Sub ProcessCall(ByVal DatabaseName As String, _
-                                   ByVal DatabaseSchema As String, _
-                                   ByVal DatabaseEntity As String, _
-                                   ByVal vo As Boolean, _
+    Private Shared Sub ProcessCall(ByVal SqlCnn As SqlConnection,
+                                   ByVal DatabaseName As String,
+                                   ByVal DatabaseSchema As String,
+                                   ByVal DatabaseEntity As String,
+                                   ByVal vo As Boolean,
                                    ByVal del As Boolean)
 
-        Dim cnn As New SqlConnection("context connection=true")
-        cnn.Open()
+        ' make sure server objects are in place
+        AddInstanceObjects(SqlCnn)
 
-        PrintHeader()
+        ' validate incoming database
+        If Not DatabaseIsValid(DatabaseName, SqlCnn) Then Exit Sub
 
-        ' if the user is part of the sysadmin role, move along
-        If UserIsSysAdmin(cnn) Then
+        ' make sure database objects are in place
+        AddDatabaseObjects(SqlCnn, DatabaseName)
 
-            ' make sure server objects are in place
-            AddInstanceObjects(cnn)
+        Try
 
-            ' validate incoming database
-            Dim cmd As New SqlCommand("select isnull(db_id(N'" & DatabaseName & " '),-1) N'?';", cnn)
-            Dim dbe As Integer = CInt(cmd.ExecuteScalar.ToString)
+            ' get the metadata from system tables
+            Dim md As DataSet = GetMetadata(DatabaseName, DatabaseSchema, DatabaseEntity, SqlCnn)
 
-            If dbe > 0 Then
+            ' if we have a promising set, i.e. the selects worked, we can move forward
+            If Not md Is Nothing Then
 
-                ' make sure database objects are in place
-                AddDatabaseObjects(cnn, DatabaseName)
+                ' load up a variable with the usable construct
+                Dim cons As New Construct(md)
 
-                ' get the metadata from system tables
-                Dim md As DataSet = GetMetadata(DatabaseName, DatabaseSchema, DatabaseEntity, cnn)
-
-                ' if we have a promising set, i.e. the selects worked, we can move forward
-                If Not md Is Nothing Then
-
-                    ' load up a variable with the usable construct
-                    Dim cons As New Construct(md)
-
-                    ' with we have records, we can begin with the DDL process, otherwise, alert client and exit
-                    If cons.EntityCount > 0 Then
-                        ProcessConstruct(cons, cnn, vo, del)
-                    Else
-                        PrintClientMessage(vbCrLf)
-                        PrintClientMessage("There is not defined metadata for the PSA in [dbo].[psa_entity_definition] and/or [dbo].[psa_attribute_definition] in the [master] database.")
-                        PrintClientMessage("You may manage data directly or via [soon to be authored] MS Excel Add-In.")
-                    End If ' metadata content exists
-
+                ' with we have records, we can begin with the DDL process, otherwise, alert client and exit
+                If cons.EntityCount > 0 Then
+                    ProcessConstruct(cons, SqlCnn, vo, del)
                 Else
-                    ' alert the tables arent there and make them
-                    ' execute service broker security needs
-
-                    ExecuteDDLCommand(My.Resources.SYS_PSAMetadataTableDefinition, cnn)
                     PrintClientMessage(vbCrLf)
-                    PrintClientMessage("The PSA Framework was not ready for use. The required system tables have been built; you can now use the [dbo].[psa_entity_definition] and")
-                    PrintClientMessage("[dbo].[psa_attribute_definition] tables in the [master] database to add the metadata construct elements to build each of the PSA objects.")
-
-                End If ' metadata tables exist
+                    PrintClientMessage("There is not defined metadata for the PSA in [dbo].[psa_entity_definition] and/or [dbo].[psa_attribute_definition] in the [master] database.")
+                End If ' metadata content exists
 
             Else
+                ' alert the tables arent there and make them
+                ' execute service broker security needs
+
+                ExecuteDDLCommand(My.Resources.SYS_MetadataTableDefinition, SqlCnn)
                 PrintClientMessage(vbCrLf)
-                PrintClientMessage("A database with the name '" & DatabaseName & "' does not exist.  Create that database or use an alternate one.")
+                PrintClientMessage("The PSA Framework was not ready for use. The required system tables have been built; you can now use the [dbo].[psa_entity_definition] and")
+                PrintClientMessage("[dbo].[psa_attribute_definition] tables in the [master] database to add the metadata construct elements to build each of the PSA objects.")
 
-            End If ' psa database exists
+            End If ' metadata tables exist
 
-        End If ' user is admin
-
-        ' ensure connection object is closed
-        cnn.Close()
+        Catch ex As Exception
+            PrintClientError(New StackFrame().GetMethod().Name, ex)
+        End Try
 
     End Sub
 

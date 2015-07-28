@@ -24,21 +24,25 @@ Namespace Common
 
         End Sub
 
-        Friend Shared Sub ReturnClientResults(ByVal sql_command_string As String, Optional ByVal database_name As String = "master")
+        Friend Shared Sub PrintClientError(ByVal ErrorMethod As String, ByVal ErrorException As Exception, Optional tab_spaces As UShort = 0)
 
-            Dim cnn As New SqlConnection("context connection=true")
-            cnn.Open()
+            SqlContext.Pipe.Send(New String(" ", tab_spaces) & "Method " & ErrorMethod & " error: " & ErrorMethod)
+            SqlContext.Pipe.Send(New String(" ", tab_spaces) & "Exception " & ErrorException.Message.ToString)
+
+        End Sub
+
+        Friend Shared Sub ReturnClientResults(ByVal SqlCnn As SqlConnection, ByVal sql_command_string As String, Optional ByVal database_name As String = "master")
+
             Dim cmd As SqlCommand
 
-            cmd = New SqlCommand("use [" & database_name & "];", cnn)
+            cmd = New SqlCommand("use [" & database_name & "];", SqlCnn)
             cmd.ExecuteScalar()
 
-            cmd = New SqlCommand(sql_command_string, cnn)
+            cmd = New SqlCommand(sql_command_string, SqlCnn)
 
             Dim rdr As SqlDataReader = cmd.ExecuteReader
             SqlContext.Pipe.Send(rdr)
 
-            cnn.Close()
         End Sub
 
     End Class ' OutboundMethods
@@ -52,13 +56,13 @@ Namespace Common
 
             With SqlCmd
                 .Connection = SqlCnn
-                .CommandText = "select is_srvrolemember(N'sysadmin') [ninja]"
+                .CommandText = "select is_srvrolemember(N'sysadmin') [ninja];"
                 oid = SqlCmd.ExecuteScalar()
             End With
 
             If oid = 0 Then
                 PrintClientMessage(vbCrLf)
-                PrintClientMessage("You need elevated privileges (sysadmin) to manage this framework. Contact the database administrator.")
+                PrintClientMessage("You need elevated privileges (sysadmin) to conduct this framework task. Contact the database administrator.")
                 Return False
             End If
 
@@ -87,8 +91,27 @@ Namespace Common
             Return True
         End Function
 
-    End Class
+        Friend Shared Sub AddInstanceObjects(ByVal InstanceConnection As SqlConnection)
 
+            Try
+                Dim chngstr As String = "use [master];"
+                Dim chngdb As New SqlCommand(chngstr, InstanceConnection)
+                chngdb.ExecuteNonQuery()
+
+                ExecuteDDLCommand(My.Resources.SYS_TableMetadataDefinition, InstanceConnection)
+                ExecuteDDLCommand(My.Resources.SYS_ColumnMetadataDefinition, InstanceConnection)
+                PrintClientMessage("• Metadata managers in place [instance]")
+
+                ExecuteDDLCommand(My.Resources.PSA_ServiceBrokerLoginDefinition, InstanceConnection)
+                PrintClientMessage("• Service broker login exists [instance]")
+            Catch ex As Exception
+                PrintClientMessage(New StackFrame().GetMethod().Name)
+                PrintClientMessage(ex.Message)
+            End Try
+
+        End Sub
+
+    End Class
 
 End Namespace
 
@@ -184,21 +207,6 @@ Namespace PersistentStagingArea
             Return True
         End Function
 
-        Friend Shared Sub AddInstanceObjects(ByVal InstanceConnection As SqlConnection)
-
-            Dim chngstr As String = "use [master];"
-            Dim chngdb As New SqlCommand(chngstr, InstanceConnection)
-            chngdb.ExecuteNonQuery()
-
-            ExecuteDDLCommand(My.Resources.SYS_TableMetadataDefinition, InstanceConnection)
-            ExecuteDDLCommand(My.Resources.SYS_ColumnMetadataDefinition, InstanceConnection)
-            PrintClientMessage("• Metadata managers in place [instance]")
-
-            ExecuteDDLCommand(My.Resources.PSA_ServiceBrokerLoginDefinition, InstanceConnection)
-            PrintClientMessage("• Service broker login exists [instance]")
-
-        End Sub
-
         Friend Shared Sub AddDatabaseObjects(ByVal InstanceConnection As SqlConnection, ByVal DatabaseName As String)
 
             Dim chngstr As String = "use [" & DatabaseName & "];"
@@ -253,11 +261,11 @@ Namespace AnalyticReportingArea
             Dim InstanceQuery As String = My.Resources.SYS_InstanceProperties
             Dim DatabaseQuery As String = My.Resources.SYS_DatabaseProperties
 
-            Dim EntityQuery As String = My.Resources.SYS_ARAEntityDefinition
-            Dim AttributeQuery As String = My.Resources.SYS_ARAAttributeDefinition
+            Dim EntityQuery As String = My.Resources.ARA_GetMetadataEntity
+            Dim AttributeQuery As String = My.Resources.ARA_GetMetadataAttribute
             Dim AbstractQuery As String = My.Resources.ARA_GetMetadataAbstract
             Dim AbstractColumnQuery As String = My.Resources.ARA_GetMetadataAbstractColumn
-
+            Dim SecurityQuery As String = My.Resources.ARA_GetMetadataSecurity
 
             Dim chngstr As String = "use [master];"
             Dim chngdb As New SqlCommand(chngstr, DatabaseConnection)
@@ -292,6 +300,10 @@ Namespace AnalyticReportingArea
             cmd = New SqlCommand(AbstractColumnQuery, DatabaseConnection)
             da = New SqlDataAdapter(cmd)
             da.Fill(GetMetadata, "ara_abstract_column_definition")
+
+            cmd = New SqlCommand(SecurityQuery, DatabaseConnection)
+            da = New SqlDataAdapter(cmd)
+            da.Fill(GetMetadata, "ara_security_definition")
 
             Return GetMetadata
 
@@ -336,18 +348,6 @@ Namespace AnalyticReportingArea
 
             Return True
         End Function
-
-        Friend Shared Sub AddInstanceObjects(ByVal InstanceConnection As SqlConnection)
-
-            Dim chngstr As String = "use [master];"
-            Dim chngdb As New SqlCommand(chngstr, InstanceConnection)
-            chngdb.ExecuteNonQuery()
-
-            ExecuteDDLCommand(My.Resources.SYS_TableMetadataDefinition, InstanceConnection)
-            ExecuteDDLCommand(My.Resources.SYS_ColumnMetadataDefinition, InstanceConnection)
-            PrintClientMessage("• Metadata managers in place [instance]")
-
-        End Sub
 
         Friend Shared Sub AddDatabaseObjects(ByVal InstanceConnection As SqlConnection, ByVal DatabaseName As String)
 

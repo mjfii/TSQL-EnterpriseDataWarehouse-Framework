@@ -13,37 +13,7 @@ Imports EDW.AnalyticReportingArea.FrameworkInstallation
 
 Module BuildExtentions
 
-    ''' <summary>A description of what the function does.</summary>
-    ''' <param name="ExistingEntities">Description of the first parameter</param>
-    ''' <param name="NewEntity">Description of the second parameter</param>
-    ''' <remarks></remarks>
-    <Extension()> _
-    Friend Sub AddEntityToConstruct(Of Entity)(ByRef ExistingEntities As Entity(), NewEntity As Entity)
-        If ExistingEntities IsNot Nothing Then
-            Array.Resize(ExistingEntities, ExistingEntities.Length + 1)
-            ExistingEntities(ExistingEntities.Length - 1) = NewEntity
-        Else
-            ReDim ExistingEntities(0)
-            ExistingEntities(0) = NewEntity
-        End If
-    End Sub
-
-    ''' <summary>A description of what the function does.</summary>
-    ''' <param name="ExistingAttributes">Description of the first parameter</param>
-    ''' <param name="NewAttribute">Description of the second parameter</param>
-    ''' <remarks></remarks>
-    ''' <typeparam name="EntityAttribute">asdf</typeparam>
-    <Extension()> _
-    Friend Sub AddAttributeToEntity(Of EntityAttribute)(ByRef ExistingAttributes As EntityAttribute(), NewAttribute As EntityAttribute)
-        If ExistingAttributes IsNot Nothing Then
-            Array.Resize(ExistingAttributes, ExistingAttributes.Length + 1)
-            ExistingAttributes(ExistingAttributes.Length - 1) = NewAttribute
-        Else
-            ReDim ExistingAttributes(0)
-            ExistingAttributes(0) = NewAttribute
-        End If
-    End Sub
-
+    ''' <summary>...</summary>
     <Extension()> _
     Friend Sub AddMember(Of T)(ByRef Members As T(), NewMember As T)
         If Members IsNot Nothing Then
@@ -55,14 +25,13 @@ Module BuildExtentions
         End If
     End Sub
 
-
-    ''' <summary>Returns the name of the code.</summary>
+    ''' <summary>...</summary>
     <Extension()> _
     Friend Function StringToEntityType(ByVal InputString As String) As ARA.Model.EntityType
-        Return If(InputString = "D", ARA.Model.EntityType.TypeII, If(InputString = "F", ARA.Model.EntityType.TypeI, Nothing))
+        Return If(InputString = "2", ARA.Model.EntityType.TypeII, If(InputString = "1", ARA.Model.EntityType.TypeI, Nothing))
     End Function
 
-    ''' <summary>A description of what the function does. </summary>
+    ''' <summary>...</summary>
     ''' <param name="InputString">Description of the first parameter</param>
     ''' <returns>Description for what the function returns</returns>
     ''' <remarks></remarks>
@@ -71,7 +40,7 @@ Module BuildExtentions
         Return If(InputString = "Yes", ARA.Model.YesNoType.Yes, ARA.Model.YesNoType.No)
     End Function
 
-    ''' <summary>A description of what the function does. </summary>
+    ''' <summary>...</summary>
     ''' <param name="InputString">Description of the first parameter</param>
     ''' <returns>Description for what the function returns</returns>
     ''' <remarks></remarks>
@@ -80,7 +49,7 @@ Module BuildExtentions
         Return If(IsDBNull(InputString), "", InputString)
     End Function
 
-    ''' <summary>A description of what the function does. </summary>
+    ''' <summary>...</summary>
     ''' <param name="InputString">Description of the first parameter</param>
     ''' <returns>Description for what the function returns</returns>
     ''' <remarks></remarks>
@@ -89,7 +58,7 @@ Module BuildExtentions
         Return CBool(InputString)
     End Function
 
-    ''' <summary>A description of what the function does. </summary>
+    ''' <summary>...</summary>
     ''' <param name="InputString">Description of the first parameter</param>
     ''' <returns>Description for what the function returns</returns>
     ''' <remarks></remarks>
@@ -106,45 +75,85 @@ Public Class ARA
 
 #Region "CLR Exposed Methods"
 
+    ''' <summary>...</summary>
+    ''' <param name="DatabaseName"></param>
+    ''' <param name="VerifyOnly"></param> 
+    ''' <param name="ProcessAbstractsInFull"></param>
+    ''' <remarks>...</remarks>
     <Microsoft.SqlServer.Server.SqlProcedure> _
     Public Shared Sub BuildEntities(ByVal DatabaseName As SqlString,
                                     ByVal VerifyOnly As SqlBoolean,
-                                    ByVal ProcessAllAbstracts As SqlBoolean,
-                                    ByVal ProcessAllSecurity As SqlBoolean)
+                                    ByVal ProcessAbstractsInFull As SqlBoolean)
 
         Dim SqlCnn As New SqlConnection("context connection=true")
-
         SqlCnn.Open()
-        ProcessCallToBuild(SqlCnn, CStr(DatabaseName), CBool(VerifyOnly))
+
+        Try
+            PrintHeader()
+
+            If Not UserIsSysAdmin(SqlCnn) Then SqlCnn.Close() : Exit Try
+
+            ProcessCallToBuild(SqlCnn, CStr(DatabaseName), CBool(VerifyOnly), CBool(ProcessAbstractsInFull))
+
+        Catch ex As Exception
+            PrintClientError(New StackFrame().GetMethod().Name, ex)
+        End Try
+
         SqlCnn.Close()
 
     End Sub
 
+    ''' <summary>...</summary>
+    ''' <remarks>...</remarks>
     <Microsoft.SqlServer.Server.SqlProcedure> _
     Public Shared Sub GetModel()
 
-        Dim model_query As String = My.Resources.ARA_ModelGet
+        Dim SqlCnn As New SqlConnection("context connection=true")
+        SqlCnn.Open()
 
-        ReturnClientResults(model_query)
+        Try
+            PrintHeader()
+
+            If Not UserIsSysAdmin(SqlCnn) Then SqlCnn.Close() : Exit Try
+
+            Dim model_query As String = My.Resources.ARA_ModelGet
+            ExecuteDDLCommand("set nocount on;", SqlCnn)
+            ReturnClientResults(SqlCnn, model_query)
+            PrintClientMessage("The model has been successfully exported.")
+
+        Catch ex As Exception
+            PrintClientError(New StackFrame().GetMethod().Name, ex)
+        End Try
+
+        SqlCnn.Close()
 
     End Sub
 
+    ''' <summary>...</summary>
+    ''' <param name="NewModel"></param>
+    ''' <remarks>...</remarks>
     <Microsoft.SqlServer.Server.SqlProcedure> _
-    Public Shared Sub SetModel(ByVal model As SqlXml)
+    Public Shared Sub SetModel(ByVal NewModel As SqlXml)
 
-        If IsNothing(model) Then
-            PrintClientMessage("You cannot process a null model.")
-            Exit Sub
-        End If
+        Dim SqlCnn As New SqlConnection("context connection=true")
+        SqlCnn.Open()
 
-        Dim model_query As String = Replace(My.Resources.ARA_ModelSet, "{{{xml}}}", model.Value.ToString)
+        Try
+            PrintHeader()
 
-        Dim cnn As New SqlConnection("context connection=true")
-        cnn.Open()
+            If Not UserIsSysAdmin(SqlCnn) Then SqlCnn.Close() : Exit Try
 
-        ExecuteDDLCommand(model_query, cnn)
+            If IsNothing(NewModel) Then PrintClientMessage("You cannot process a null model.") : Exit Try
 
-        cnn.Close()
+            Dim model_query As String = Replace(My.Resources.ARA_ModelSet, "{{{xml}}}", NewModel.Value.ToString)
+            ExecuteDDLCommand(model_query, SqlCnn)
+            PrintClientMessage("The model has been successfully imported.")
+
+        Catch ex As Exception
+            PrintClientError(New StackFrame().GetMethod().Name, ex)
+        End Try
+
+        SqlCnn.Close()
 
     End Sub
 
@@ -159,9 +168,8 @@ Public Class ARA
     ''' <remarks>...</remarks>
     Private Shared Sub ProcessCallToBuild(ByVal SqlCnn As SqlConnection,
                                           ByVal DatabaseName As String,
-                                          ByVal VerifyOnly As Boolean)
-
-        PrintHeader()
+                                          ByVal VerifyOnly As Boolean,
+                                          ByVal ProcessAbstractsInFull As Boolean)
 
         ' if the user is part of the sysadmin role, move along
         If Not UserIsSysAdmin(SqlCnn) Then Exit Sub
@@ -181,10 +189,10 @@ Public Class ARA
         ' if we have a promising set, i.e. the selects worked, we can move forward
         If md Is Nothing Then
             ' alert the tables arent there and make them
-            ExecuteDDLCommand(My.Resources.SYS_ARAMetadataTableDefinition, SqlCnn)
+            ExecuteDDLCommand(My.Resources.SYS_MetadataTableDefinition, SqlCnn)
             PrintClientMessage(vbCrLf)
-            PrintClientMessage("The ARA Framework was not ready for use. The required system tables have been built; you can now use the [dbo].[ara_entity_definition] and")
-            PrintClientMessage("[dbo].[ara_attribute_definition] tables in the [master] database to add the metadata construct elements to build each of the ARA objects.")
+            PrintClientMessage("The ARA Framework was not ready for use. The required system tables have NOW been built; you can now use the [dbo].[ara_*]")
+            PrintClientMessage("tables in the [master] database to add the metadata construct elements to build each of the ARA objects.")
             Exit Sub
         End If
 
@@ -216,7 +224,7 @@ Public Class ARA
 
         ' with we have records, we can begin with the DDL process, otherwise, alert client and exit
         If cons.EntityCount > 0 Then
-            BuildValidModel(cons, SqlCnn, VerifyOnly)
+            BuildValidModel(cons, SqlCnn, VerifyOnly, ProcessAbstractsInFull)
         Else
             PrintClientMessage(vbCrLf)
             PrintClientMessage("There is not defined metadata for the ARA in [dbo].[ara_entity_definition] and/or [dbo].[ara_attribute_definition] in the [master] database.")
@@ -231,7 +239,8 @@ Public Class ARA
     ''' <remarks>...</remarks>
     Private Shared Sub BuildValidModel(ByVal ModelToProcess As Model,
                                        ByVal DatabaseConnection As SqlConnection,
-                                       ByVal VerifyOnly As Boolean)
+                                       ByVal VerifyOnly As Boolean,
+                                       ByVal ProcessAbstractsInFull As Boolean)
 
         Const space As String = " "
 
@@ -242,14 +251,16 @@ Public Class ARA
         Dim StartTime As Date = Now()
         Dim fmt As String = "yyyy-MM-dd HH:mm:ss.ff..."
 
-        ' print header information
-        PrintClientMessage(vbCrLf)
-        PrintClientMessage("• Process construct started at " & StartTime.ToString(fmt))
         PrintClientMessage("• Database Name: " & ModelToProcess.DatabaseName)
         PrintClientMessage("• Database Compatibility: " & ModelToProcess.DatabaseCompatibility.ToString)
 
         '
+        PrintClientMessage(vbCrLf)
         PrintEstimatedChanges(ModelToProcess)
+
+        '
+        PrintClientMessage(vbCrLf)
+        PrintClientMessage("• Process construct started at " & StartTime.ToString(fmt))
 
         '
         If VerifyOnly Then ExecuteDDLCommand("set parseonly on;", DatabaseConnection)
@@ -258,7 +269,13 @@ Public Class ARA
         Try
             ExecuteDDLCommand("begin transaction;", DatabaseConnection)
 
+            ' put security into place, irrespective
+            PrintClientMessage(vbCrLf)
+            PrintClientMessage("  -> Enforcing Schemas and Roles")
+            ExecuteDDLCommand(ModelToProcess.SecurityDefinition, DatabaseConnection)
+
             ' create new entities
+            PrintClientMessage("  -> Adding New Entities")
             Entities = ModelToProcess.CreatedEntities
 
             For Each Entity In Entities
@@ -269,28 +286,25 @@ Public Class ARA
 
                 ExecuteDDLCommand(Entity.AlternateKeyDefinition, DatabaseConnection)
 
-                'contraint definition
+                'constraint definition
                 ExecuteDDLCommand(Entity.ForeignKeyDefinition(Entity.ForeignKeyAttributes), DatabaseConnection)
                 ExecuteDDLCommand(Entity.DefaultDefinition(Entity.DefaultValuedAttributes), DatabaseConnection)
 
-                ' abstract creation
-                ExecuteDDLCommand(Entity.ControlCreateDefinition, DatabaseConnection)
-                ExecuteDDLCommand(Entity.ControlInsertDefinition, DatabaseConnection)
-                ExecuteDDLCommand(Entity.ControlUpdateDefinition, DatabaseConnection)
-                ExecuteDDLCommand(Entity.ControlDeleteDefinition, DatabaseConnection)
+                ' control creation
+                ProcessAbstractCreate(Entity, DatabaseConnection)
 
                 ' sync metadata
-                ExecuteDDLCommand(Entity.EntityMetadataDefinition, DatabaseConnection)
-                ExecuteDDLCommand(Entity.AttributeMetadataDefintion, DatabaseConnection)
+                ProcessEntityMetadata(Entity, DatabaseConnection)
 
             Next Entity
 
             ' alter existing entites
+            PrintClientMessage("  -> Altering Existing Entities")
             Entities = ModelToProcess.ChangedEntities
 
             For Each Entity In Entities
 
-                ExecuteDDLCommand(Entity.ControlDropDefinition, DatabaseConnection)
+                ProcessAbstractDrop(Entity, DatabaseConnection)
 
                 ' if the business identifier has changed, drop it, in all forms
                 If Entity.HasAlterAlternateKey Then
@@ -312,24 +326,33 @@ Public Class ARA
                 End If
 
                 ' add back the control defintion(s)
-                ExecuteDDLCommand(Entity.ControlCreateDefinition, DatabaseConnection)
-                ExecuteDDLCommand(Entity.ControlInsertDefinition, DatabaseConnection)
-                ExecuteDDLCommand(Entity.ControlUpdateDefinition, DatabaseConnection)
-                ExecuteDDLCommand(Entity.ControlDeleteDefinition, DatabaseConnection)
+                ProcessAbstractCreate(Entity, DatabaseConnection)
 
                 ' sync metadata
-                ExecuteDDLCommand(Entity.EntityMetadataDefinition, DatabaseConnection)
-                ExecuteDDLCommand(Entity.AttributeMetadataDefintion, DatabaseConnection)
+                ProcessEntityMetadata(Entity, DatabaseConnection)
 
             Next Entity
 
             ' drop entites
+            PrintClientMessage("  -> Dropping Old Entities")
             Entities = ModelToProcess.DeletedEntities
 
             For Each Entity In Entities
-                ExecuteDDLCommand(Entity.ControlDropDefinition, DatabaseConnection)
+                ProcessAbstractDrop(Entity, DatabaseConnection)
                 ExecuteDDLCommand(Entity.DeleteEntityDefinition, DatabaseConnection)
             Next
+
+            ' 
+            If ProcessAbstractsInFull Then
+
+                Entities = ModelToProcess.Entities
+
+                For Each Entity In Entities
+                    ProcessAbstractDrop(Entity, DatabaseConnection)
+                    ProcessAbstractCreate(Entity, DatabaseConnection)
+                Next
+
+            End If
 
             ' if we made it here without error, commit transactions
             ExecuteDDLCommand("commit transaction;", DatabaseConnection)
@@ -344,7 +367,6 @@ Public Class ARA
             PrintClientMessage(vbCrLf)
         End Try
 
-exit_sub:
         Dim ed As Date = Now()
         PrintClientMessage(vbCrLf & "• Process ended at " & ed.ToString(fmt))
 
@@ -372,7 +394,6 @@ exit_sub:
         Dim Arrow As String = "."
         Dim DoubleArrow As String = "->>"
 
-        PrintClientMessage(vbCrLf)
         PrintClientMessage("• Estimated changes to data model: ")
 
         For Each Entity In ModelToProcess.Entities
@@ -419,15 +440,47 @@ exit_sub:
 
     End Sub
 
+    ''' <summary>...</summary>
+    Private Shared Sub ProcessAbstractDrop(ByVal ProcessEntity As Model.Entity,
+                                           ByVal DatabaseConnection As SqlConnection)
+
+        ExecuteDDLCommand(ProcessEntity.ControlDropDefinition, DatabaseConnection)
+        ExecuteDDLCommand(ProcessEntity.AbstractDropDefinition, DatabaseConnection)
+
+    End Sub
+
+    ''' <summary>...</summary>
+    Private Shared Sub ProcessAbstractCreate(ByVal ProcessEntity As Model.Entity,
+                                             ByVal DatabaseConnection As SqlConnection)
+
+        ExecuteDDLCommand(ProcessEntity.ControlCreateDefinition, DatabaseConnection)
+        ExecuteDDLCommand(ProcessEntity.ControlInsertDefinition, DatabaseConnection)
+        ExecuteDDLCommand(ProcessEntity.ControlUpdateDefinition, DatabaseConnection)
+        ExecuteDDLCommand(ProcessEntity.ControlDeleteDefinition, DatabaseConnection)
+        ExecuteDDLCommand(ProcessEntity.ControlSecurityDefinition, DatabaseConnection)
+        ExecuteDDLCommand(ProcessEntity.AbstractCreateDefinition, DatabaseConnection)
+
+    End Sub
+
+    ''' <summary>...</summary>
+    Private Shared Sub ProcessEntityMetadata(ByVal ProcessEntity As Model.Entity,
+                                             ByVal DatabaseConnection As SqlConnection)
+
+        ExecuteDDLCommand(ProcessEntity.EntityMetadataDefinition, DatabaseConnection)
+        ExecuteDDLCommand(ProcessEntity.AttributeMetadataDefintion, DatabaseConnection)
+
+    End Sub
+
+
 #End Region
 
     Protected Friend Class Model
 
 #Region "Model Variables"
         Private _entities As Entity()
+        Private _security As Security()
         Private _database_compatibility As SQLServerCompatibility
         Private _database_name As String
-        Private _new_entities As Entity()
         Private _load_successful As Boolean = True
         Private _model_invalidations As String()
         Private _model_warnings As String()
@@ -531,6 +584,23 @@ exit_sub:
             End Get
         End Property
 
+        ''' <summary></summary>
+        Protected Friend ReadOnly Property SecurityDefinition As String
+            Get
+                Dim ReturnString As String = EmptyString
+
+                Dim SchemasAndRoles As Security() = (From nc As Security In _security Select nc).ToArray()
+
+                For Each SchemaAndRole In SchemasAndRoles
+                    ReturnString += My.Resources.ARA_ModelSecurityDefinition & vbCrLf
+                    ReturnString = Replace(ReturnString, "{{{security group}}}", SchemaAndRole.SecurityGroup)
+                    ReturnString = Replace(ReturnString, "{{{security role}}}", SchemaAndRole.SecurityRole)
+                Next
+
+                Return ReturnString
+            End Get
+        End Property
+
 #End Region
 
 #Region "Model Types"
@@ -577,16 +647,15 @@ exit_sub:
         Private Const Null As String = "null"
         Private Const NotNull As String = "not null"
 
-
         Private Const ara_select_string As String = "ara_entity='{0}'"
         Private Const ara_abstract_column_select_string As String = "ara_entity='{0}' and ara_abstract_security_group='{1}' and ara_abstract_name='{2}'"
 
-
         Private Const ara_entity As String = "ara_entity"
         Private Const ara_entity_description As String = "ara_entity_description"
-
-
         Private Const ara_attribute_ordinal As String = "ara_attribute_ordinal"
+
+        Private Const ara_abstract_security_group As String = "ara_abstract_security_group"
+        Private Const ara_abstract_security_role As String = "ara_abstract_security_role"
 #End Region
 
 #Region "Model Constructors"
@@ -601,7 +670,22 @@ exit_sub:
                 _database_compatibility = CUShort(DatabaseAttributes.Item("compatibility_level").ToString)
             Catch ex As Exception
                 _load_successful = False
-                PrintClientMessage(ex.Message)
+                PrintClientError(New StackFrame().GetMethod().Name, ex)
+                Exit Sub
+            End Try
+
+            ' loop through security
+            Try
+                Dim SecurityTable As DataTable = ModelDataset.Tables("ara_security_definition")
+                Dim SecurityRow As DataRow
+
+                For Each SecurityRow In SecurityTable.Rows
+                    _security.AddMember(New Security(SecurityRow(ara_abstract_security_group), SecurityRow(ara_abstract_security_role)))
+                Next
+
+            Catch ex As Exception
+                _load_successful = False
+                PrintClientError(New StackFrame().GetMethod().Name, ex)
                 Exit Sub
             End Try
 
@@ -624,8 +708,6 @@ exit_sub:
                 Dim AbstractColumnRows As DataRow() = Nothing
 
                 Dim NewEntity As Entity
-                'Dim NewAbstractColumn As Entity.AbstractColumn
-                'Dim NewAbstractColumns As Entity.AbstractColumn() = Nothing
 
                 ' move through each of the entities and add them to the class
                 For Each EntityRow In EntityTable.Rows
@@ -686,7 +768,6 @@ exit_sub:
 
                         NewEntity.NewAbstract(AbstractRow("ara_abstract_security_group").ToString,
                                               AbstractRow("ara_abstract_name").ToString,
-                                              AbstractRow("ara_abstract_security_role").ToString,
                                               AbstractRow("ara_abstract_description").ToString,
                                               AbstractRow("ara_abstract_predicate").ToString,
                                               AbstractColumnRows)
@@ -698,12 +779,10 @@ exit_sub:
 
                 Next EntityRow
 
-            Catch sqlex As SqlException
-                _load_successful = False
-                PrintClientMessage(sqlex.Message)
             Catch ex As Exception
                 _load_successful = False
-                PrintClientMessage(ex.Message)
+                PrintClientError(New StackFrame().GetMethod().Name, ex)
+                Exit Sub
             End Try
 
         End Sub
@@ -751,7 +830,7 @@ exit_sub:
             End Property
 
             ''' <summary></summary>
-            Protected Friend ReadOnly Property EntityType As EntityType
+            Protected ReadOnly Property EntityType As EntityType
                 Get
                     Return _entity_type
                 End Get
@@ -1025,14 +1104,14 @@ exit_sub:
 
                     '
                     AlteredColumns = (From nc As EntityAttribute In _attribute
-                                      Where Not nc.AddColumn And nc.AlterForeignKey And nc.ReferencedEntity <> EmptyString
+                                      Where Not nc.AddColumn And nc.ReferencedEntity <> EmptyString
                                       Select nc).ToArray()
 
                     ReturnString += ForeignKeyDefinition(AlteredColumns) & vbCrLf
 
                     '
                     AlteredColumns = (From nc As EntityAttribute In _attribute
-                                      Where Not nc.AddColumn And nc.AlterDefault And nc.DefaultValue <> EmptyString
+                                      Where Not nc.AddColumn And nc.DefaultValue <> EmptyString
                                       Select nc).ToArray()
 
                     ReturnString += DefaultDefinition(AlteredColumns) & vbCrLf
@@ -1161,6 +1240,18 @@ exit_sub:
                     ReturnString = Replace(ReturnString, "{{{entity}}}", Entity)
                     ReturnString = Replace(ReturnString, "{{{column set}}}", ColumnListDefinition(UniqueAttributes, 9, False, True))
                     ReturnString = Replace(ReturnString, "{{{join set}}}", ColumnJoinDefinition(UniqueAttributes, 23, True))
+
+                    Return ReturnString
+                End Get
+            End Property
+
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property ControlSecurityDefinition As String
+                Get
+                    Dim ReturnString As String = EmptyString
+
+                    ReturnString = My.Resources.ARA_ControlSecurityDefinition & vbCrLf
+                    ReturnString = Replace(ReturnString, "{{{entity}}}", Entity)
 
                     Return ReturnString
                 End Get
@@ -1341,6 +1432,38 @@ exit_sub:
 
                     Return _abstract
                 End Get
+            End Property
+
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property AbstractCreateDefinition As String
+                Get
+
+                    Dim ReturnString As String = EmptyString
+
+                    For Each Abstract In Abstracts
+                        ReturnString += Abstract.CreateDefinition
+                    Next
+
+                    Return If(ReturnString = EmptyString, "--> no abstracts defined", ReturnString)
+                End Get
+
+            End Property
+
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property AbstractDropDefinition As String
+                Get
+
+                    Dim ReturnString As String = EmptyString
+
+                    ReturnString += My.Resources.ARA_AbstractDropDefinition & vbCrLf
+
+                    ReturnString = Replace(ReturnString, "{{{entity}}}", Entity)
+
+                    ReturnString = If(ReturnString = EmptyString, "--> nothing to drop", ReturnString)
+
+                    Return ReturnString
+                End Get
+
             End Property
 
             ''' <summary></summary>
@@ -1716,22 +1839,22 @@ exit_sub:
                     ' TODO: add operand clash warnings
 
                     ' add the attribute to the entity
-                    _attribute.AddAttributeToEntity(New EntityAttribute(Attribute, _
-                                                                        ReferencedEntity, _
-                                                                        ReferencedEntityType, _
-                                                                        Datatype, _
-                                                                        DefaultValue,
-                                                                        Ordinal, _
-                                                                        SortOrder,
-                                                                        Optionality, _
-                                                                        BusinessIdentifier,
-                                                                        Description, _
-                                                                        AddColumn, _
-                                                                        DeleteColumn, _
-                                                                        AlterColumn, _
-                                                                        AlterForeignKey, _
-                                                                        AlterDefault, _
-                                                                        AlterAlternateKey))
+                    _attribute.AddMember(New EntityAttribute(Attribute, _
+                                                             ReferencedEntity, _
+                                                             ReferencedEntityType, _
+                                                             Datatype, _
+                                                             DefaultValue,
+                                                             Ordinal, _
+                                                             SortOrder,
+                                                             Optionality, _
+                                                             BusinessIdentifier,
+                                                             Description, _
+                                                             AddColumn, _
+                                                             DeleteColumn, _
+                                                             AlterColumn, _
+                                                             AlterForeignKey, _
+                                                             AlterDefault, _
+                                                             AlterAlternateKey))
 
                 Catch ex As Exception
                     PrintClientMessage(ex.Message)
@@ -1742,12 +1865,11 @@ exit_sub:
             ''' <summary></summary>
             Protected Friend Sub NewAbstract(ByVal SecurityGroup As String,
                                              ByVal Abstract As String,
-                                             ByVal SecurityRole As String,
                                              ByVal Description As String,
                                              ByVal Predicate As String,
                                              ByVal Columns As DataRow())
 
-                _abstract.AddMember(New Entity.Abstract(SecurityGroup, Abstract, SecurityRole, Description, Predicate, Columns))
+                _abstract.AddMember(New Entity.Abstract(Entity, EntityType, SecurityGroup, Abstract, Description, Predicate, Columns))
 
             End Sub
 
@@ -1985,9 +2107,10 @@ exit_sub:
             ''' <summary></summary>
             Protected Friend Class Abstract
 
+                Private _entity_name As String
+                Private _entity_type As Model.EntityType
                 Private _security_group As String
                 Private _abstract As String
-                Private _security_role As String
                 Private _description As String
                 Private _predicate As String
                 Private _columns As AbstractColumn()
@@ -2028,16 +2151,63 @@ exit_sub:
                 End Property
 
                 ''' <summary></summary>
-                Protected Friend Sub New(ByVal SecurityGroup As String,
+                Protected Friend ReadOnly Property CreateDefinition As String
+                    Get
+
+                        Dim ReturnString As String = EmptyString
+
+                        If _entity_type = Model.EntityType.TypeI Then
+                            ReturnString += My.Resources.ARA_AbstractDefinitionTypeI & vbCrLf
+                        ElseIf _entity_type = Model.EntityType.TypeII Then
+                            ReturnString += My.Resources.ARA_AbstractDefinitionTypeII & vbCrLf
+                        End If
+
+                        ReturnString = Replace(ReturnString, "{{{entity}}}", _entity_name)
+                        ReturnString = Replace(ReturnString, "{{{security group}}}", SecurityGroup)
+                        ReturnString = Replace(ReturnString, "{{{abstract name}}}", Abstract)
+                        ReturnString = Replace(ReturnString, "{{{return set}}}", ColumnListDefinition(AbstractColumns, True, 3))
+                        ReturnString = Replace(ReturnString, "{{{column set}}}", ColumnListDefinition(AbstractColumns, False, 3))
+                        ReturnString = Replace(ReturnString, "{{{predicate}}}", Replace(Predicate, "'", "''"))
+
+                        ReturnString += vbCrLf & vbCrLf
+
+                        Return If(ReturnString = EmptyString, "--> no abstracts defined", ReturnString)
+                    End Get
+
+                End Property
+
+
+
+                ''' <summary></summary>
+                Private ReadOnly Property ColumnListDefinition(ByVal ColumnSet As AbstractColumn(),
+                                                               ByVal GetReturnName As Boolean,
+                                                               Optional ByVal Padding As Integer = 0) As String
+                    Get
+                        Dim ReturnString As String = EmptyString
+
+                        For Each Column In ColumnSet
+                            ReturnString += New String(Spacer, Padding) & If(GetReturnName, Column.ColumnName, Column.Attribute) & "," & vbCrLf
+                        Next Column
+
+                        If ReturnString = EmptyString Then Return "--> no attributes defined"
+
+                        Return Left(ReturnString, Len(ReturnString) - 2)
+                    End Get
+                End Property
+
+                ''' <summary></summary>
+                Protected Friend Sub New(ByVal EntityName As String,
+                                         ByVal EntityType As EntityType,
+                                         ByVal SecurityGroup As String,
                                          ByVal Abstract As String,
-                                         ByVal SecurityRole As String,
                                          ByVal Description As String,
                                          ByVal Predicate As String,
                                          ByVal AbstractColumns As DataRow())
 
+                    _entity_name = EntityName
+                    _entity_type = EntityType
                     _security_group = SecurityGroup
                     _abstract = Abstract
-                    _security_role = SecurityRole
                     _description = Description
                     _predicate = Predicate
 
@@ -2053,18 +2223,21 @@ exit_sub:
                     Private _attribute As String
                     Private _alternate_name As String
 
+                    ''' <summary></summary>
                     Protected Friend ReadOnly Property Attribute As String
                         Get
                             Return "[" & _attribute & "]"
                         End Get
                     End Property
 
+                    ''' <summary></summary>
                     Protected Friend ReadOnly Property ColumnName As String
                         Get
                             Return "[" & If(_alternate_name = EmptyString, _attribute, _alternate_name) & "]"
                         End Get
                     End Property
 
+                    ''' <summary></summary>
                     Protected Friend Sub New(ByVal Attribute As String,
                                              ByVal AlternateName As String)
                         _attribute = Attribute
@@ -2077,6 +2250,36 @@ exit_sub:
             End Class ' Abstract
 
         End Class ' Entity
+
+        ''' <summary></summary>
+        Protected Friend Class Security
+
+            Private _security_group As String
+            Private _security_role As String
+
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property SecurityGroup As String
+                Get
+                    Return _security_group
+                End Get
+            End Property
+
+            Protected Friend ReadOnly Property SecurityRole As String
+                Get
+                    Return _security_role
+                End Get
+            End Property
+
+            ''' <summary></summary>
+            Protected Friend Sub New(ByVal SecurityGroup As String,
+                                     ByVal SecurityRole As String)
+
+                _security_group = SecurityGroup
+                _security_role = SecurityRole
+
+            End Sub
+
+        End Class ' Security
 
     End Class ' Model
 

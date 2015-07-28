@@ -2013,71 +2013,6 @@ exec sys.sp_MS_marksystemobject 'psa_end_batch';
 
 grant execute on [dbo].[psa_end_batch] to [psa_etl_manager];</value>
   </data>
-  <data name="SYS_PSAMetadataTableDefinition" xml:space="preserve">
-    <value>if object_id(N'[dbo].[psa_entity_definition]',N'U') is null begin;
-
-   create table [dbo].[psa_entity_definition]
-    (
-      [psa_schema] nvarchar(4) collate Latin1_General_100_BIN2,
-      [psa_entity] nvarchar(31) collate Latin1_General_100_BIN2,
-      constraint [pk : dbo.psa_entity_definition {domain}]
-      primary key clustered ([psa_schema],[psa_entity]),
-
-      [psa_entity_description] nvarchar(4000) collate Latin1_General_100_BIN2 null,
-      [psa_source_statement] nvarchar(max) collate Latin1_General_100_BIN2 null,      
-      [psa_source_predicate_values] nvarchar(max) collate Latin1_General_100_BIN2 null,
-      
-      [source_schema] sysname collate Latin1_General_100_BIN2,
-      [source_entity] sysname collate Latin1_General_100_BIN2,
-      [hash_large_objects] nvarchar(3) collate Latin1_General_100_BIN2 not null,
-      constraint [ck : dbo.psa_entity_definition :: hash_large_objects]
-      check ([hash_large_objects] in(N'Yes',N'No')),
-      [psa_infer_deletions] nvarchar(3) collate Latin1_General_100_BIN2 not null,
-      constraint [ck : dbo.psa_entity_definition :: psa_infer_deletions]
-      check ([psa_infer_deletions] in(N'Yes',N'No')),
-      [etl_build_group] nvarchar(128) collate Latin1_General_100_BIN2 null,
-      [etl_max_threads] int not null,
-      [etl_max_record_count] int not null
-    );
-
-   exec sys.sp_MS_marksystemobject N'psa_entity_definition';
-
-end;
-
-if object_id(N'[dbo].[psa_attribute_definition]',N'U') is null begin;
-
-   create table [dbo].[psa_attribute_definition]
-    (
-      [psa_schema] nvarchar(4) collate Latin1_General_100_BIN2,
-      constraint [ck : dbo.psa_attribute_definition :: psa_schema]
-      check (len([psa_schema])=4),
-      [psa_entity] nvarchar(31) collate Latin1_General_100_BIN2,
-      constraint [fk : dbo.psa_attribute_definition $ dbo.psa_entity_definition]
-      foreign key ([psa_schema],[psa_entity])
-      references [dbo].[psa_entity_definition] ([psa_schema],[psa_entity])
-      on update cascade,
-      [psa_attribute] sysname collate Latin1_General_100_BIN2,
-      constraint [pk : dbo.psa_attribute_definition {domain | attribute}]
-      primary key clustered ([psa_schema],[psa_entity],[psa_attribute]),
-      [psa_attribute_datatype] sysname collate Latin1_General_100_BIN2,
-      [psa_attribute_ordinal] int not null,
-      [psa_attribute_sort] nvarchar(4) collate Latin1_General_100_BIN2 not null,
-      constraint [ck : dbo.psa_attribute_definition :: psa_attribute_sort]
-      check ([psa_attribute_sort] in(N'asc',N'desc')),
-      [psa_attribute_optional] nvarchar(4) collate Latin1_General_100_BIN2 not null,
-      constraint [ck : dbo.psa_attribute_definition :: psa_attribute_optional]
-      check ([psa_attribute_optional] in(N'Yes',N'No')),
-      [psa_attribute_business_identifier] nvarchar(3) collate Latin1_General_100_BIN2,
-      constraint [ck : dbo.psa_attribute_definition :: psa_attribute_business_identifier]
-      check ([psa_attribute_business_identifier] in(N'Yes',N'No')),
-      [psa_attribute_description] nvarchar(4000) collate Latin1_General_100_BIN2 null
-    );
-
-   exec sys.sp_MS_marksystemobject N'psa_attribute_definition';
-
-end;</value>
-    <comment>Contains DDL to build the required metadata tables in the master database.  These tables drive object creation.</comment>
-  </data>
   <data name="PSA_ProcessDeleteDefinition" xml:space="preserve">
     <value>create procedure [{{{schema}}}].[{{{entity}}}.ProcessDelete]
  (
@@ -2368,8 +2303,71 @@ return @@error;</value>
   <data name="PSA_ProcessDeleteSecurityDefinition" xml:space="preserve">
     <value>grant execute on [{{{schema}}}].[{{{entity}}}.ProcessDelete] to [psa_etl_manager];</value>
   </data>
-  <data name="SYS_ARAMetadataTableDefinition" xml:space="preserve">
-    <value>if object_id(N'[dbo].[ara_entity_definition]',N'U') is null begin;
+  <data name="SYS_MetadataTableDefinition" xml:space="preserve">
+    <value>if object_id(N'[dbo].[psa_entity_definition]',N'U') is null begin;
+
+   create table [dbo].[psa_entity_definition]
+    (
+      [psa_schema] nvarchar(4) collate Latin1_General_100_BIN2,
+      [psa_entity] nvarchar(31) collate Latin1_General_100_BIN2,
+      constraint [pk : dbo.psa_entity_definition {domain}]
+      primary key clustered ([psa_schema],[psa_entity]),
+
+      [psa_entity_description] nvarchar(4000) collate Latin1_General_100_BIN2 null,
+      [psa_source_statement] nvarchar(max) collate Latin1_General_100_BIN2 null,      
+      [psa_source_predicate_values] nvarchar(max) collate Latin1_General_100_BIN2 null,
+      
+      [source_schema] sysname collate Latin1_General_100_BIN2,
+      [source_entity] sysname collate Latin1_General_100_BIN2,
+      [hash_large_objects] nvarchar(3) collate Latin1_General_100_BIN2 not null,
+      constraint [ck : dbo.psa_entity_definition :: hash_large_objects]
+      check ([hash_large_objects] in(N'Yes',N'No')),
+      [psa_infer_deletions] nvarchar(3) collate Latin1_General_100_BIN2 not null,
+      constraint [ck : dbo.psa_entity_definition :: psa_infer_deletions]
+      check ([psa_infer_deletions] in(N'Yes',N'No')),
+      [etl_build_group] nvarchar(128) collate Latin1_General_100_BIN2 null,
+      [etl_max_threads] int not null,
+      [etl_max_record_count] int not null
+    );
+
+   exec sys.sp_MS_marksystemobject N'psa_entity_definition';
+
+end;
+
+if object_id(N'[dbo].[psa_attribute_definition]',N'U') is null begin;
+
+   create table [dbo].[psa_attribute_definition]
+    (
+      [psa_schema] nvarchar(4) collate Latin1_General_100_BIN2,
+      constraint [ck : dbo.psa_attribute_definition :: psa_schema]
+      check (len([psa_schema])=4),
+      [psa_entity] nvarchar(31) collate Latin1_General_100_BIN2,
+      constraint [fk : dbo.psa_attribute_definition $ dbo.psa_entity_definition]
+      foreign key ([psa_schema],[psa_entity])
+      references [dbo].[psa_entity_definition] ([psa_schema],[psa_entity])
+      on update cascade,
+      [psa_attribute] sysname collate Latin1_General_100_BIN2,
+      constraint [pk : dbo.psa_attribute_definition {domain | attribute}]
+      primary key clustered ([psa_schema],[psa_entity],[psa_attribute]),
+      [psa_attribute_datatype] sysname collate Latin1_General_100_BIN2,
+      [psa_attribute_ordinal] int not null,
+      [psa_attribute_sort] nvarchar(4) collate Latin1_General_100_BIN2 not null,
+      constraint [ck : dbo.psa_attribute_definition :: psa_attribute_sort]
+      check ([psa_attribute_sort] in(N'asc',N'desc')),
+      [psa_attribute_optional] nvarchar(4) collate Latin1_General_100_BIN2 not null,
+      constraint [ck : dbo.psa_attribute_definition :: psa_attribute_optional]
+      check ([psa_attribute_optional] in(N'Yes',N'No')),
+      [psa_attribute_business_identifier] nvarchar(3) collate Latin1_General_100_BIN2,
+      constraint [ck : dbo.psa_attribute_definition :: psa_attribute_business_identifier]
+      check ([psa_attribute_business_identifier] in(N'Yes',N'No')),
+      [psa_attribute_description] nvarchar(4000) collate Latin1_General_100_BIN2 null
+    );
+
+   exec sys.sp_MS_marksystemobject N'psa_attribute_definition';
+
+end;
+
+if object_id(N'[dbo].[ara_entity_definition]',N'U') is null begin;
 
    create table [dbo].[ara_entity_definition]
     (
@@ -2381,7 +2379,7 @@ return @@error;</value>
 
       [ara_entity_type] nvarchar(1) collate Latin1_General_100_BIN2 not null,
       constraint [ck : dbo.ara_entity_definition :: ara_entity_type]
-      check ([ara_entity_type] in(N'D',N'F')),
+      check ([ara_entity_type] in(N'1',N'2')),
 
       [ara_hash_large_objects] nvarchar(3) collate Latin1_General_100_BIN2 not null,
       constraint [ck : dbo.ara_entity_definition :: ara_hash_large_objects]
@@ -2476,6 +2474,11 @@ if object_id(N'[dbo].[ara_abstract_column_definition]',N'U') is null begin;
       [ara_abstract_security_group] nvarchar(10) collate Latin1_General_100_BIN2 not null,
       [ara_abstract_name] nvarchar(25) collate Latin1_General_100_BIN2 not null,
 
+      constraint [fk : ara_abstract_column_definition $ ara_abstract_definition]
+      foreign key ([ara_abstract_security_group],[ara_abstract_name])
+      references [dbo].[ara_abstract_definition] ([ara_abstract_security_group],[ara_abstract_name])
+      on update cascade on delete cascade,
+
       [ara_attribute_name] nvarchar(53) collate Latin1_General_100_BIN2 not null,
       constraint [pk : ara_abstract_column_definition]
       primary key clustered ([ara_abstract_security_group],[ara_abstract_name],[ara_attribute_name]),
@@ -2490,6 +2493,35 @@ if object_id(N'[dbo].[ara_abstract_column_definition]',N'U') is null begin;
     );
 
    exec sys.sp_MS_marksystemobject N'ara_abstract_column_definition';
+
+end;
+
+if object_id(N'[dbo].[ara_attribute_mapping]',N'U') is null begin;
+
+   create table [dbo].[ara_attribute_mapping]
+    (
+      [ara_entity] nvarchar(25) collate Latin1_General_100_BIN2 not null,
+      [ara_attribute_name] nvarchar(53) collate Latin1_General_100_BIN2 not null,
+
+      constraint [fk : ara_attribute_mapping $ ara_attribute_definition]
+      foreign key ([ara_entity],[ara_attribute_name])
+      references [dbo].[ara_attribute_definition] ([ara_entity],[ara_attribute_name])
+      on update cascade on delete cascade,
+
+      [psa_schema] nvarchar(4) collate Latin1_General_100_BIN2,
+      [psa_entity] nvarchar(31) collate Latin1_General_100_BIN2,
+      [psa_attribute] sysname collate Latin1_General_100_BIN2,
+
+      constraint [fk : ara_attribute_mapping $ psa_attribute_definition]
+      foreign key ([psa_schema],[psa_entity],[psa_attribute])
+      references [dbo].[psa_attribute_definition] ([psa_schema],[psa_entity],[psa_attribute])
+      on update cascade on delete cascade,
+
+      constraint [pk : ara_attribute_mapping]
+      primary key clustered ([ara_entity],[ara_attribute_name],[psa_schema],[psa_entity],[psa_attribute])
+    );
+
+   exec sys.sp_MS_marksystemobject N'ara_attribute_mapping';
 
 end;</value>
   </data>
@@ -2580,7 +2612,7 @@ if not exists(select 1 from sys.sysusers where [name]=N'ara_etl_manager') begin;
    create role [ara_etl_manager] authorization [db_owner];
 end;</value>
   </data>
-  <data name="SYS_ARAEntityDefinition" xml:space="preserve">
+  <data name="ARA_GetMetadataEntity" xml:space="preserve">
     <value>with [new_model] as
  (
    select
@@ -2594,7 +2626,7 @@ end;</value>
  (
    select
       o.[name] [ara_entity],
-      case when sq.[name] is not null then N'D' else N'F' end [ara_entity_type]
+      case when sq.[name] is not null then N'2' else N'1' end [ara_entity_type]
    from
       sys.tables o
       left join
@@ -2641,7 +2673,7 @@ from
    left join
    [existing_model] e on x.[ara_entity]=e.[ara_entity];</value>
   </data>
-  <data name="SYS_ARAAttributeDefinition" xml:space="preserve">
+  <data name="ARA_GetMetadataAttribute" xml:space="preserve">
     <value>with [new_model] as
  (
    select
@@ -3134,7 +3166,7 @@ end;</value>
    select
       N'[dbo].['+[ara_entity]+N']' [@domain],
       [ara_entity],
-      replace([ara_entity_description],N'''',N'') [ara_entity_description],
+      replace([ara_entity_description],N'''',N'|~~|') [ara_entity_description],
       [ara_entity_type],
       [ara_hash_large_objects],
       convert(xml,sq.[attribute]) [attributes]
@@ -3152,8 +3184,8 @@ end;</value>
             [ara_attribute_sort],
             [ara_attribute_optional],
             [ara_attribute_business_identifier],
-            replace([ara_attribute_description],N'''',N'') [ara_attribute_description],
-            [ara_attribute_default]
+            replace([ara_attribute_description],N'''',N'|~~|') [ara_attribute_description],
+            replace([ara_attribute_default],N'''',N'|~~|') [ara_attribute_default]
          from
             [dbo].[ara_attribute_definition] a
          where
@@ -3166,28 +3198,28 @@ end;</value>
    select
       [@ara_domain],
       [ara_abstract_security_group],
-      [ara_abstract_name]
+      [ara_abstract_name],
       [ara_entity],
-      [ara_abstract_description],
+      [ara_abstract_description] [ara_abstract_description],
       [ara_abstract_predicate],
       [columns]
    from
-    ( 
+    (
       select
          N'['+lower([ara_abstract_security_group])+'].['+[ara_abstract_name]+N']' [@ara_domain],
          [ara_abstract_security_group],
          [ara_abstract_name],
          [ara_entity],
-         isnull([ara_abstract_description],N'') [ara_abstract_description],
-         isnull([ara_abstract_predicate],N'') [ara_abstract_predicate],
+         replace([ara_abstract_description],N'''',N'|~~|') [ara_abstract_description],
+         replace([ara_abstract_predicate],N'''',N'|~~|') [ara_abstract_predicate],
          convert(xml,sq.[attribute]) [columns]
       from
          [master].[dbo].[ara_abstract_definition] e
          cross apply
           (
             select
-               [ara_attribute],
-               isnull([ara_abstract_alternate_name],N'') [ara_abstract_alternate_name]
+               [ara_attribute_name],
+               [ara_abstract_alternate_name]
             from
                [dbo].[ara_abstract_column_definition] a
             where
@@ -3196,12 +3228,26 @@ end;</value>
                e.[ara_abstract_name]=a.[ara_abstract_name]
             for xml path('column')
           ) sq(attribute)
-    ) ab 
+    ) ab
    for xml path('abstract')
+ ), [mapping] ([mappings]) as
+ (
+   select
+      N'[dbo].['+[ara_entity]+N'].['+[ara_attribute_name]+N']' [@ara_qualifier],
+      N'['+[psa_schema]+N'].['+[psa_entity]+N'].['+[psa_attribute]+N']' [@psa_qualifier],
+      [ara_entity],
+      [ara_attribute_name],
+      [psa_schema],
+      [psa_entity],
+      [psa_attribute]
+   from
+      [master].[dbo].[ara_attribute_mapping] e
+   for xml path('mapping')
  )
 select
-   convert(xml,N'&lt;model&gt;&lt;entities&gt;'+(select [entities] from [entity])+N'&lt;/entities&gt;'+
-               N'&lt;abstracts&gt;'+(select [abstracts] from [abstract])+N'&lt;/abstracts&gt;&lt;/model&gt;') [ara_model];</value>
+   convert(xml,N'&lt;model&gt;&lt;entities&gt;'+isnull((select [entities] from [entity]),N'')+N'&lt;/entities&gt;'+
+               N'&lt;abstracts&gt;'+isnull((select [abstracts] from [abstract]),N'')+N'&lt;/abstracts&gt;'+
+               N'&lt;mappings&gt;'+isnull((select [mappings] from [mapping]),N'')+N'&lt;/mappings&gt;&lt;/model&gt;') [ara_model];</value>
   </data>
   <data name="ARA_ModelSet" xml:space="preserve">
     <value>set nocount on;
@@ -3209,6 +3255,9 @@ declare @xml xml='{{{xml}}}';
 
 begin try;
 
+   delete [master].[dbo].[ara_attribute_mapping];
+   delete [master].[dbo].[ara_abstract_column_definition];
+   delete [master].[dbo].[ara_abstract_definition];
    delete [master].[dbo].[ara_attribute_definition];
    delete [master].[dbo].[ara_entity_definition];
 
@@ -3221,11 +3270,11 @@ begin try;
     )
    select
       x.e.value('./ara_entity[1]',N'nvarchar(25)') [ara_entity],
-      x.e.value('./ara_entity_description[1]',N'nvarchar(4000)') [ara_entity_description],
+      replace(x.e.value('./ara_entity_description[1]',N'nvarchar(4000)'),N'|~~|','''') [ara_entity_description],
       x.e.value('./ara_entity_type[1]',N'nvarchar(1)') [ara_entity_type],
       x.e.value('./ara_hash_large_objects[1]',N'nvarchar(3)') [ara_hash_large_objects]
    from
-      @xml.nodes('/entities/entity') x(e);
+      @xml.nodes('/model/entities/entity') x(e);
 
    insert [master].[dbo].[ara_attribute_definition]
     (
@@ -3251,12 +3300,65 @@ begin try;
       c.a.value('./ara_attribute_sort[1]',N'nvarchar(4)') [ara_attribute_sort],
       c.a.value('./ara_attribute_optional[1]',N'nvarchar(3)') [ara_attribute_optional],
       c.a.value('./ara_attribute_business_identifier[1]',N'nvarchar(3)') [ara_attribute_business_identifier],
-      c.a.value('./ara_attribute_description[1]',N'nvarchar(4000)') [ara_attribute_description],
-      c.a.value('./ara_attribute_default[1]',N'nvarchar(max)') [ara_attribute_default]
+      replace(c.a.value('./ara_attribute_description[1]',N'nvarchar(4000)'),N'|~~|','''') [ara_attribute_description],
+      replace(c.a.value('./ara_attribute_default[1]',N'nvarchar(max)'),N'|~~|','''') [ara_attribute_default]
    from
-      @xml.nodes('/entities/entity') p(e)
+      @xml.nodes('/model/entities/entity') p(e)
       cross apply
       p.e.nodes('./attributes/attribute') c(a);
+
+   insert [master].[dbo].[ara_abstract_definition]
+    (
+      [ara_abstract_security_group],
+      [ara_abstract_name],
+      [ara_entity],
+      [ara_abstract_description],
+      [ara_abstract_predicate]
+    )
+   select
+      x.e.value('./ara_abstract_security_group[1]',N'nvarchar(10)') [ara_abstract_security_group],
+      x.e.value('./ara_abstract_name[1]',N'nvarchar(25)') [ara_abstract_name],
+      x.e.value('./ara_entity[1]',N'nvarchar(25)') [ara_entity],
+      replace(x.e.value('./ara_abstract_description[1]',N'nvarchar(4000)'),N'|~~|','''') [ara_abstract_description],
+      replace(x.e.value('./ara_abstract_predicate[1]',N'nvarchar(max)'),N'|~~|','''') [ara_abstract_predicate]
+   from
+      @xml.nodes('/model/abstracts/abstract') x(e);
+
+   insert [master].[dbo].[ara_abstract_column_definition]
+    (
+      [ara_abstract_security_group],
+      [ara_abstract_name],
+      [ara_attribute_name],
+      [ara_entity],
+      [ara_abstract_alternate_name]
+    )
+   select
+      p.e.value('./ara_abstract_security_group[1]',N'nvarchar(10)') [ara_abstract_security_group],
+      p.e.value('./ara_abstract_name[1]',N'nvarchar(25)') [ara_abstract_name],
+      c.a.value('./ara_attribute_name[1]',N'nvarchar(53)') [ara_attribute_name],
+      p.e.value('./ara_entity[1]',N'nvarchar(25)') [ara_entity],
+      c.a.value('./ara_abstract_alternate_name[1]',N'nvarchar(128)') [ara_abstract_alternate_name]
+   from
+      @xml.nodes('/model/abstracts/abstract') p(e)
+      cross apply
+      p.e.nodes('./columns/column') c(a);
+
+   insert [master].[dbo].[ara_attribute_mapping]
+    ( 
+      [ara_entity],
+      [ara_attribute_name],
+      [psa_schema],
+      [psa_entity],
+      [psa_attribute]
+    )
+   select
+      x.e.value('./ara_entity[1]',N'nvarchar(25)') [ara_entity],
+      x.e.value('./ara_attribute_name[1]',N'nvarchar(53)') [ara_attribute_name],
+      x.e.value('./psa_schema[1]',N'nvarchar(4)') [psa_schema],
+      x.e.value('./psa_entity[1]',N'nvarchar(31)') [psa_entity],
+      x.e.value('./psa_attribute[1]',N'sysname') [psa_attribute]
+   from
+      @xml.nodes('/model/mappings/mapping') x(e);
 
 end try begin catch;
 
@@ -3264,6 +3366,7 @@ end try begin catch;
       declare @ErrorSeverity int=error_severity();
       declare @ErrorState int=error_state();
       raiserror(@ErrorMessage,@ErrorSeverity,@ErrorState) with log;
+
 end catch;</value>
   </data>
   <data name="ARA_ControlCreateDefinitionTypeI" xml:space="preserve">
@@ -3537,5 +3640,81 @@ from
    isnull([ara_abstract_alternate_name],N'') [ara_abstract_alternate_name]
 from 
    [master].[dbo].[ara_abstract_column_definition];</value>
+  </data>
+  <data name="ARA_GetMetadataSecurity" xml:space="preserve">
+    <value>select distinct [ara_abstract_security_group],[ara_abstract_security_role] from [master].[dbo].[ara_abstract_definition];</value>
+  </data>
+  <data name="ARA_AbstractDefinitionTypeI" xml:space="preserve">
+    <value>exec sys.sp_executesql N'create view [{{{security group}}}].[{{{abstract name}}}]
+ (
+-- EDW Framework - Analytics &amp; Reporting Area (''ARA'') Definition
+-- Slalom Consulting | Copyright © 2015 | www.slalom.com
+-- Do NOT alter/add/extend this view
+   [{{{entity}}}Key],
+{{{return set}}}
+   [ara_start_period],
+   [ara_modify_period],
+   [ara_active_state],
+   [ara_dml_action]
+ ) with schemabinding
+as
+select
+   [{{{entity}}}Key],
+{{{column set}}}
+   [ara_start_period],
+   [ara_modify_period],
+   [ara_active_state],
+   [ara_dml_action]
+from
+   [dbo].[{{{entity}}}]
+where
+   1=1{{{predicate}}};'</value>
+  </data>
+  <data name="ARA_AbstractDefinitionTypeII" xml:space="preserve">
+    <value>--&gt; none yet</value>
+  </data>
+  <data name="ARA_ModelSecurityDefinition" xml:space="preserve">
+    <value>if not exists(select N'?' from sys.schemas where [name]=N'{{{security group}}}') begin;
+   exec sys.sp_executesql N'create schema [{{{security group}}}] authorization [ara_owner];'
+end;
+
+if not exists(select N'?' from sys.database_principals where [name]=N'{{{security role}}}' and [type]=N'R') begin;
+   create role [{{{security role}}}] authorization [ara_owner];
+end;
+
+grant select on schema::[{{{security group}}}] to [{{{security role}}}];</value>
+  </data>
+  <data name="ARA_AbstractDropDefinition" xml:space="preserve">
+    <value>declare @drop_dependencies nvarchar(max);
+
+while 1!=2 begin;
+
+   select top 1
+      @drop_dependencies=N'drop view ['+object_schema_name(d.[object_id])+N'].['+object_name(d.[object_id])+N'];' 
+   from
+      sys.sql_dependencies d
+      inner join
+      sys.objects o on d.[object_id]=o.[object_id]
+   where 
+      object_name(d.[object_id])=N'{{{entity}}}' 
+      and 
+      d.[class]=1 
+      and 
+      d.[is_selected]=1 
+      and 
+      d.[referenced_minor_id]=0 
+      and 
+      parsename(object_name(d.[object_id]),2) is null
+      and
+      o.[type]=N'V';
+
+    if @@rowcount = 0 break;
+
+    exec sys.sp_executesql @drop_dependencies;  
+end;</value>
+  </data>
+  <data name="ARA_ControlSecurityDefinition" xml:space="preserve">
+    <value>grant select,insert,update,delete on [dbo].[{{{entity}}}.Control] to [ara_etl_manager];
+exec sys.sp_MS_marksystemobject N'[{{{entity}}}.Control]';</value>
   </data>
 </root>
