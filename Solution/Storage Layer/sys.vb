@@ -8,7 +8,11 @@ Namespace Common
     Partial Public Class SqlClientOutbound
 
         Friend Shared Sub ExecuteDDLCommand(ByVal cmd_string As String, cnn_obj As SqlConnection)
-            Dim cmd As New SqlCommand(cmd_string, cnn_obj)
+            Dim cmd As New SqlCommand
+            With cmd
+                .Connection = cnn_obj
+                .CommandText = cmd_string
+            End With
             cmd.ExecuteNonQuery()
         End Sub
 
@@ -45,7 +49,7 @@ Namespace Common
 
         End Sub
 
-    End Class ' OutboundMethods
+    End Class ' SqlClientOutbound
 
     Partial Public Class InstanceSettings
 
@@ -100,6 +104,7 @@ Namespace Common
 
                 ExecuteDDLCommand(My.Resources.SYS_TableMetadataDefinition, InstanceConnection)
                 ExecuteDDLCommand(My.Resources.SYS_ColumnMetadataDefinition, InstanceConnection)
+                ' TODO: add view logic
                 PrintClientMessage("• Metadata managers in place [instance]")
 
                 ExecuteDDLCommand(My.Resources.PSA_ServiceBrokerLoginDefinition, InstanceConnection)
@@ -111,7 +116,16 @@ Namespace Common
 
         End Sub
 
-    End Class
+        Friend Shared Sub AddMetadataObjects(ByVal SqlCnn As SqlConnection)
+            ' alert the tables arent there and make them
+            ExecuteDDLCommand(My.Resources.SYS_MetadataTableDefinition, SqlCnn)
+            PrintClientMessage(vbCrLf)
+            PrintClientMessage("The ARA Framework was not ready for use. The required system tables have NOW been built; you can now use the [dbo].[ara_*]")
+            PrintClientMessage("tables in the [master] database to add the metadata construct elements to build each of the ARA objects.")
+
+        End Sub
+
+    End Class ' InstanceSettings
 
 End Namespace
 
@@ -248,11 +262,6 @@ Namespace AnalyticReportingArea
         Friend Shared Function GetMetadata(ByVal DatabaseName As String, _
                                            ByVal DatabaseConnection As SqlConnection) As DataSet
 
-            ' handle null values by flipping them to an empty string
-            If IsNothing(DatabaseName) Then DatabaseName = ""
-
-            If Not SystemObjectsInstalled(DatabaseConnection) Then Return Nothing
-
             Dim cmd As SqlCommand
             Dim da As SqlDataAdapter
 
@@ -321,30 +330,27 @@ Namespace AnalyticReportingArea
             cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'ara_attribute_definition' and [schema_id]=1;select @x;", SqlCnn)
             oid = cmd.ExecuteScalar()
 
-            If oid = 0 Then
-                Return False
-            End If
+            If oid = 0 Then Common.InstanceSettings.AddMetadataObjects(SqlCnn) : Return False
 
             cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'ara_entity_definition' and [schema_id]=1;select @x;", SqlCnn)
             oid = cmd.ExecuteScalar()
 
-            If oid = 0 Then
-                Return False
-            End If
+            If oid = 0 Then Common.InstanceSettings.AddMetadataObjects(SqlCnn) : Return False
 
             cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'ara_abstract_definition' and [schema_id]=1;select @x;", SqlCnn)
             oid = cmd.ExecuteScalar()
 
-            If oid = 0 Then
-                Return False
-            End If
+            If oid = 0 Then Common.InstanceSettings.AddMetadataObjects(SqlCnn) : Return False
 
             cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'ara_abstract_column_definition' and [schema_id]=1;select @x;", SqlCnn)
             oid = cmd.ExecuteScalar()
 
-            If oid = 0 Then
-                Return False
-            End If
+            If oid = 0 Then Common.InstanceSettings.AddMetadataObjects(SqlCnn) : Return False
+
+            cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'ara_attribute_mapping' and [schema_id]=1;select @x;", SqlCnn)
+            oid = cmd.ExecuteScalar()
+
+            If oid = 0 Then Common.InstanceSettings.AddMetadataObjects(SqlCnn) : Return False
 
             Return True
         End Function

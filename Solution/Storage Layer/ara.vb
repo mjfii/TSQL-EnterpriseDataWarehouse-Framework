@@ -91,7 +91,7 @@ Public Class ARA
         Try
             PrintHeader()
 
-            If Not UserIsSysAdmin(SqlCnn) Then SqlCnn.Close() : Exit Try
+            If Not UserIsSysAdmin(SqlCnn) Then Exit Try
 
             ProcessCallToBuild(SqlCnn, CStr(DatabaseName), CBool(VerifyOnly), CBool(ProcessAbstractsInFull))
 
@@ -114,7 +114,7 @@ Public Class ARA
         Try
             PrintHeader()
 
-            If Not UserIsSysAdmin(SqlCnn) Then SqlCnn.Close() : Exit Try
+            If Not UserIsSysAdmin(SqlCnn) Then Exit Try
 
             Dim model_query As String = My.Resources.ARA_ModelGet
             ExecuteDDLCommand("set nocount on;", SqlCnn)
@@ -141,7 +141,7 @@ Public Class ARA
         Try
             PrintHeader()
 
-            If Not UserIsSysAdmin(SqlCnn) Then SqlCnn.Close() : Exit Try
+            If Not UserIsSysAdmin(SqlCnn) Then Exit Try
 
             If IsNothing(NewModel) Then PrintClientMessage("You cannot process a null model.") : Exit Try
 
@@ -157,6 +157,8 @@ Public Class ARA
 
     End Sub
 
+
+
 #End Region
 
 #Region "ARA Methods"
@@ -171,40 +173,27 @@ Public Class ARA
                                           ByVal VerifyOnly As Boolean,
                                           ByVal ProcessAbstractsInFull As Boolean)
 
-        ' if the user is part of the sysadmin role, move along
-        If Not UserIsSysAdmin(SqlCnn) Then Exit Sub
-
-        ' make sure server objects are in place
-        AddInstanceObjects(SqlCnn)
+        ' see if metadata tables are ready in master database
+        If Not SystemObjectsInstalled(SqlCnn) Then Exit Sub
 
         ' validate incoming database
         If Not DatabaseIsValid(DatabaseName, SqlCnn) Then Exit Sub
 
+        ' make sure server objects are in place
+        AddInstanceObjects(SqlCnn)
+
         ' make sure database objects are in place
         AddDatabaseObjects(SqlCnn, DatabaseName)
 
-        ' get the metadata from system tables
-        Dim md As DataSet = GetMetadata(DatabaseName, SqlCnn)
-
-        ' if we have a promising set, i.e. the selects worked, we can move forward
-        If md Is Nothing Then
-            ' alert the tables arent there and make them
-            ExecuteDDLCommand(My.Resources.SYS_MetadataTableDefinition, SqlCnn)
-            PrintClientMessage(vbCrLf)
-            PrintClientMessage("The ARA Framework was not ready for use. The required system tables have NOW been built; you can now use the [dbo].[ara_*]")
-            PrintClientMessage("tables in the [master] database to add the metadata construct elements to build each of the ARA objects.")
-            Exit Sub
-        End If
-
         ' load up a variable with the usable construct
-        Dim cons As New Model(md)
+        Dim ModelToProcess As New Model(GetMetadata(DatabaseName, SqlCnn))
 
         ' notify of invalidations to the model
         PrintClientMessage("• Determining model validation: ")
-        If cons.ModelInvalidations IsNot Nothing Then
+        If ModelToProcess.ModelInvalidations IsNot Nothing Then
             PrintClientMessage("  -> Data model is INVALID ")
-            For i = 0 To cons.ModelInvalidations.Length - 1
-                PrintClientMessage("-> " & cons.ModelInvalidations(i), 2)
+            For i = 0 To ModelToProcess.ModelInvalidations.Length - 1
+                PrintClientMessage("-> " & ModelToProcess.ModelInvalidations(i), 2)
             Next
         Else
             PrintClientMessage("  -> Data model is VALID ")
@@ -212,23 +201,19 @@ Public Class ARA
 
         ' notify of warnings to the model
         PrintClientMessage("• Identifying non-fatal issues: ")
-        If cons.ModelWarnings IsNot Nothing Then
-            For i = 0 To cons.ModelWarnings.Length - 1
-                PrintClientMessage("-> " & cons.ModelWarnings(i), 2)
+        If ModelToProcess.ModelWarnings IsNot Nothing Then
+            For i = 0 To ModelToProcess.ModelWarnings.Length - 1
+                PrintClientMessage("-> " & ModelToProcess.ModelWarnings(i), 2)
             Next
         Else
             PrintClientMessage("  -> Data model did NOT produce any WARNINGS")
         End If
 
-        If cons.ModelInvalidations IsNot Nothing Then Exit Sub
+        ' if there are known invalidations, bail
+        If ModelToProcess.ModelInvalidations IsNot Nothing Then Exit Sub
 
         ' with we have records, we can begin with the DDL process, otherwise, alert client and exit
-        If cons.EntityCount > 0 Then
-            BuildValidModel(cons, SqlCnn, VerifyOnly, ProcessAbstractsInFull)
-        Else
-            PrintClientMessage(vbCrLf)
-            PrintClientMessage("There is not defined metadata for the ARA in [dbo].[ara_entity_definition] and/or [dbo].[ara_attribute_definition] in the [master] database.")
-        End If ' metadata content exists
+        BuildValidModel(ModelToProcess, SqlCnn, VerifyOnly, ProcessAbstractsInFull)
 
     End Sub
 
@@ -275,84 +260,25 @@ Public Class ARA
             ExecuteDDLCommand(ModelToProcess.SecurityDefinition, DatabaseConnection)
 
             ' create new entities
-            PrintClientMessage("  -> Adding New Entities")
-            Entities = ModelToProcess.CreatedEntities
-
-            For Each Entity In Entities
-                ExecuteDDLCommand(Entity.CreateEntityDefinition, DatabaseConnection)
-            Next Entity
-
-            For Each Entity In Entities
-
-                ExecuteDDLCommand(Entity.AlternateKeyDefinition, DatabaseConnection)
-
-                'constraint definition
-                ExecuteDDLCommand(Entity.ForeignKeyDefinition(Entity.ForeignKeyAttributes), DatabaseConnection)
-                ExecuteDDLCommand(Entity.DefaultDefinition(Entity.DefaultValuedAttributes), DatabaseConnection)
-
-                ' control creation
-                ProcessAbstractCreate(Entity, DatabaseConnection)
-
-                ' sync metadata
-                ProcessEntityMetadata(Entity, DatabaseConnection)
-
-            Next Entity
+            ProcessAddEntity(ModelToProcess, DatabaseConnection)
 
             ' alter existing entites
-            PrintClientMessage("  -> Altering Existing Entities")
-            Entities = ModelToProcess.ChangedEntities
-
-            For Each Entity In Entities
-
-                ProcessAbstractDrop(Entity, DatabaseConnection)
-
-                ' if the business identifier has changed, drop it, in all forms
-                If Entity.HasAlterAlternateKey Then
-                    ExecuteDDLCommand(Entity.DropAlternateKeyDefinition, DatabaseConnection)
-                End If
-
-                ' add and alter any potential columns
-                ExecuteDDLCommand(Entity.AddColumnDefinition, DatabaseConnection)
-                ExecuteDDLCommand(Entity.AlterColumnDefinition, DatabaseConnection)
-
-                ' drop any columns
-                If Entity.HasDeleteColumn Then
-                    ExecuteDDLCommand(Entity.DropColumnDefinition, DatabaseConnection)
-                End If
-
-                ' since we dropped it above, rebuild it, again, in all forms
-                If Entity.HasAlterAlternateKey Then
-                    ExecuteDDLCommand(Entity.AlternateKeyDefinition, DatabaseConnection)
-                End If
-
-                ' add back the control defintion(s)
-                ProcessAbstractCreate(Entity, DatabaseConnection)
-
-                ' sync metadata
-                ProcessEntityMetadata(Entity, DatabaseConnection)
-
-            Next Entity
+            ProcessAlterEntity(ModelToProcess, DatabaseConnection)
 
             ' drop entites
-            PrintClientMessage("  -> Dropping Old Entities")
-            Entities = ModelToProcess.DeletedEntities
-
-            For Each Entity In Entities
-                ProcessAbstractDrop(Entity, DatabaseConnection)
-                ExecuteDDLCommand(Entity.DeleteEntityDefinition, DatabaseConnection)
-            Next
+            ProcessDropEntity(ModelToProcess, DatabaseConnection)
 
             ' 
-            If ProcessAbstractsInFull Then
+            'If ProcessAbstractsInFull And ModelToProcess.EntityCount > 0 Then
 
-                Entities = ModelToProcess.Entities
+            '    Entities = ModelToProcess.Entities
 
-                For Each Entity In Entities
-                    ProcessAbstractDrop(Entity, DatabaseConnection)
-                    ProcessAbstractCreate(Entity, DatabaseConnection)
-                Next
+            '    For Each Entity In Entities
+            '        ProcessAbstractDrop(Entity, DatabaseConnection)
+            '        ProcessAbstractCreate(Entity, DatabaseConnection)
+            '    Next
 
-            End If
+            'End If
 
             ' if we made it here without error, commit transactions
             ExecuteDDLCommand("commit transaction;", DatabaseConnection)
@@ -471,6 +397,95 @@ Public Class ARA
 
     End Sub
 
+    ''' <summary>...</summary>
+    Private Shared Sub ProcessAddEntity(ByVal ModelToProcess As Model, ByVal DatabaseConnection As SqlConnection)
+
+        Dim Entity As Model.Entity = Nothing
+        Dim Entities As Model.Entity() = Nothing
+
+        PrintClientMessage("  -> Adding New Entities")
+
+        Entities = ModelToProcess.CreatedEntities
+
+        For Each Entity In Entities
+            ExecuteDDLCommand(Entity.CreateEntityDefinition, DatabaseConnection)
+        Next Entity
+
+        For Each Entity In Entities
+
+            ExecuteDDLCommand(Entity.AlternateKeyDefinition, DatabaseConnection)
+
+            'constraint definition
+            ExecuteDDLCommand(Entity.ForeignKeyDefinition(Entity.ForeignKeyAttributes), DatabaseConnection)
+            ExecuteDDLCommand(Entity.DefaultDefinition(Entity.DefaultValuedAttributes), DatabaseConnection)
+
+            ' control creation
+            ProcessAbstractCreate(Entity, DatabaseConnection)
+
+            ' sync metadata
+            ProcessEntityMetadata(Entity, DatabaseConnection)
+
+        Next Entity
+
+    End Sub
+
+    ''' <summary>...</summary>
+    Private Shared Sub ProcessAlterEntity(ByVal ModelToProcess As Model, ByVal DatabaseConnection As SqlConnection)
+
+        Dim Entity As Model.Entity = Nothing
+        Dim Entities As Model.Entity() = Nothing
+
+        PrintClientMessage("  -> Altering Existing Entities")
+        Entities = ModelToProcess.ChangedEntities
+
+        For Each Entity In Entities
+
+            ProcessAbstractDrop(Entity, DatabaseConnection)
+
+            ' if the business identifier has changed, drop it, in all forms
+            If Entity.HasAlterAlternateKey Then
+                ExecuteDDLCommand(Entity.DropAlternateKeyDefinition, DatabaseConnection)
+            End If
+
+            ' add and alter any potential columns
+            ExecuteDDLCommand(Entity.AddColumnDefinition, DatabaseConnection)
+            ExecuteDDLCommand(Entity.AlterColumnDefinition, DatabaseConnection)
+
+            ' drop any columns
+            If Entity.HasDeleteColumn Then
+                ExecuteDDLCommand(Entity.DropColumnDefinition, DatabaseConnection)
+            End If
+
+            ' since we dropped it above, rebuild it, again, in all forms
+            If Entity.HasAlterAlternateKey Then
+                ExecuteDDLCommand(Entity.AlternateKeyDefinition, DatabaseConnection)
+            End If
+
+            ' add back the control defintion(s)
+            ProcessAbstractCreate(Entity, DatabaseConnection)
+
+            ' sync metadata
+            ProcessEntityMetadata(Entity, DatabaseConnection)
+
+        Next Entity
+
+    End Sub
+
+    ''' <summary>...</summary>
+    Private Shared Sub ProcessDropEntity(ByVal ModelToProcess As Model, ByVal DatabaseConnection As SqlConnection)
+
+        Dim Entity As Model.Entity = Nothing
+        Dim Entities As Model.Entity() = Nothing
+
+        PrintClientMessage("  -> Dropping Old Entities")
+        Entities = ModelToProcess.DeletedEntities
+
+        For Each Entity In Entities
+            ProcessAbstractDrop(Entity, DatabaseConnection)
+            ExecuteDDLCommand(Entity.DeleteEntityDefinition, DatabaseConnection)
+        Next
+
+    End Sub
 
 #End Region
 
@@ -596,6 +611,8 @@ Public Class ARA
                     ReturnString = Replace(ReturnString, "{{{security group}}}", SchemaAndRole.SecurityGroup)
                     ReturnString = Replace(ReturnString, "{{{security role}}}", SchemaAndRole.SecurityRole)
                 Next
+
+                If ReturnString = EmptyString Then ReturnString = "--> no security defined"
 
                 Return ReturnString
             End Get
@@ -1820,8 +1837,16 @@ Public Class ARA
                     If AlterDefault = True Then _has_alter_default = True : _has_change = True
                     If AlterAlternateKey = True Then _has_alter_alternate_key = True : _has_change = True
 
+                    If Attribute.Contains(".") Then
+                        Invalidations.AddMember("Entity attribute [" & Entity & "].[" & Attribute & "] cannot contain a period '.'.")
+                    End If
+
+                    If Attribute.Contains("_") Then
+                        Invalidations.AddMember("Entity attribute [" & Entity & "].[" & Attribute & "] cannot contain a underscore '_'.")
+                    End If
+
                     If Left(Attribute, 4) = "ara_" Then
-                        Invalidations.AddMember("Entity attribute [" & Entity & "].[" & Attribute & "] attribute cannot have a prefix of 'ara_'.")
+                        Invalidations.AddMember("Entity attribute [" & Entity & "].[" & Attribute & "] cannot have a prefix of 'ara_'.")
                     End If
 
                     If Attribute = (Entity & "Key") Then
@@ -1834,6 +1859,14 @@ Public Class ARA
 
                     If AlterAlternateKey And Not CreateEntity And Not DeleteEntity Then
                         Warnings.AddMember("Altering via deletion of a column on entity [" & Entity & "] may cause unique constraint errors.")
+                    End If
+
+                    If Attribute.ToUpper = Attribute Then
+                        Warnings.AddMember("Entity attribute [" & Entity & "].[" & Attribute & "] is in upper case. Recommend proper case, e.g. CustomerNumber.")
+                    End If
+
+                    If Attribute.ToLower = Attribute Then
+                        Warnings.AddMember("Entity attribute [" & Entity & "].[" & Attribute & "] is in lower case. Recommend proper case, e.g. CustomerNumber.")
                     End If
 
                     ' TODO: add operand clash warnings

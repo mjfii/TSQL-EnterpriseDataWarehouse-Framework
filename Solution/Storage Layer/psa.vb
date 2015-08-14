@@ -25,7 +25,7 @@ Partial Public Class PSA
             PrintHeader()
 
             ' if the user is part of the sysadmin role, move along
-            If Not UserIsSysAdmin(SqlCnn) Then SqlCnn.Close() : Exit Try
+            If Not UserIsSysAdmin(SqlCnn) Then Exit Try
 
             ProcessCall(SqlCnn, DatabaseName, DatabaseSchema, DatabaseEntity, False, False)
 
@@ -50,7 +50,7 @@ Partial Public Class PSA
             PrintHeader()
 
             ' if the user is part of the sysadmin role, move along
-            If Not UserIsSysAdmin(SqlCnn) Then SqlCnn.Close() : Exit Try
+            If Not UserIsSysAdmin(SqlCnn) Then Exit Try
 
             ProcessCall(SqlCnn, DatabaseName, DatabaseSchema, DatabaseEntity, True, False)
 
@@ -74,7 +74,7 @@ Partial Public Class PSA
             PrintHeader()
 
             ' if the user is part of the sysadmin role, move along
-            If Not UserIsSysAdmin(SqlCnn) Then SqlCnn.Close() : Exit Try
+            If Not UserIsSysAdmin(SqlCnn) Then Exit Try
 
             ProcessCall(SqlCnn, DatabaseName, DatabaseSchema, DatabaseEntity, False, True)
 
@@ -96,7 +96,7 @@ Partial Public Class PSA
             PrintHeader()
 
             ' if the user is part of the sysadmin role, move along
-            If Not UserIsSysAdmin(SqlCnn) Then SqlCnn.Close() : Exit Try
+            If Not UserIsSysAdmin(SqlCnn) Then Exit Try
 
             Dim model_query As String = My.Resources.PSA_GetModel
             ReturnClientResults(SqlCnn, model_query)
@@ -119,9 +119,9 @@ Partial Public Class PSA
             PrintHeader()
 
             ' if the user is part of the sysadmin role, move along
-            If Not UserIsSysAdmin(SqlCnn) Then SqlCnn.Close() : Exit Try
+            If Not UserIsSysAdmin(SqlCnn) Then Exit Try
 
-            If IsNothing(model) Then SqlCnn.Close() : PrintClientMessage("You cannot process a null model.") : Exit Try
+            If IsNothing(model) Then PrintClientMessage("You cannot process a null model.") : Exit Try
 
             Dim model_query As String = Replace(My.Resources.PSA_SetModel, "{{{xml}}}", model.Value.ToString)
             ExecuteDDLCommand(model_query, SqlCnn)
@@ -424,7 +424,7 @@ nextc:
     Class Construct
 
 #Region "Construct Variables"
-        Private _construct As New DataSet
+        ' Private _construct As New DataSet
         Private _entities As Entity()
         Private _databasecompatibility As SQLServerCompatibility
         Private _databasename As String
@@ -434,11 +434,10 @@ nextc:
 
         WriteOnly Property Construct As DataSet
             Set(value As DataSet)
-                _construct = value
 
-                Dim dp As DataTable = _construct.Tables("psa_database_properties")
-                Dim edt As DataTable = _construct.Tables("psa_entity_definition")
-                Dim adt As DataTable = _construct.Tables("psa_attribute_definition")
+                Dim dp As DataTable = value.Tables("psa_database_properties")
+                Dim edt As DataTable = value.Tables("psa_entity_definition")
+                Dim adt As DataTable = value.Tables("psa_attribute_definition")
                 Dim e As Entity
                 Dim i As Integer = 0
 
