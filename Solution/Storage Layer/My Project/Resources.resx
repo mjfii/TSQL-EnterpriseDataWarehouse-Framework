@@ -2342,7 +2342,7 @@ if object_id(N'[dbo].[psa_attribute_definition]',N'U') is null begin;
       constraint [ck : dbo.psa_attribute_definition :: psa_schema]
       check (len([psa_schema])=4),
       [psa_entity] nvarchar(31) collate Latin1_General_100_BIN2,
-      constraint [fk : dbo.psa_attribute_definition $ dbo.psa_entity_definition]
+      constraint [fk : psa_attribute_definition $ psa_entity_definition]
       foreign key ([psa_schema],[psa_entity])
       references [dbo].[psa_entity_definition] ([psa_schema],[psa_entity])
       on update cascade,
@@ -2604,9 +2604,9 @@ exec sys.sp_MS_marksystemobject 'ara_end_batch';
 grant execute on [dbo].[ara_end_batch] to [ara_etl_manager];</value>
   </data>
   <data name="ARA_RoleDefinitions" xml:space="preserve">
-    <value>if not exists(select 1 from sys.sysusers where [name]=N'ara_owner') begin;
-   create role [ara_owner] authorization [db_owner];
-end;
+    <value>--if not exists(select 1 from sys.sysusers where [name]=N'ara_owner') begin;
+--   create role [ara_owner] authorization [db_owner];
+--end;
 
 if not exists(select 1 from sys.sysusers where [name]=N'ara_etl_manager') begin;
    create role [ara_etl_manager] authorization [db_owner];
@@ -3072,10 +3072,32 @@ if object_id(N'[dbo].[{{{entity}}}]',N'U') is null begin;
    create statistics [st : {{{entity}}} :: ara_batch_id] on [dbo].[{{{entity}}}] ([ara_batch_id]);
    create statistics [st : {{{entity}}} :: ara_hash_id] on [dbo].[{{{entity}}}] ([ara_hash_id]);
 
+   grant select on [dbo].[{{{entity}}}] to [ara_etl_manager];
+
 end;</value>
   </data>
   <data name="ARA_DeleteEntityDefinition" xml:space="preserve">
-    <value>if object_id(N'[dbo].[{{{entity}}}]',N'U') is not null drop table [dbo].[{{{entity}}}];
+    <value>declare @drop_constraints nvarchar(max);
+
+while 1!=2 begin;
+
+   select top 1
+      @drop_constraints=N'alter table [dbo].['+object_name(fk.[parent_object_id])+N'] drop constraint ['+fk.[name]+N'];'
+   from
+      sys.foreign_keys fk
+      inner join
+      sys.tables t on fk.[parent_object_id]=t.[object_id]
+   where
+      object_name(fk.[referenced_object_id])=N'{{{entity}}}' 
+      or 
+      object_name(fk.[referenced_object_id])=N'{{{entity}}}.Keystore'
+
+    if @@rowcount = 0 break;
+
+    exec sys.sp_executesql @drop_constraints;  
+end;
+
+if object_id(N'[dbo].[{{{entity}}}]',N'U') is not null drop table [dbo].[{{{entity}}}];
 if object_id(N'[dbo].[{{{entity}}}.Keystore]',N'U') is not null drop table [dbo].[{{{entity}}}.Keystore];</value>
   </data>
   <data name="SYS_LocalMethodInstall" xml:space="preserve">
@@ -3573,7 +3595,7 @@ ObjectName := [%s];
 TargetObjectName := [%s];
 TargetObjectType := [%s];''
 
-   raiserror(@msg,-1,1,@EventType,@HostName,@LoginName,@DatabaseName,@ObjectType,@SchemaName,@ObjectName,@TargetObjectName,@TargetObjectType) with log;
+   --raiserror(@msg,-1,1,@EventType,@HostName,@LoginName,@DatabaseName,@ObjectType,@SchemaName,@ObjectName,@TargetObjectName,@TargetObjectType) with log;
 
 end;'
 
@@ -3610,7 +3632,7 @@ as external name [Slalom.Framework.Methods].[EDW.Common.Methods].[StringHash];'
 exec sys.sp_MS_marksystemobject 'ara_hash';
 
 grant execute on [dbo].[ara_hash] to [ara_etl_manager];
-grant execute on [dbo].[ara_hash] to [ara_owner];</value>
+--grant execute on [dbo].[ara_hash] to [ara_owner];</value>
   </data>
   <data name="ARA_EntityStatistics" xml:space="preserve">
     <value>if col_length(N'[dbo].[{{{entity}}}]',N'{{{attribute}}}') is not null and not exists(select N'?' from sys.stats where [name]='st : {{{entity}}} :: {{{attribute}}}') begin;
@@ -3675,11 +3697,11 @@ where
   </data>
   <data name="ARA_ModelSecurityDefinition" xml:space="preserve">
     <value>if not exists(select N'?' from sys.schemas where [name]=N'{{{security group}}}') begin;
-   exec sys.sp_executesql N'create schema [{{{security group}}}] authorization [ara_owner];'
+   exec sys.sp_executesql N'create schema [{{{security group}}}] authorization [dbo];'
 end;
 
 if not exists(select N'?' from sys.database_principals where [name]=N'{{{security role}}}' and [type]=N'R') begin;
-   create role [{{{security role}}}] authorization [ara_owner];
+   create role [{{{security role}}}] authorization [dbo];
 end;
 
 grant select on schema::[{{{security group}}}] to [{{{security role}}}];</value>

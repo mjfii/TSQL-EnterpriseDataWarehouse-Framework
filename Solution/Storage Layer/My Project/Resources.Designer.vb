@@ -426,8 +426,24 @@ Namespace My.Resources
         End Property
         
         '''<summary>
-        '''  Looks up a localized string similar to if object_id(N&apos;[dbo].[{{{entity}}}]&apos;,N&apos;U&apos;) is not null drop table [dbo].[{{{entity}}}];
-        '''if object_id(N&apos;[dbo].[{{{entity}}}.Keystore]&apos;,N&apos;U&apos;) is not null drop table [dbo].[{{{entity}}}.Keystore];.
+        '''  Looks up a localized string similar to declare @drop_constraints nvarchar(max);
+        '''
+        '''while 1!=2 begin;
+        '''
+        '''   select top 1
+        '''      @drop_constraints=N&apos;alter table [dbo].[&apos;+object_name(fk.[parent_object_id])+N&apos;] drop constraint [&apos;+fk.[name]+N&apos;];&apos;
+        '''   from
+        '''      sys.foreign_keys fk
+        '''      inner join
+        '''      sys.tables t on fk.[parent_object_id]=t.[object_id]
+        '''   where
+        '''      object_name(fk.[referenced_object_id])=N&apos;{{{entity}}}&apos; 
+        '''      or 
+        '''      object_name(fk.[referenced_object_id])=N&apos;{{{entity}}}.Keystore&apos;
+        '''
+        '''    if @@rowcount = 0 break;
+        '''
+        '''    ex [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property ARA_DeleteEntityDefinition() As String
             Get
@@ -673,7 +689,7 @@ Namespace My.Resources
         '''exec sys.sp_MS_marksystemobject &apos;ara_hash&apos;;
         '''
         '''grant execute on [dbo].[ara_hash] to [ara_etl_manager];
-        '''grant execute on [dbo].[ara_hash] to [ara_owner];.
+        '''--grant execute on [dbo].[ara_hash] to [ara_owner];.
         '''</summary>
         Friend ReadOnly Property ARA_HashingAlgorithm() As String
             Get
@@ -728,11 +744,11 @@ Namespace My.Resources
         
         '''<summary>
         '''  Looks up a localized string similar to if not exists(select N&apos;?&apos; from sys.schemas where [name]=N&apos;{{{security group}}}&apos;) begin;
-        '''   exec sys.sp_executesql N&apos;create schema [{{{security group}}}] authorization [ara_owner];&apos;
+        '''   exec sys.sp_executesql N&apos;create schema [{{{security group}}}] authorization [dbo];&apos;
         '''end;
         '''
         '''if not exists(select N&apos;?&apos; from sys.database_principals where [name]=N&apos;{{{security role}}}&apos; and [type]=N&apos;R&apos;) begin;
-        '''   create role [{{{security role}}}] authorization [ara_owner];
+        '''   create role [{{{security role}}}] authorization [dbo];
         '''end;
         '''
         '''grant select on schema::[{{{security group}}}] to [{{{security role}}}];.
@@ -771,9 +787,9 @@ Namespace My.Resources
         End Property
         
         '''<summary>
-        '''  Looks up a localized string similar to if not exists(select 1 from sys.sysusers where [name]=N&apos;ara_owner&apos;) begin;
-        '''   create role [ara_owner] authorization [db_owner];
-        '''end;
+        '''  Looks up a localized string similar to --if not exists(select 1 from sys.sysusers where [name]=N&apos;ara_owner&apos;) begin;
+        '''--   create role [ara_owner] authorization [db_owner];
+        '''--end;
         '''
         '''if not exists(select 1 from sys.sysusers where [name]=N&apos;ara_etl_manager&apos;) begin;
         '''   create role [ara_etl_manager] authorization [db_owner];

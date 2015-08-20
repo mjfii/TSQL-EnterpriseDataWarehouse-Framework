@@ -7,12 +7,12 @@ Imports System.Data.SqlClient
 Imports System.Runtime.InteropServices
 Imports EDW.Common.SqlClientOutbound
 Imports EDW.Common.InstanceSettings
-Imports EDW.PersistentStagingArea.FrameworkInstallation
 
 Partial Public Class PSA
 
 #Region "CLR Exposed Methods"
 
+    ''' <summary></summary>
     <Microsoft.SqlServer.Server.SqlProcedure> _
     Public Shared Sub BuildEntities(ByVal DatabaseName As String, _
                                     ByVal DatabaseSchema As String, _
@@ -38,6 +38,7 @@ Partial Public Class PSA
 
     End Sub
 
+    ''' <summary></summary>
     <Microsoft.SqlServer.Server.SqlProcedure> _
     Public Shared Sub VerifyEntities(ByVal DatabaseName As String, _
                                      ByVal DatabaseSchema As String, _
@@ -62,6 +63,7 @@ Partial Public Class PSA
 
     End Sub
 
+    ''' <summary></summary>
     <Microsoft.SqlServer.Server.SqlProcedure> _
     Public Shared Sub DropEntities(ByVal DatabaseName As String, _
                                     ByVal DatabaseSchema As String, _
@@ -86,6 +88,7 @@ Partial Public Class PSA
 
     End Sub
 
+    ''' <summary></summary>
     <Microsoft.SqlServer.Server.SqlProcedure> _
     Public Shared Sub GetModel
 
@@ -99,7 +102,7 @@ Partial Public Class PSA
             If Not UserIsSysAdmin(SqlCnn) Then Exit Try
 
             Dim model_query As String = My.Resources.PSA_GetModel
-            ReturnClientResults(SqlCnn, model_query)
+            ReturnClientResults(model_query, SqlCnn)
 
         Catch ex As Exception
             PrintClientError(New StackFrame().GetMethod().Name, ex)
@@ -109,6 +112,7 @@ Partial Public Class PSA
 
     End Sub
 
+    ''' <summary></summary>
     <Microsoft.SqlServer.Server.SqlProcedure> _
     Public Shared Sub SetModel(ByVal model As SqlXml)
 
@@ -136,6 +140,7 @@ Partial Public Class PSA
 
 #End Region
 
+    ''' <summary></summary>
     Private Shared Sub ProcessCall(ByVal SqlCnn As SqlConnection,
                                    ByVal DatabaseName As String,
                                    ByVal DatabaseSchema As String,
@@ -143,11 +148,14 @@ Partial Public Class PSA
                                    ByVal vo As Boolean,
                                    ByVal del As Boolean)
 
-        ' make sure server objects are in place
-        AddInstanceObjects(SqlCnn)
+        ' see if metadata tables are ready in master database
+        If Not SystemObjectsInstalled(SqlCnn) Then Exit Sub
 
         ' validate incoming database
         If Not DatabaseIsValid(DatabaseName, SqlCnn) Then Exit Sub
+
+        ' make sure server objects are in place
+        AddInstanceObjects(SqlCnn)
 
         ' make sure database objects are in place
         AddDatabaseObjects(SqlCnn, DatabaseName)
@@ -188,6 +196,7 @@ Partial Public Class PSA
 
     End Sub
 
+    ''' <summary></summary>
     Private Shared Sub ProcessConstruct(pc As Construct, SqlCnn As SqlConnection, VerifyOnly As Boolean, DeleteObjects As Boolean)
 
         Dim st As Date = Now()
@@ -195,7 +204,6 @@ Partial Public Class PSA
         Dim e As Construct.Entity = Nothing
         Dim s As String = Nothing
         Dim fmt As String = "yyyy-MM-dd HH:mm:ss.ff"
-        Dim cmd As New SqlCommand
         Dim ls As String ' logical signature
         Dim cs As String ' construct signature
         Dim lbl As String = "" ' updating label
@@ -231,7 +239,7 @@ Partial Public Class PSA
         For c = 0 To (i - 1)
 
             ' initiate the transaction
-            ExecuteDDLCommand("begin transaction", SqlCnn)
+            ExecuteDDLCommand("begin transaction;", SqlCnn)
 
             Try
                 e = pc.Entities(c)
@@ -257,13 +265,9 @@ Partial Public Class PSA
                 End If
 
                 ' get signatures
-                With cmd
-                    .Connection = SqlCnn
-                    .CommandText = e.LogicalSignatureLookup
-                    ls = CStr(.ExecuteScalar)
-                    .CommandText = e.ConstructSignatureLookup
-                    cs = CStr(.ExecuteScalar)
-                End With
+
+                ls = ExecuteSQLScalar(e.LogicalSignatureLookup, SqlCnn)
+                cs = ExecuteSQLScalar(e.ConstructSignatureLookup, SqlCnn)
 
                 ' check for construct differences
                 If cs = e.ConstructSignature Then
@@ -296,26 +300,26 @@ Partial Public Class PSA
 nextc:
                 ' alert completion
                 plbl = (c + 1).ToString
-                plbl = New String(" ", 4 - Len(plbl)) & plbl
+                plbl = New String(" "c, 4 - Len(plbl)) & plbl
                 plbl += "  " & e.Domain
-                PrintClientMessage(plbl + New String(".", 48 - Len(plbl)) + lbl, 2)
+                PrintClientMessage(plbl + New String("."c, 48 - Len(plbl)) + lbl, 2)
 
-                ExecuteDDLCommand("commit transaction", SqlCnn)
+                ExecuteDDLCommand("commit transaction;", SqlCnn)
 
             Catch ex As Exception
 
                 ' alert completion
                 lbl = "[ERROR]"
                 plbl = (c + 1).ToString
-                plbl = New String(" ", 4 - Len(plbl)) & plbl
+                plbl = New String(" "c, 4 - Len(plbl)) & plbl
                 plbl += "  " & e.Domain
-                PrintClientMessage(plbl + New String(".", 48 - Len(plbl)) + lbl, 2)
+                PrintClientMessage(plbl + New String("."c, 48 - Len(plbl)) + lbl, 2)
 
                 PrintClientMessage("There was an error building " & e.Domain & ".", 8)
                 PrintClientMessage(ex.Message, 8)
                 PrintClientMessage(vbCrLf)
 
-                ExecuteDDLCommand("rollback transaction", SqlCnn)
+                ExecuteDDLCommand("rollback transaction;", SqlCnn)
 
             End Try
 
@@ -324,25 +328,26 @@ nextc:
         Dim ed As Date = Now()
         PrintClientMessage(vbCrLf & "• Process ended at " & ed.ToString(fmt))
 
-        Dim min As Integer = DateDiff(DateInterval.Minute, st, ed)
-        Dim sec As Integer = DateDiff(DateInterval.Second, st, ed) Mod 60
+        Dim min As Integer = CInt(DateDiff(DateInterval.Minute, st, ed))
+        Dim sec As Integer = CInt(DateDiff(DateInterval.Second, st, ed) Mod 60)
         PrintClientMessage("• Time to execute " & min.ToString & " min(s) " & sec.ToString & " sec(s)")
 
     End Sub
 
+    ''' <summary></summary>
     Private Shared Sub DropEntity(e As Construct.Entity, ByVal SqlCnn As SqlConnection)
 
         ExecuteDDLCommand(e.RenameDefintion, SqlCnn)
 
     End Sub
 
+    ''' <summary></summary>
     Private Shared Sub BuildEntity(e As Construct.Entity, ByVal SqlCnn As SqlConnection)
 
         ExecuteDDLCommand(e.TableDefinition, SqlCnn)
 
-        Dim cmd As New SqlCommand("select object_id(N'" & e.Domain & "') [oid]", SqlCnn)
-        Dim oid As Integer = CInt(cmd.ExecuteScalar)
-        e.ObjectID = oid
+        Dim oid As String = ExecuteSQLScalar("select object_id(N'" & e.Domain & "') [oid]", SqlCnn)
+        e.ObjectID = CInt(oid)
 
         ExecuteDDLCommand(e.ChangeTrackingDefinition, SqlCnn)
         ExecuteDDLCommand(e.AlternateKeyStatsDefinition, SqlCnn)
@@ -351,10 +356,12 @@ nextc:
 
     End Sub
 
+    ''' <summary></summary>
     Private Shared Sub DropAbstracts(e As Construct.Entity, ByVal SqlCnn As SqlConnection)
         ExecuteDDLCommand(e.DropRelatedObjectsDefintion, SqlCnn)
     End Sub
 
+    ''' <summary></summary>
     Private Shared Sub BuildAbstracts(e As Construct.Entity, ByVal SqlCnn As SqlConnection)
 
         ' control abstract
@@ -406,6 +413,7 @@ nextc:
 
     End Sub
 
+    ''' <summary></summary>
     Private Shared Sub SyncMetadata(e As Construct.Entity, ByVal SqlCnn As SqlConnection)
 
         ExecuteDDLCommand(e.EntityMetadataDefinition, SqlCnn)
@@ -413,6 +421,7 @@ nextc:
 
     End Sub
 
+    ''' <summary></summary>
     Private Shared Sub PrintHeader()
 
         PrintClientMessage(My.Resources.SYS_SlalomTextArt1 & vbCrLf)
@@ -421,68 +430,110 @@ nextc:
 
     End Sub
 
+    ''' <summary>
+    ''' 
+    ''' </summary>
+    ''' <param name="InstanceConnection"></param>
+    ''' <param name="DatabaseName"></param>
+    ''' <remarks></remarks>
+    Private Shared Sub AddDatabaseObjects(ByVal InstanceConnection As SqlConnection, ByVal DatabaseName As String)
+
+        ExecuteDDLCommand("use [" & DatabaseName & "];", InstanceConnection)
+
+        ' make sure the required database roles are there
+        ExecuteDDLCommand(My.Resources.PSA_RoleDefinitions, InstanceConnection)
+        PrintClientMessage("• Database role requirements synced [database]")
+
+        ' make sure change tracking is turned on
+        ExecuteDDLCommand(Replace(My.Resources.PSA_DatabaseChangeTrackingDefinition, "{{{db}}}", DatabaseName), InstanceConnection)
+        ExecuteDDLCommand(My.Resources.PSA_ChangeTrackingSystemDefinition, InstanceConnection)
+        PrintClientMessage("• Change tracking methodology in place [database]")
+
+        ' execute hashing algorithm needs
+        ExecuteDDLCommand(My.Resources.SYS_LocalMethodInstall, InstanceConnection)
+        ExecuteDDLCommand(My.Resources.PSA_HashingAlgorithm, InstanceConnection)
+        PrintClientMessage("• Hashing algorithms are intact [database]")
+
+        ' execute service broker security needs
+        ExecuteDDLCommand(My.Resources.PSA_ServiceBrokerUserDefinition, InstanceConnection)
+        PrintClientMessage("• Service broker user security aligned [database]")
+
+        ' execute service broker security needs
+        ExecuteDDLCommand(My.Resources.PSA_LoggingDefinition, InstanceConnection)
+        PrintClientMessage("• Logging objects created [database]")
+
+    End Sub
+
+    ''' <summary>
+    ''' 
+    ''' </summary>
+    ''' <param name="DatabaseName"></param>
+    ''' <param name="DatabaseSchema"></param>
+    ''' <param name="DatabaseEntity"></param>
+    ''' <param name="DatabaseConnection"></param>
+    ''' <returns></returns>
+    ''' <remarks></remarks>
+    Private Shared Function GetMetadata(ByVal DatabaseName As String, _
+                                        ByVal DatabaseSchema As String, _
+                                        ByVal DatabaseEntity As String, _
+                                        ByVal DatabaseConnection As SqlConnection) As DataSet
+
+        ' handle null values by flipping them to an empty string
+        If IsNothing(DatabaseName) Then DatabaseName = ""
+        If IsNothing(DatabaseSchema) Then DatabaseSchema = ""
+        If IsNothing(DatabaseEntity) Then DatabaseEntity = ""
+
+        GetMetadata = New DataSet
+
+        Dim InstanceString As String = My.Resources.SYS_InstanceProperties
+        Dim DatabaseString As String = My.Resources.SYS_DatabaseProperties
+        Dim EntityString As String = My.Resources.SYS_PSAEntityDefinition
+        Dim AttributeString As String = My.Resources.SYS_PSAAttributeDefinition
+
+
+        If DatabaseSchema <> "" Then
+            EntityString += " and [psa_schema]=N'" & DatabaseSchema & "'"
+            AttributeString += " and [psa_schema]=N'" & DatabaseSchema & "'"
+        End If
+
+        If DatabaseEntity <> "" Then
+            EntityString += " and [psa_entity]=N'" & DatabaseEntity & "'"
+            AttributeString += " and [psa_entity]=N'" & DatabaseEntity & "'"
+        End If
+
+        EntityString += ";"
+        AttributeString += ";"
+
+        ' the following commands are under the 'master' database
+        ExecuteDDLCommand("use [master];", DatabaseConnection)
+
+        ReturnInternalResults(GetMetadata, InstanceString, "psa_instance_properties", DatabaseConnection)
+
+        ' this command the passed in database name
+        ExecuteDDLCommand("use [" & DatabaseName & "];", DatabaseConnection)
+
+        ReturnInternalResults(GetMetadata, DatabaseString, "psa_database_properties", DatabaseConnection)
+
+        ReturnInternalResults(GetMetadata, EntityString, "psa_entity_definition", DatabaseConnection)
+
+        ReturnInternalResults(GetMetadata, AttributeString, "psa_attribute_definition", DatabaseConnection)
+
+    End Function
+
+
+    ''' <summary></summary>
     Class Construct
 
 #Region "Construct Variables"
-        ' Private _construct As New DataSet
         Private _entities As Entity()
-        Private _databasecompatibility As SQLServerCompatibility
+        Private _databasecompatibility As EDW.Common.SQLServerCompatibility
         Private _databasename As String
 #End Region
 
 #Region "Construct Properties"
 
-        WriteOnly Property Construct As DataSet
-            Set(value As DataSet)
-
-                Dim dp As DataTable = value.Tables("psa_database_properties")
-                Dim edt As DataTable = value.Tables("psa_entity_definition")
-                Dim adt As DataTable = value.Tables("psa_attribute_definition")
-                Dim e As Entity
-                Dim i As Integer = 0
-
-                _databasename = CStr(dp.Rows(0).Item("database_name").ToString)
-                _databasecompatibility = CUShort(dp.Rows(0).Item("compatibility_level").ToString)
-
-                For Each edr In edt.Rows
-
-                    ReDim Preserve _entities(i)
-                    e = New Entity(edr("psa_schema"), _
-                                   edr("psa_entity"), _
-                                   If(IsDBNull(edr("psa_entity_description")), "", edr("psa_entity_description")), _
-                                   If(IsDBNull(edr("psa_source_statement")), "", edr("psa_source_statement")), _
-                                   If(IsDBNull(edr("psa_source_predicate_values")), "", edr("psa_source_predicate_values")), _
-                                   edr("source_schema"), _
-                                   edr("source_entity"), _
-                                   edr("hash_large_objects"), _
-                                   edr("psa_infer_deletions"), _
-                                   If(IsDBNull(edr("etl_build_group")), "", edr("etl_build_group")), _
-                                   edr("psa_logical_signature"), _
-                                   edr("psa_construct_signature"),
-                                   edr("etl_max_threads"),
-                                   edr("etl_max_record_count")
-                                   )
-
-                    For Each adr In adt.Select("psa_schema = '" & edr("psa_schema") & "' and psa_entity = '" & edr("psa_entity") & "'", "psa_attribute_ordinal")
-
-                        e.AddEntityAttribute(adr("psa_attribute"), _
-                                             adr("psa_attribute_ordinal"), _
-                                             adr("psa_attribute_datatype"), _
-                                             adr("psa_attribute_optional"), _
-                                             adr("psa_attribute_business_identifier"), _
-                                             adr("psa_attribute_sort"), _
-                                             If(IsDBNull(adr("psa_attribute_description")), "", adr("psa_attribute_description")))
-
-                    Next
-
-                    _entities(i) = e
-                    i += 1 ' increment
-                Next
-
-            End Set
-        End Property
-
-        ReadOnly Property EntityCount As Integer
+        ''' <summary></summary>
+        Protected Friend ReadOnly Property EntityCount As Integer
             Get
                 If IsNothing(_entities) Then
                     Return 0
@@ -492,19 +543,22 @@ nextc:
             End Get
         End Property
 
-        ReadOnly Property Entities(EntityNumber As Integer) As Entity
+        ''' <summary></summary>
+        Protected Friend ReadOnly Property Entities(EntityNumber As Integer) As Entity
             Get
                 Return _entities(EntityNumber)
             End Get
         End Property
 
-        ReadOnly Property DatabaseName As String
+        ''' <summary></summary>
+        Protected Friend ReadOnly Property DatabaseName As String
             Get
                 Return _databasename
             End Get
         End Property
 
-        ReadOnly Property DatabaseCompatibility As SQLServerCompatibility
+        ''' <summary></summary>
+        Protected Friend ReadOnly Property DatabaseCompatibility As EDW.Common.SQLServerCompatibility
             Get
                 Return _databasecompatibility
             End Get
@@ -512,34 +566,61 @@ nextc:
 
 #End Region
 
-#Region "Construct Types"
-        Enum SQLServerCompatibility As UShort
-            SQLServer2008 = 100
-            SQLServer2012 = 110
-            SQLServer2014 = 120
-        End Enum
-
-        Enum YesNoType As UShort
-            Yes = 1
-            No = 2
-        End Enum
-
-        Enum AttributeType As UShort
-            BusinessIdentifier = 1
-            Variable = 2
-            Both = 3
-        End Enum
-
-#End Region
-
 #Region "Construct Constructors"
 
-        Sub New(ByVal ds As DataSet)
-            Construct = ds
+        ''' <summary></summary>
+        Protected Friend Sub New(ByVal NewConstruct As DataSet)
+
+            Dim dp As DataTable = NewConstruct.Tables("psa_database_properties")
+            Dim edt As DataTable = NewConstruct.Tables("psa_entity_definition")
+            Dim adt As DataTable = NewConstruct.Tables("psa_attribute_definition")
+            Dim e As Entity
+            Dim i As Integer = 0
+            Dim edr As DataRow
+
+            _databasename = CStr(dp.Rows(0).Item("database_name").ToString)
+            _databasecompatibility = dp.Rows(0).Item("compatibility_level").ToString.StringToDatabaseCompatibility
+
+            For Each edr In edt.Rows
+
+                ReDim Preserve _entities(i)
+                e = New Entity(edr("psa_schema").ToString, _
+                               edr("psa_entity").ToString, _
+                               If(IsDBNull(edr("psa_entity_description").ToString), "", edr("psa_entity_description").ToString), _
+                               If(IsDBNull(edr("psa_source_statement").ToString), "", edr("psa_source_statement").ToString), _
+                               If(IsDBNull(edr("psa_source_predicate_values").ToString), "", edr("psa_source_predicate_values").ToString), _
+                               edr("source_schema").ToString, _
+                               edr("source_entity").ToString, _
+                               edr("hash_large_objects").ToString, _
+                               edr("psa_infer_deletions").ToString, _
+                               If(IsDBNull(edr("etl_build_group").ToString), "", edr("etl_build_group").ToString), _
+                               edr("psa_logical_signature").ToString, _
+                               edr("psa_construct_signature").ToString,
+                               CInt(edr("etl_max_threads")),
+                               CInt(edr("etl_max_record_count"))
+                               )
+
+                For Each adr In adt.Select("psa_schema = '" & edr("psa_schema").ToString & "' and psa_entity = '" & edr("psa_entity").ToString & "'", "psa_attribute_ordinal")
+
+                    e.AddEntityAttribute(adr("psa_attribute").ToString, _
+                                         CInt(adr("psa_attribute_ordinal")), _
+                                         adr("psa_attribute_datatype").ToString, _
+                                         adr("psa_attribute_optional").ToString, _
+                                         adr("psa_attribute_business_identifier").ToString, _
+                                         adr("psa_attribute_sort").ToString, _
+                                         If(IsDBNull(adr("psa_attribute_description").ToString), "", adr("psa_attribute_description").ToString))
+
+                Next
+
+                _entities(i) = e
+                i += 1 ' increment
+            Next
+
         End Sub
 
 #End Region
 
+        ''' <summary></summary>
         Class Entity
 
 #Region "Entity Variables"
@@ -550,8 +631,8 @@ nextc:
             Private _sourcepredicatevalues As String
             Private _sourceschema As String
             Private _sourceentity As String
-            Private _hashlargeobjects As String
-            Private _inferdeletions As String
+            Private _hashlargeobjects As EDW.Common.YesNoType
+            Private _inferdeletions As EDW.Common.YesNoType
             Private _buildgroup As String
             Private _logicalsig As String
             Private _constructsig As String
@@ -563,7 +644,8 @@ nextc:
 
 #Region "Entity Properties"
 
-            Property Schema As String
+            ''' <summary></summary>
+            Protected Friend Property Schema As String
                 Get
                     Return _schema
                 End Get
@@ -572,7 +654,8 @@ nextc:
                 End Set
             End Property
 
-            Property Entity As String
+            ''' <summary></summary>
+            Protected Friend Property Entity As String
                 Get
                     Return _entity
                 End Get
@@ -581,7 +664,8 @@ nextc:
                 End Set
             End Property
 
-            Property Description As String
+            ''' <summary></summary>
+            Protected Friend Property Description As String
                 Get
                     Return _description
                 End Get
@@ -590,7 +674,8 @@ nextc:
                 End Set
             End Property
 
-            Property SourceStatement As String
+            ''' <summary></summary>
+            Protected Friend Property SourceStatement As String
                 Get
                     Return _sourcestatement
                 End Get
@@ -599,7 +684,8 @@ nextc:
                 End Set
             End Property
 
-            Property SourcePredicateValues As String
+            ''' <summary></summary>
+            Protected Friend Property SourcePredicateValues As String
                 Get
                     Return _sourcepredicatevalues
                 End Get
@@ -608,7 +694,8 @@ nextc:
                 End Set
             End Property
 
-            Property SourceSchema As String
+            ''' <summary></summary>
+            Protected Friend Property SourceSchema As String
                 Get
                     Return _sourceschema
                 End Get
@@ -617,7 +704,8 @@ nextc:
                 End Set
             End Property
 
-            Property SourceEntity As String
+            ''' <summary></summary>
+            Protected Friend Property SourceEntity As String
                 Get
                     Return _sourceentity
                 End Get
@@ -626,25 +714,28 @@ nextc:
                 End Set
             End Property
 
-            Property HashLargeObjects As YesNoType
+            ''' <summary></summary>
+            Protected Friend Property HashLargeObjects As EDW.Common.YesNoType
                 Get
                     Return _hashlargeobjects
                 End Get
-                Set(value As YesNoType)
+                Set(value As EDW.Common.YesNoType)
                     _hashlargeobjects = value
                 End Set
             End Property
 
-            Property InferDeletions As YesNoType
+            ''' <summary></summary>
+            Protected Friend Property InferDeletions As EDW.Common.YesNoType
                 Get
                     Return _inferdeletions
                 End Get
-                Set(value As YesNoType)
+                Set(value As EDW.Common.YesNoType)
                     _inferdeletions = value
                 End Set
             End Property
 
-            Property BuildGroup As String
+            ''' <summary></summary>
+            Protected Friend Property BuildGroup As String
                 Get
                     Return _buildgroup
                 End Get
@@ -653,7 +744,8 @@ nextc:
                 End Set
             End Property
 
-            Property LogicalSignature As String
+            ''' <summary></summary>
+            Protected Friend Property LogicalSignature As String
 
                 Get
                     Return _logicalsig
@@ -663,7 +755,8 @@ nextc:
                 End Set
             End Property
 
-            Property ConstructSignature As String
+            ''' <summary></summary>
+            Protected Friend Property ConstructSignature As String
                 Get
                     Return _constructsig
                 End Get
@@ -672,7 +765,8 @@ nextc:
                 End Set
             End Property
 
-            Property MaxThreads As Integer
+            ''' <summary></summary>
+            Protected Friend Property MaxThreads As Integer
                 Get
                     Return _maxthreads
                 End Get
@@ -681,7 +775,8 @@ nextc:
                 End Set
             End Property
 
-            Property MaxRecordCount As Integer
+            ''' <summary></summary>
+            Protected Friend Property MaxRecordCount As Integer
                 Get
                     Return _maxrecordcount
                 End Get
@@ -690,7 +785,8 @@ nextc:
                 End Set
             End Property
 
-            Property ObjectID As Integer
+            ''' <summary></summary>
+            Protected Friend Property ObjectID As Integer
                 Get
                     Return If(IsNothing(_objectid), 0, _objectid)
                 End Get
@@ -699,7 +795,8 @@ nextc:
                 End Set
             End Property
 
-            ReadOnly Property LogicalSignatureLookup As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property LogicalSignatureLookup As String
                 Get
                     Dim sd As String
                     sd = My.Resources.PSA_LogicalSignatureLookup
@@ -709,7 +806,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property ConstructSignatureLookup As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property ConstructSignatureLookup As String
                 Get
                     Dim sd As String
                     sd = My.Resources.PSA_ConstructSignatureLookup
@@ -719,7 +817,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property AttributeCount As Integer
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property AttributeCount As Integer
                 Get
                     If _attribute Is Nothing Then
                         Return 0
@@ -730,7 +829,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property Domain As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property Domain As String
                 Get
                     If Schema Is Nothing Or Entity Is Nothing Then
                         Return ""
@@ -740,7 +840,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property Label As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property Label As String
                 Get
                     If Schema Is Nothing Or Entity Is Nothing Then
                         Return ""
@@ -750,7 +851,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property SchemaDefinition As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property SchemaDefinition As String
                 Get
                     Dim sd As String
                     sd = My.Resources.PSA_SchemaDefinition
@@ -759,7 +861,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property SequenceDefinition As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property SequenceDefinition As String
                 Get
                     Dim sd As String
                     sd = My.Resources.PSA_SequenceDefinition
@@ -769,7 +872,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property DropRelatedObjectsDefintion As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property DropRelatedObjectsDefintion As String
                 Get
                     Dim sd As String
                     sd = My.Resources.PSA_DropRelatedObjects
@@ -780,9 +884,10 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property RenameDefintion As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property RenameDefintion As String
                 Get
-                    Dim n As Date = Now().ToString
+                    Dim n As Date = Now()
                     Dim ext As String = Year(n).ToString
                     ext += Right("0" & Month(n).ToString, 2)
                     ext += Right("0" & Day(n).ToString, 2)
@@ -801,7 +906,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property TableDefinition As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property TableDefinition As String
                 Get
                     Dim sd As String
                     sd = My.Resources.PSA_TableDefinition
@@ -816,13 +922,14 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property AlternateKeyStatsDefinition As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property AlternateKeyStatsDefinition As String
                 Get
                     Dim bia As EntityAttribute = Nothing
                     Dim rstr As String = ""
 
                     For Each bia In _attribute
-                        If bia.BusinessIdentifier = YesNoType.Yes And bia.Ordinal <> 1 Then
+                        If bia.BusinessIdentifier = EDW.Common.YesNoType.Yes And bia.Ordinal <> 1 Then
                             rstr += "create statistics [st : " & Label & " :: " & bia.Name & "] on " & Domain & vbCrLf & " (" & vbCrLf & "   [" & bia.Name & "]" & vbCrLf & " );" & vbCrLf & vbCrLf
                         End If
                     Next
@@ -831,7 +938,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property ChangeTrackingDefinition As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property ChangeTrackingDefinition As String
                 Get
                     Dim sd As String
                     sd = My.Resources.PSA_ChangeTrackingDefinition
@@ -840,7 +948,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property DropTemporalGovernorDefinition As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property DropTemporalGovernorDefinition As String
                 Get
                     Dim sd As String
                     sd = My.Resources.PSA_DropTemporalGovernorDefinition
@@ -850,7 +959,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property TemporalGovernorDefinition As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property TemporalGovernorDefinition As String
                 Get
                     Dim sd As String
                     sd = My.Resources.PSA_TemporalGovernorDefinition
@@ -863,7 +973,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property ControlViewDefinition As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property ControlViewDefinition As String
                 Get
                     Dim cs As String = ColumnSetChunk("", 3)
                     cs = Left(cs, Len(cs) - 1) ' remove the last comma
@@ -878,7 +989,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property ControlInsertDefinition As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property ControlInsertDefinition As String
                 Get
                     Dim cs As String = ColumnSetChunk("", 6)
 
@@ -891,7 +1003,7 @@ nextc:
                     sd = Replace(sd, "{{{hashset}}}", HashChunk)
                     sd = Replace(sd, "{{{columnset}}}", cs)
 
-                    If HashLargeObjects = YesNoType.Yes Then
+                    If HashLargeObjects = EDW.Common.YesNoType.Yes Then
                         sd = Replace(sd, "{{{hashfunction}}}", "[dbo].[psa_hash]")
                         sd = Replace(sd, "{{{hashext}}}", "")
                     Else
@@ -903,7 +1015,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property ControlUpdateDefinition As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property ControlUpdateDefinition As String
                 Get
                     Dim cs As String = ColumnSetChunk("", 9)
 
@@ -918,7 +1031,7 @@ nextc:
                     sd = Replace(sd, "{{{hashset}}}", HashChunk)
                     sd = Replace(sd, "{{{columnset}}}", cs)
                     sd = Replace(sd, "{{{updatekeyset}}}", UpdateKeyChunk)
-                    If HashLargeObjects = YesNoType.Yes Then
+                    If HashLargeObjects = EDW.Common.YesNoType.Yes Then
                         sd = Replace(sd, "{{{hashfunction}}}", "[dbo].[psa_hash]")
                         sd = Replace(sd, "{{{hashext}}}", "")
                     Else
@@ -929,7 +1042,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property ControlDeleteDefinition As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property ControlDeleteDefinition As String
                 Get
                     Dim cs As String = BusinessIdentifierColumnSetChunk("", 9)
 
@@ -948,7 +1062,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property ControlSecurityDefinition As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property ControlSecurityDefinition As String
                 Get
                     Dim sd As String
                     sd = My.Resources.PSA_ControlSecurityDefinition
@@ -958,7 +1073,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property AsIsViewDefinition As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property AsIsViewDefinition As String
                 Get
                     Dim cs As String = ColumnSetChunk("", 3)
                     cs = Left(cs, Len(cs) - 1) ' remove the last comma
@@ -973,7 +1089,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property AsIsTriggerDefinition As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property AsIsTriggerDefinition As String
                 Get
                     Dim sd As String
                     sd = My.Resources.PSA_AsIsTriggerDefinition
@@ -984,7 +1101,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property AsIsSecurityDefinition As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property AsIsSecurityDefinition As String
                 Get
                     Dim sd As String
                     sd = My.Resources.PSA_AsIsSecurityDefinition
@@ -994,7 +1112,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property AsWasViewDefinition As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property AsWasViewDefinition As String
                 Get
                     Dim cs As String = ColumnSetChunk("", 3)
                     cs = Left(cs, Len(cs) - 1) ' remove the last comma
@@ -1009,7 +1128,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property AsWasTriggerDefinition As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property AsWasTriggerDefinition As String
                 Get
                     Dim sd As String
                     sd = My.Resources.PSA_AsWasTriggerDefinition
@@ -1020,7 +1140,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property AsWasSecurityDefinition As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property AsWasSecurityDefinition As String
                 Get
                     Dim cs As String = ColumnSetChunk("", 3)
 
@@ -1032,7 +1153,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property BatchCountViewDefinition As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property BatchCountViewDefinition As String
                 Get
                     Dim sd As String
                     sd = My.Resources.PSA_BatchCountViewDefinition
@@ -1043,7 +1165,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property BatchCountTriggerDefinition As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property BatchCountTriggerDefinition As String
                 Get
                     Dim sd As String
                     sd = My.Resources.PSA_BatchCountTriggerDefinition
@@ -1054,7 +1177,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property BatchCountSecurityDefinition As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property BatchCountSecurityDefinition As String
                 Get
                     Dim sd As String
                     sd = My.Resources.PSA_BatchCountSecurityDefinition
@@ -1064,7 +1188,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property AsOfFunctionDefinition As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property AsOfFunctionDefinition As String
                 Get
                     Dim cs As String = ColumnSetChunk("", 3)
                     cs = Left(cs, Len(cs) - 1) ' remove the last comma
@@ -1079,7 +1204,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property AsOfSecurityDefinition As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property AsOfSecurityDefinition As String
                 Get
                     Dim cs As String = ColumnSetChunk("", 3)
 
@@ -1091,9 +1217,10 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property ChangesFunctionDefinition As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property ChangesFunctionDefinition As String
                 Get
-                    Dim cs As String = NewColumnSetChunk("d", 3, "", "", AttributeType.BusinessIdentifier)
+                    Dim cs As String = NewColumnSetChunk("d", 3, "", "", EDW.Common.AttributeType.BusinessIdentifier)
 
                     Dim sd As String
                     sd = My.Resources.PSA_ChangesFunctionDefinition
@@ -1101,14 +1228,15 @@ nextc:
                     sd = Replace(sd, "{{{entity}}}", Entity)
                     sd = Replace(sd, "{{{domain}}}", Domain)
                     sd = Replace(sd, "{{{ak_columnset}}}", cs)
-                    cs = NewColumnSetChunk("d", 3, "case when @NullOnDeletes=1 and d.[psa_dml_action]=N'D' then null else ", " end", AttributeType.Variable)
+                    cs = NewColumnSetChunk("d", 3, "case when @NullOnDeletes=1 and d.[psa_dml_action]=N'D' then null else ", " end", EDW.Common.AttributeType.Atomic)
                     cs = Left(cs, Len(cs) - 1) ' remove the last comma
                     sd = Replace(sd, "{{{columnset}}}", cs)
                     Return sd
                 End Get
             End Property
 
-            ReadOnly Property ChangesSecurityDefinition As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property ChangesSecurityDefinition As String
                 Get
                     Dim sd As String
                     sd = My.Resources.PSA_ChangesSecurityDefinition
@@ -1118,7 +1246,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property LoadStageDefinition
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property LoadStageDefinition As String
                 Get
                     Dim sd As String
                     sd = My.Resources.PSA_LoadStageDefinition
@@ -1131,7 +1260,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property ProcessUpsertDefintion As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property ProcessUpsertDefintion As String
                 Get
                     Dim d As String
                     d = My.Resources.PSA_ProcessUpsertDefinition
@@ -1149,7 +1279,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property ProcessUpsertSecurityDefinition As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property ProcessUpsertSecurityDefinition As String
                 Get
                     Dim d As String
                     d = My.Resources.PSA_ProcessUpsertSecurityDefinition
@@ -1159,7 +1290,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property WorkerUpsertDefintion As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property WorkerUpsertDefintion As String
                 Get
                     Dim c As String = ColumnSetChunk("", 15)
                     c = Left(c, Len(c) - 1)
@@ -1181,7 +1313,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property ProcessDeleteDefintion As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property ProcessDeleteDefintion As String
                 Get
                     Dim d As String
                     d = My.Resources.PSA_ProcessDeleteDefinition
@@ -1199,7 +1332,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property ProcessDeleteSecurityDefinition As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property ProcessDeleteSecurityDefinition As String
                 Get
                     Dim d As String
                     d = My.Resources.PSA_ProcessDeleteSecurityDefinition
@@ -1209,7 +1343,8 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property WorkerDeleteDefintion As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property WorkerDeleteDefintion As String
                 Get
                     Dim c As String = BusinessIdentifierColumnSetChunk("", 15)
                     c = Left(c, Len(c) - 1)
@@ -1225,19 +1360,21 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property ServiceBrokerDefinition
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property ServiceBrokerDefinition As String
                 Get
                     Dim def As String
                     def = My.Resources.PSA_ServiceBrokerDefinition
                     def = Replace(def, "{{{schema}}}", Schema)
                     def = Replace(def, "{{{entity}}}", Entity)
-                    def = Replace(def, "{{{threads}}}", MaxThreads)
+                    def = Replace(def, "{{{threads}}}", MaxThreads.ToString)
 
                     Return def
                 End Get
             End Property
 
-            ReadOnly Property EntityMetadataDefinition As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property EntityMetadataDefinition As String
                 Get
                     Dim ep As String = ""
 
@@ -1334,20 +1471,21 @@ nextc:
                     ep += My.Resources.SYS_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "ETL Max Threads")
-                    ep = Replace(ep, "{{{value}}}", MaxThreads)
+                    ep = Replace(ep, "{{{value}}}", MaxThreads.ToString)
                     ep += vbCrLf
 
                     ep += My.Resources.SYS_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "ETL Max Records Per Thread")
-                    ep = Replace(ep, "{{{value}}}", MaxRecordCount)
+                    ep = Replace(ep, "{{{value}}}", MaxRecordCount.ToString)
                     ep += vbCrLf
 
                     Return ep
                 End Get
             End Property
 
-            ReadOnly Property AttributeMetadataDefintion As String
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property AttributeMetadataDefintion As String
                 Get
                     Dim bia As EntityAttribute = Nothing
                     Dim ep As String = ""
@@ -1372,21 +1510,21 @@ nextc:
                         ep = Replace(ep, "{{{domain}}}", Domain)
                         ep = Replace(ep, "{{{attribute}}}", bia.Name)
                         ep = Replace(ep, "{{{property}}}", "Sort Order")
-                        ep = Replace(ep, "{{{value}}}", bia.SortOrder)
+                        ep = Replace(ep, "{{{value}}}", bia.SortOrder.ToString)
                         ep += vbCrLf
 
                         ep += My.Resources.SYS_ColumnPropertyDefinition
                         ep = Replace(ep, "{{{domain}}}", Domain)
                         ep = Replace(ep, "{{{attribute}}}", bia.Name)
                         ep = Replace(ep, "{{{property}}}", "Ordinal")
-                        ep = Replace(ep, "{{{value}}}", bia.Ordinal)
+                        ep = Replace(ep, "{{{value}}}", bia.Ordinal.ToString)
                         ep += vbCrLf
 
                         ep += My.Resources.SYS_ColumnPropertyDefinition
                         ep = Replace(ep, "{{{domain}}}", Domain)
                         ep = Replace(ep, "{{{attribute}}}", bia.Name)
                         ep = Replace(ep, "{{{property}}}", "Optionality")
-                        ep = Replace(ep, "{{{value}}}", bia.Optionality)
+                        ep = Replace(ep, "{{{value}}}", bia.Optionality.ToString)
                         ep += vbCrLf
 
                         ep += My.Resources.SYS_ColumnPropertyDefinition
@@ -1400,7 +1538,7 @@ nextc:
                         ep = Replace(ep, "{{{domain}}}", Domain)
                         ep = Replace(ep, "{{{attribute}}}", bia.Name)
                         ep = Replace(ep, "{{{property}}}", "Business Identifier")
-                        ep = Replace(ep, "{{{value}}}", bia.BusinessIdentifier)
+                        ep = Replace(ep, "{{{value}}}", bia.BusinessIdentifier.ToString)
                         ep += vbCrLf
 
                         ep += My.Resources.SYS_TablePropertyDefintion
@@ -1427,20 +1565,22 @@ nextc:
                 End Get
             End Property
 
-            ReadOnly Property Attributes(ByVal AttributeNumber As Integer) As EntityAttribute
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property Attributes(ByVal AttributeNumber As Integer) As EntityAttribute
                 Get
                     Return _attribute(AttributeNumber)
                 End Get
             End Property
 
+            ''' <summary></summary>
             Private ReadOnly Property BusinessIdentifierChunk As String
                 Get
                     Dim bia As EntityAttribute = Nothing
                     Dim rstr As String = ""
 
                     For Each bia In _attribute.OrderBy(Function(EntityAttribute) EntityAttribute.BusinessIdentifier).ThenBy(Function(EntityAttribute) EntityAttribute.Ordinal)
-                        If bia.BusinessIdentifier = YesNoType.Yes Then
-                            rstr += "   [" & bia.Name & "] " & bia.Datatype & " " & If(bia.Optionality = YesNoType.No, "not null,", "null,") & vbCrLf
+                        If bia.BusinessIdentifier = EDW.Common.YesNoType.Yes Then
+                            rstr += "   [" & bia.Name & "] " & bia.Datatype & " " & If(bia.Optionality = EDW.Common.YesNoType.No, "not null,", "null,") & vbCrLf
                         End If
                     Next
 
@@ -1448,14 +1588,15 @@ nextc:
                 End Get
             End Property
 
+            ''' <summary></summary>
             Private ReadOnly Property AttributeChunk As String
                 Get
                     Dim bia As EntityAttribute = Nothing
                     Dim rstr As String = ""
 
                     For Each bia In _attribute.OrderBy(Function(EntityAttribute) EntityAttribute.BusinessIdentifier).ThenBy(Function(EntityAttribute) EntityAttribute.Ordinal)
-                        If bia.BusinessIdentifier = YesNoType.No Then
-                            rstr += "   [" & bia.Name & "] " & bia.Datatype & " " & If(bia.Optionality = YesNoType.No, "not null,", "null,") & vbCrLf
+                        If bia.BusinessIdentifier = EDW.Common.YesNoType.No Then
+                            rstr += "   [" & bia.Name & "] " & bia.Datatype & " " & If(bia.Optionality = EDW.Common.YesNoType.No, "not null,", "null,") & vbCrLf
                         End If
                     Next
 
@@ -1463,14 +1604,15 @@ nextc:
                 End Get
             End Property
 
+            ''' <summary></summary>
             Private ReadOnly Property AlternateKeyChunk As String
                 Get
                     Dim bia As EntityAttribute = Nothing
                     Dim rstr As String = "("
 
                     For Each bia In _attribute.OrderBy(Function(EntityAttribute) EntityAttribute.BusinessIdentifier).ThenBy(Function(EntityAttribute) EntityAttribute.Ordinal)
-                        If bia.BusinessIdentifier = YesNoType.Yes Then
-                            rstr += "[" & bia.Name & "] " & If(bia.SortOrder = EntityAttribute.SortOrderType.asc, "asc,", "desc,")
+                        If bia.BusinessIdentifier = EDW.Common.YesNoType.Yes Then
+                            rstr += "[" & bia.Name & "] " & If(bia.SortOrder = EDW.Common.SortOrderType.asc, "asc,", "desc,")
                         End If
                     Next
 
@@ -1478,6 +1620,7 @@ nextc:
                 End Get
             End Property
 
+            ''' <summary></summary>
             Private ReadOnly Property AlternateKeyChunkForQueue As String
                 Get
                     Dim rstr As String = AlternateKeyChunk
@@ -1486,13 +1629,14 @@ nextc:
                 End Get
             End Property
 
+            ''' <summary></summary>
             Private ReadOnly Property HashChunk As String
                 Get
                     Dim bia As EntityAttribute = Nothing
                     Dim rstr As String = ""
 
                     For Each bia In _attribute.OrderBy(Function(EntityAttribute) EntityAttribute.BusinessIdentifier).ThenBy(Function(EntityAttribute) EntityAttribute.Ordinal)
-                        If bia.BusinessIdentifier = YesNoType.No Then
+                        If bia.BusinessIdentifier = EDW.Common.YesNoType.No Then
                             rstr += "[" & bia.Name & "],"
                         End If
                     Next
@@ -1501,14 +1645,15 @@ nextc:
                 End Get
             End Property
 
+            ''' <summary></summary>
             Private ReadOnly Property UpdateChunk(Optional ByVal ColumnPadding As UShort = 6) As String
                 Get
                     Dim bia As EntityAttribute = Nothing
                     Dim rstr As String = ""
-                    Dim cp As New String(" ", ColumnPadding)
+                    Dim cp As New String(" "c, ColumnPadding)
 
                     For Each bia In _attribute.OrderBy(Function(EntityAttribute) EntityAttribute.BusinessIdentifier).ThenBy(Function(EntityAttribute) EntityAttribute.Ordinal)
-                        If bia.BusinessIdentifier = YesNoType.No Then
+                        If bia.BusinessIdentifier = EDW.Common.YesNoType.No Then
                             rstr += cp & "[" & bia.Name & "]=s.[" & bia.Name & "]," & vbCrLf
                         End If
                     Next
@@ -1523,15 +1668,16 @@ nextc:
                 End Get
             End Property
 
+            ''' <summary></summary>
             Private ReadOnly Property ControlJoinChunk As String
                 Get
                     Dim bia As EntityAttribute = Nothing
                     Dim rstr As String = ""
-                    Dim spacer As New String(" ", Len(Domain) + 12)
+                    Dim spacer As New String(" "c, Len(Domain) + 12)
 
                     For Each bia In _attribute.OrderBy(Function(EntityAttribute) EntityAttribute.BusinessIdentifier).ThenBy(Function(EntityAttribute) EntityAttribute.Ordinal)
-                        If bia.BusinessIdentifier = YesNoType.Yes Then
-                            If bia.Optionality = YesNoType.No Then
+                        If bia.BusinessIdentifier = EDW.Common.YesNoType.Yes Then
+                            If bia.Optionality = EDW.Common.YesNoType.No Then
                                 rstr += spacer & "s.[" & bia.Name & "]=t.[" & bia.Name & "] and" & vbCrLf
                             Else
                                 rstr += spacer & "("
@@ -1549,15 +1695,16 @@ nextc:
                 End Get
             End Property
 
+            ''' <summary></summary>
             Private ReadOnly Property MergeJoinChunk(ByVal Padding As UShort) As String
                 Get
                     Dim bia As EntityAttribute = Nothing
                     Dim rstr As String = ""
-                    Dim spacer As New String(" ", Padding)
+                    Dim spacer As New String(" "c, Padding)
 
                     For Each bia In _attribute.OrderBy(Function(EntityAttribute) EntityAttribute.BusinessIdentifier).ThenBy(Function(EntityAttribute) EntityAttribute.Ordinal)
-                        If bia.BusinessIdentifier = YesNoType.Yes Then
-                            If bia.Optionality = YesNoType.No Then
+                        If bia.BusinessIdentifier = EDW.Common.YesNoType.Yes Then
+                            If bia.Optionality = EDW.Common.YesNoType.No Then
                                 rstr += spacer & "and s.[" & bia.Name & "]=t.[" & bia.Name & "]" & vbCrLf
                             Else
                                 rstr += spacer & "and ("
@@ -1573,14 +1720,15 @@ nextc:
                 End Get
             End Property
 
+            ''' <summary></summary>
             Private ReadOnly Property UpdateKeyChunk As String
                 Get
                     Dim bia As EntityAttribute = Nothing
                     Dim rstr As String = ""
-                    Dim spacer As New String(" ", Len(Domain) + 12)
+                    Dim spacer As New String(" "c, Len(Domain) + 12)
 
                     For Each bia In _attribute.OrderBy(Function(EntityAttribute) EntityAttribute.BusinessIdentifier).ThenBy(Function(EntityAttribute) EntityAttribute.Ordinal)
-                        If bia.BusinessIdentifier = YesNoType.Yes Then
+                        If bia.BusinessIdentifier = EDW.Common.YesNoType.Yes Then
                             rstr += "   if update ([" & bia.Name & "]) begin;" & vbCrLf
                             rstr += "      raiserror(N'The Source Native Key (SNK), or Business Identifier, [" & bia.Name & "] cannot be updated. Insert a new record the delete the old record.',16,1);" & vbCrLf
                             rstr += "   end;" & vbCrLf & vbCrLf
@@ -1591,11 +1739,12 @@ nextc:
                 End Get
             End Property
 
+            ''' <summary></summary>
             Private ReadOnly Property ColumnSetChunk(ByVal ColumnSetAlias As String, ByVal ColumnPadding As UShort) As String
                 Get
                     Dim bia As EntityAttribute = Nothing
                     Dim rstr As String = ""
-                    Dim pad As New String(" ", ColumnPadding)
+                    Dim pad As New String(" "c, ColumnPadding)
                     ColumnSetAlias = If(ColumnSetAlias = "", "", ColumnSetAlias & ".")
 
                     For Each bia In _attribute.OrderBy(Function(EntityAttribute) EntityAttribute.BusinessIdentifier).ThenBy(Function(EntityAttribute) EntityAttribute.Ordinal)
@@ -1606,15 +1755,16 @@ nextc:
                 End Get
             End Property
 
+            ''' <summary></summary>
             Private ReadOnly Property BusinessIdentifierColumnSetChunk(ByVal ColumnSetAlias As String, ByVal ColumnPadding As UShort) As String
                 Get
                     Dim bia As EntityAttribute = Nothing
                     Dim rstr As String = ""
-                    Dim pad As New String(" ", ColumnPadding)
+                    Dim pad As New String(" "c, ColumnPadding)
                     ColumnSetAlias = If(ColumnSetAlias = "", "", ColumnSetAlias & ".")
 
                     For Each bia In _attribute.OrderBy(Function(EntityAttribute) EntityAttribute.BusinessIdentifier).ThenBy(Function(EntityAttribute) EntityAttribute.Ordinal)
-                        If bia.BusinessIdentifier = YesNoType.Yes Then
+                        If bia.BusinessIdentifier = EDW.Common.YesNoType.Yes Then
                             rstr += pad & ColumnSetAlias & "[" & bia.Name & "]," & vbCrLf
                         End If
 
@@ -1624,21 +1774,21 @@ nextc:
                 End Get
             End Property
 
-
+            ''' <summary></summary>
             Private ReadOnly Property NewColumnSetChunk(Optional ByVal ColumnSetAlias As String = "", Optional ByVal ColumnPadding As UShort = 0, _
                                                         Optional ByVal ColumnPrefix As String = "", Optional ByVal ColumnSuffix As String = "", _
-                                                        Optional ByVal AttributeTypesToInclude As AttributeType = AttributeType.Both) As String
+                                                        Optional ByVal AttributeTypesToInclude As EDW.Common.AttributeType = EDW.Common.AttributeType.Both) As String
                 Get
                     Dim bia As EntityAttribute = Nothing
                     Dim rstr As String = ""
-                    Dim pad As New String(" ", ColumnPadding)
+                    Dim pad As New String(" "c, ColumnPadding)
                     ColumnSetAlias = If(ColumnSetAlias = "", "", ColumnSetAlias & ".")
 
                     For Each bia In _attribute.OrderBy(Function(EntityAttribute) EntityAttribute.BusinessIdentifier).ThenBy(Function(EntityAttribute) EntityAttribute.Ordinal)
 
-                        If (bia.BusinessIdentifier = YesNoType.Yes And AttributeTypesToInclude = AttributeType.BusinessIdentifier) Or _
-                           (bia.BusinessIdentifier = YesNoType.No And AttributeTypesToInclude = AttributeType.Variable) Or _
-                           AttributeTypesToInclude = AttributeType.Both Then
+                        If (bia.BusinessIdentifier = EDW.Common.YesNoType.Yes And AttributeTypesToInclude = EDW.Common.AttributeType.BusinessIdentifier) Or _
+                           (bia.BusinessIdentifier = EDW.Common.YesNoType.No And AttributeTypesToInclude = EDW.Common.AttributeType.Atomic) Or _
+                           AttributeTypesToInclude = EDW.Common.AttributeType.Both Then
                             rstr += pad & ColumnPrefix & ColumnSetAlias & "[" & bia.Name & "]" & ColumnSuffix & " [" & bia.Name & "]," & vbCrLf
                         End If
 
@@ -1648,14 +1798,25 @@ nextc:
                 End Get
             End Property
 
-
 #End Region
 
-            Sub New(ByVal NewSchema As String, ByVal NewEntity As String, ByVal NewDescription As String, _
-                    ByVal NewSourceStatement As String, ByVal NewSourcePredicateValues As String, _
-                    ByVal NewSourceSchema As String, ByVal NewSourceEntity As String, ByVal NewHashLargeObjects As String, _
-                    ByVal NewInferDeletions As String, ByVal NewBuildGroup As String, ByVal NewLogicalSignature As String, _
-                    ByVal NewConstructSignature As String, ByVal NewMaxThreads As Integer, ByVal NewMaxRecordCount As Integer)
+#Region "Entity Constructors"
+
+            ''' <summary></summary>
+            Protected Friend Sub New(ByVal NewSchema As String,
+                                     ByVal NewEntity As String,
+                                     ByVal NewDescription As String,
+                                     ByVal NewSourceStatement As String,
+                                     ByVal NewSourcePredicateValues As String,
+                                     ByVal NewSourceSchema As String,
+                                     ByVal NewSourceEntity As String,
+                                     ByVal NewHashLargeObjects As String,
+                                     ByVal NewInferDeletions As String,
+                                     ByVal NewBuildGroup As String,
+                                     ByVal NewLogicalSignature As String,
+                                     ByVal NewConstructSignature As String,
+                                     ByVal NewMaxThreads As Integer,
+                                     ByVal NewMaxRecordCount As Integer)
 
                 Schema = NewSchema
                 Entity = NewEntity
@@ -1664,8 +1825,8 @@ nextc:
                 NewSourcePredicateValues = NewSourcePredicateValues
                 SourceSchema = NewSourceSchema
                 SourceEntity = NewSourceEntity
-                HashLargeObjects = If(NewHashLargeObjects = "Yes", YesNoType.Yes, YesNoType.No)
-                InferDeletions = If(NewInferDeletions = "Yes", YesNoType.Yes, YesNoType.No)
+                HashLargeObjects = If(NewHashLargeObjects = "Yes", EDW.Common.YesNoType.Yes, EDW.Common.YesNoType.No)
+                InferDeletions = If(NewInferDeletions = "Yes", EDW.Common.YesNoType.Yes, EDW.Common.YesNoType.No)
                 BuildGroup = NewBuildGroup
                 LogicalSignature = NewLogicalSignature
                 ConstructSignature = NewConstructSignature
@@ -1674,13 +1835,18 @@ nextc:
 
             End Sub
 
-            Sub AddEntityAttribute(ByVal AttributeName As String, ByVal AttributeOrdinal As Integer, ByVal AttributeDatatype As String, _
-                                   ByVal AttributeOptionality As String, ByVal AttributeBusinessIdentifier As String, _
-                                   ByVal AttributeSortOrder As String, ByVal AttributeDescription As String)
+            ''' <summary></summary>
+            Protected Friend Sub AddEntityAttribute(ByVal AttributeName As String,
+                                                    ByVal AttributeOrdinal As Integer,
+                                                    ByVal AttributeDatatype As String,
+                                                    ByVal AttributeOptionality As String,
+                                                    ByVal AttributeBusinessIdentifier As String,
+                                                    ByVal AttributeSortOrder As String,
+                                                    ByVal AttributeDescription As String)
 
-                Dim ao As UShort = If(AttributeOptionality = "No", 2, 1)
-                Dim bi As UShort = If(AttributeBusinessIdentifier = "No", 2, 1)
-                Dim so As UShort = If(AttributeSortOrder = "desc", 2, 1)
+                Dim ao As EDW.Common.YesNoType = If(AttributeOptionality = "No", EDW.Common.YesNoType.No, EDW.Common.YesNoType.Yes)
+                Dim bi As EDW.Common.YesNoType = If(AttributeBusinessIdentifier = "No", EDW.Common.YesNoType.No, EDW.Common.YesNoType.Yes)
+                Dim so As EDW.Common.SortOrderType = If(AttributeSortOrder = "desc", EDW.Common.SortOrderType.desc, EDW.Common.SortOrderType.asc)
 
                 If IsNothing(_attribute) Then
                     ReDim _attribute(0)
@@ -1692,16 +1858,27 @@ nextc:
 
             End Sub
 
+#End Region
+
+            ''' <summary></summary>
             Class EntityAttribute
+
+#Region "Entity Attribute Variables"
+
                 Private _name As String
                 Private _ordinal As Integer
                 Private _datatype As String
-                Private _sortorder As SortOrderType
-                Private _optionality As YesNoType
-                Private _businessidentifier As YesNoType
+                Private _sortorder As EDW.Common.SortOrderType
+                Private _optionality As EDW.Common.YesNoType
+                Private _businessidentifier As EDW.Common.YesNoType
                 Private _description As String
 
-                Property Name As String
+#End Region
+
+#Region "Entity Attribute Properties"
+
+                ''' <summary></summary>
+                Protected Friend Property Name As String
                     Get
                         Return _name
                     End Get
@@ -1710,7 +1887,8 @@ nextc:
                     End Set
                 End Property
 
-                Property Ordinal As Integer
+                ''' <summary></summary>
+                Protected Friend Property Ordinal As Integer
                     Get
                         Return _ordinal
                     End Get
@@ -1719,7 +1897,8 @@ nextc:
                     End Set
                 End Property
 
-                Property Datatype As String
+                ''' <summary></summary>
+                Protected Friend Property Datatype As String
                     Get
                         Select Case _datatype
                             Case "ntext"
@@ -1743,34 +1922,38 @@ nextc:
                     End Set
                 End Property
 
-                Property SortOrder As SortOrderType
+                ''' <summary></summary>
+                Protected Friend Property SortOrder As EDW.Common.SortOrderType
                     Get
                         Return _sortorder
                     End Get
-                    Set(value As SortOrderType)
+                    Set(value As EDW.Common.SortOrderType)
                         _sortorder = value
                     End Set
                 End Property
 
-                Property Optionality As YesNoType
+                ''' <summary></summary>
+                Protected Friend Property Optionality As EDW.Common.YesNoType
                     Get
                         Return _optionality
                     End Get
-                    Set(value As YesNoType)
+                    Set(value As EDW.Common.YesNoType)
                         _optionality = value
                     End Set
                 End Property
 
-                Property BusinessIdentifier As YesNoType
+                ''' <summary></summary>
+                Protected Friend Property BusinessIdentifier As EDW.Common.YesNoType
                     Get
                         Return _businessidentifier
                     End Get
-                    Set(value As YesNoType)
+                    Set(value As EDW.Common.YesNoType)
                         _businessidentifier = value
                     End Set
                 End Property
 
-                Property Description As String
+                ''' <summary></summary>
+                Protected Friend Property Description As String
                     Get
                         Return _description
                     End Get
@@ -1779,11 +1962,18 @@ nextc:
                     End Set
                 End Property
 
-#Region "Contructors"
+#End Region
 
-                Sub New(ByVal AttributeName As String, ByVal AttributeOrdinal As Integer, ByVal AttributeDatatype As String, _
-                        ByVal AttributeOptionality As YesNoType, ByVal AttributeBusinessIdentifier As YesNoType, _
-                        ByVal AttributeSortOrder As SortOrderType, ByVal AttributeDescription As String)
+#Region "Entity Attribute Contructors"
+
+                ''' <summary></summary>
+                Protected Friend Sub New(ByVal AttributeName As String,
+                                         ByVal AttributeOrdinal As Integer,
+                                         ByVal AttributeDatatype As String,
+                                         ByVal AttributeOptionality As EDW.Common.YesNoType,
+                                         ByVal AttributeBusinessIdentifier As EDW.Common.YesNoType,
+                                         ByVal AttributeSortOrder As EDW.Common.SortOrderType,
+                                         ByVal AttributeDescription As String)
 
                     Name = AttributeName
                     Ordinal = AttributeOrdinal
@@ -1794,15 +1984,6 @@ nextc:
                     Description = AttributeDescription
 
                 End Sub
-
-#End Region
-
-#Region "Types"
-
-                Enum SortOrderType As UShort
-                    asc = 1
-                    desc = 2
-                End Enum
 
 #End Region
 

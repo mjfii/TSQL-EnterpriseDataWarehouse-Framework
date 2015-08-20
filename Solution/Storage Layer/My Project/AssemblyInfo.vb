@@ -8,8 +8,8 @@ Imports System.Runtime.InteropServices
 
 ' Review the values of the assembly attributes
 
-<Assembly: AssemblyTitle("EDW Object Definitions")> 
-<Assembly: AssemblyDescription("")> 
+<Assembly: AssemblyTitle("EDW Framework for Storage Layer")> 
+<Assembly: AssemblyDescription("This framework provides T-SQL DDL for a PSA and ARA.")> 
 <Assembly: AssemblyCompany("Slalom Consulting LLC")> 
 <Assembly: AssemblyProduct("")> 
 <Assembly: AssemblyCopyright("Copyright © 2014")> 
@@ -31,5 +31,5 @@ Imports System.Runtime.InteropServices
 ' by using the '*' as shown below:
 ' <Assembly: AssemblyVersion("1.0.*")> 
 
-<Assembly: AssemblyVersion("1.0.0.0")> 
+<Assembly: AssemblyVersion("2.0.0.0")> 
 <Assembly: AssemblyFileVersion("1.0.0.0")> 

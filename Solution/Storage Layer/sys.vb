@@ -5,19 +5,165 @@ Imports EDW.Common.SqlClientOutbound
 
 Namespace Common
 
+#Region "Common Types"
+
+    ''' <summary></summary>
+    Public Enum SQLServerCompatibility As UShort
+        SQLServer2008 = 100
+        SQLServer2012 = 110
+        SQLServer2014 = 120
+        SQLServer2016 = 130
+    End Enum
+
+    ''' <summary></summary>
+    Public Enum YesNoType As UShort
+        Yes = 1
+        No = 2
+    End Enum
+
+    ''' <summary></summary>
+    Public Enum EntityType As UShort
+        TypeII = 1
+        TypeI = 2
+    End Enum
+
+    ''' <summary></summary>
+    Public Enum BuildAction As UShort
+        AddEntity = 1
+        UpdateEntity = 2
+        DeleteEntity = 3
+        None = 4
+    End Enum
+
+    ''' <summary></summary>
+    Public Enum AttributeType As UShort
+        BusinessIdentifier = 2
+        Atomic = 4
+        Both = 8
+    End Enum
+
+    ''' <summary></summary>
+    Public Enum SortOrderType As UShort
+        asc = 1
+        desc = 2
+    End Enum
+
+#End Region
+
     Partial Public Class SqlClientOutbound
 
-        Friend Shared Sub ExecuteDDLCommand(ByVal cmd_string As String, cnn_obj As SqlConnection)
-            Dim cmd As New SqlCommand
-            With cmd
-                .Connection = cnn_obj
-                .CommandText = cmd_string
-            End With
-            cmd.ExecuteNonQuery()
+        ''' <summary>
+        ''' 
+        ''' </summary>
+        ''' <param name="Command"></param>
+        ''' <param name="SqlCnn"></param>
+        ''' <remarks></remarks>
+        Friend Shared Sub ExecuteDDLCommand(ByVal Command As String,
+                                            ByVal SqlCnn As SqlConnection)
+
+            Try
+                Dim cmd As New SqlCommand(Command, SqlCnn)
+
+                cmd.ExecuteNonQuery()
+            Catch ex As Exception
+                PrintClientError(New StackFrame().GetMethod().Name, ex)
+            End Try
+
         End Sub
 
-        Friend Shared Sub PrintClientMessage(ByVal print_string As String, Optional tab_spaces As UShort = 0)
-            Dim pl As New String(" ", tab_spaces)
+        ''' <summary>
+        ''' 
+        ''' </summary>
+        ''' <param name="Command"></param>
+        ''' <param name="SqlCnn"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Friend Shared Function ExecuteSQLScalar(ByVal Command As String,
+                                                ByVal SqlCnn As SqlConnection) As String
+
+            Try
+                Dim cmd As New SqlCommand(Command, SqlCnn)
+
+                Dim ScalarObject As Object = cmd.ExecuteScalar()
+
+                If ScalarObject Is Nothing Then
+                    Exit Try
+                Else
+                    Return ScalarObject.ToString
+                End If
+
+            Catch ex As Exception
+                PrintClientError(New StackFrame().GetMethod().Name, ex)
+            End Try
+
+            Return String.Empty
+
+        End Function
+
+        ''' <summary>
+        ''' 
+        ''' </summary>
+        ''' <param name="ExistingDataset"></param>
+        ''' <param name="Command"></param>
+        ''' <param name="SourceTableName"></param>
+        ''' <param name="SqlCnn"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Friend Shared Function ReturnInternalResults(ByVal ExistingDataset As DataSet,
+                                                     ByVal Command As String,
+                                                     ByVal SourceTableName As String,
+                                                     ByVal SqlCnn As SqlConnection) As DataSet
+
+            Try
+
+                Dim cmd As New SqlCommand(Command, SqlCnn)
+
+                Dim da As New SqlDataAdapter(cmd)
+                da.Fill(ExistingDataset, SourceTableName)
+                Return ExistingDataset
+
+            Catch ex As Exception
+                PrintClientError(New StackFrame().GetMethod().Name, ex)
+            End Try
+
+            Return Nothing
+
+        End Function
+
+        ''' <summary>
+        ''' 
+        ''' </summary>
+        ''' <param name="Command"></param>
+        ''' <param name="SqlCnn"></param>
+        ''' <param name="DatabaseName"></param>
+        ''' <remarks></remarks>
+        Friend Shared Sub ReturnClientResults(ByVal Command As String,
+                                              ByVal SqlCnn As SqlConnection,
+                                              Optional ByVal DatabaseName As String = "master")
+
+            Try
+
+                ExecuteDDLCommand("use [" & DatabaseName & "];", SqlCnn)
+
+                Dim cmd As New SqlCommand(Command, SqlCnn)
+
+                Dim rdr As SqlDataReader = cmd.ExecuteReader
+                SqlContext.Pipe.Send(rdr)
+
+            Catch ex As Exception
+                PrintClientError(New StackFrame().GetMethod().Name, ex)
+            End Try
+
+        End Sub
+
+        ''' <summary></summary>
+        ''' <param name="print_string"></param>
+        ''' <param name="tab_spaces"></param>
+        ''' <remarks></remarks>
+        Friend Shared Sub PrintClientMessage(ByVal print_string As String,
+                                             Optional tab_spaces As UShort = 0)
+
+            Dim pl As New String(" "c, tab_spaces)
 
             Dim ns As String = pl & print_string
 
@@ -28,24 +174,17 @@ Namespace Common
 
         End Sub
 
-        Friend Shared Sub PrintClientError(ByVal ErrorMethod As String, ByVal ErrorException As Exception, Optional tab_spaces As UShort = 0)
+        ''' <summary></summary>
+        ''' <param name="ErrorMethod"></param>
+        ''' <param name="ErrorException"></param>
+        ''' <param name="LeadingSpaces"></param>
+        ''' <remarks></remarks>
+        Friend Shared Sub PrintClientError(ByVal ErrorMethod As String,
+                                           ByVal ErrorException As Exception,
+                                           Optional ByVal LeadingSpaces As UShort = 0)
 
-            SqlContext.Pipe.Send(New String(" ", tab_spaces) & "Method " & ErrorMethod & " error: " & ErrorMethod)
-            SqlContext.Pipe.Send(New String(" ", tab_spaces) & "Exception " & ErrorException.Message.ToString)
-
-        End Sub
-
-        Friend Shared Sub ReturnClientResults(ByVal SqlCnn As SqlConnection, ByVal sql_command_string As String, Optional ByVal database_name As String = "master")
-
-            Dim cmd As SqlCommand
-
-            cmd = New SqlCommand("use [" & database_name & "];", SqlCnn)
-            cmd.ExecuteScalar()
-
-            cmd = New SqlCommand(sql_command_string, SqlCnn)
-
-            Dim rdr As SqlDataReader = cmd.ExecuteReader
-            SqlContext.Pipe.Send(rdr)
+            SqlContext.Pipe.Send(New String(" "c, LeadingSpaces) & "Error on method: " & ErrorMethod)
+            SqlContext.Pipe.Send(New String(" "c, LeadingSpaces) & "Exception message: " & ErrorException.Message.ToString)
 
         End Sub
 
@@ -53,6 +192,93 @@ Namespace Common
 
     Partial Public Class InstanceSettings
 
+        ''' <summary>
+        ''' 
+        ''' </summary>
+        ''' <param name="SqlCnn"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
+        Friend Shared Function SystemObjectsInstalled(ByVal SqlCnn As SqlConnection) As Boolean
+
+            ExecuteDDLCommand("use [master];", SqlCnn)
+
+
+            Dim cmd As SqlCommand
+            Dim oid As Integer
+
+            ' PSA objects
+            cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'psa_attribute_definition' and [schema_id]=1;select @x;", SqlCnn)
+            oid = CInt(cmd.ExecuteScalar())
+
+            If oid = 0 Then Common.InstanceSettings.AddMetadataObjects(SqlCnn) : Return False
+
+            cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'psa_entity_definition' and [schema_id]=1;select @x;", SqlCnn)
+            oid = CInt(cmd.ExecuteScalar())
+
+            If oid = 0 Then Common.InstanceSettings.AddMetadataObjects(SqlCnn) : Return False
+
+            ' ARA object
+            cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'ara_attribute_definition' and [schema_id]=1;select @x;", SqlCnn)
+            oid = CInt(cmd.ExecuteScalar())
+
+            If oid = 0 Then Common.InstanceSettings.AddMetadataObjects(SqlCnn) : Return False
+
+            cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'ara_entity_definition' and [schema_id]=1;select @x;", SqlCnn)
+            oid = CInt(cmd.ExecuteScalar())
+
+            If oid = 0 Then Common.InstanceSettings.AddMetadataObjects(SqlCnn) : Return False
+
+            cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'ara_abstract_definition' and [schema_id]=1;select @x;", SqlCnn)
+            oid = CInt(cmd.ExecuteScalar())
+
+            If oid = 0 Then Common.InstanceSettings.AddMetadataObjects(SqlCnn) : Return False
+
+            cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'ara_abstract_column_definition' and [schema_id]=1;select @x;", SqlCnn)
+            oid = CInt(cmd.ExecuteScalar())
+
+            If oid = 0 Then Common.InstanceSettings.AddMetadataObjects(SqlCnn) : Return False
+
+            cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'ara_attribute_mapping' and [schema_id]=1;select @x;", SqlCnn)
+            oid = CInt(cmd.ExecuteScalar())
+
+            If oid = 0 Then Common.InstanceSettings.AddMetadataObjects(SqlCnn) : Return False
+
+            Return True
+        End Function
+
+        ''' <summary>
+        ''' 
+        ''' </summary>
+        ''' <remarks></remarks>
+        <Microsoft.SqlServer.Server.SqlProcedure> _
+        Public Shared Sub InstallInstanceComponents()
+
+            Dim SqlCnn As New SqlConnection("context connection=true")
+            SqlCnn.Open()
+
+            Try
+                PrintHeader()
+
+                If Not UserIsSysAdmin(SqlCnn) Then Exit Try
+
+                AddInstanceObjects(SqlCnn)
+                PrintClientMessage(" ")
+                PrintClientMessage("The instance components have been successfully installed!")
+
+            Catch ex As Exception
+                PrintClientError(New StackFrame().GetMethod().Name, ex)
+            End Try
+
+            SqlCnn.Close()
+
+        End Sub
+
+        ''' <summary>
+        ''' 
+        ''' </summary>
+        ''' <param name="SqlCnn"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
         Friend Shared Function UserIsSysAdmin(SqlCnn As SqlConnection) As Boolean
 
             Dim SqlCmd As New SqlCommand
@@ -61,7 +287,7 @@ Namespace Common
             With SqlCmd
                 .Connection = SqlCnn
                 .CommandText = "select is_srvrolemember(N'sysadmin') [ninja];"
-                oid = SqlCmd.ExecuteScalar()
+                oid = CInt(SqlCmd.ExecuteScalar())
             End With
 
             If oid = 0 Then
@@ -73,6 +299,13 @@ Namespace Common
             Return True
         End Function
 
+        ''' <summary>
+        ''' 
+        ''' </summary>
+        ''' <param name="DatabaseName"></param>
+        ''' <param name="SqlConn"></param>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
         Friend Shared Function DatabaseIsValid(DatabaseName As String, SqlConn As SqlConnection) As Boolean
 
             Dim SqlCmd As New SqlCommand
@@ -95,6 +328,11 @@ Namespace Common
             Return True
         End Function
 
+        ''' <summary>
+        ''' 
+        ''' </summary>
+        ''' <param name="InstanceConnection"></param>
+        ''' <remarks></remarks>
         Friend Shared Sub AddInstanceObjects(ByVal InstanceConnection As SqlConnection)
 
             Try
@@ -116,6 +354,11 @@ Namespace Common
 
         End Sub
 
+        ''' <summary>
+        ''' 
+        ''' </summary>
+        ''' <param name="SqlCnn"></param>
+        ''' <remarks></remarks>
         Friend Shared Sub AddMetadataObjects(ByVal SqlCnn As SqlConnection)
             ' alert the tables arent there and make them
             ExecuteDDLCommand(My.Resources.SYS_MetadataTableDefinition, SqlCnn)
@@ -125,261 +368,18 @@ Namespace Common
 
         End Sub
 
+        ''' <summary>
+        ''' 
+        ''' </summary>
+        ''' <remarks></remarks>
+        Private Shared Sub PrintHeader()
+
+            PrintClientMessage(My.Resources.SYS_SlalomTextArt1 & vbCrLf)
+            PrintClientMessage("EDW Framework")
+            PrintClientMessage("Slalom Consulting | Copyright © 2015 | www.slalom.com" & vbCrLf & vbCrLf)
+
+        End Sub
+
     End Class ' InstanceSettings
-
-End Namespace
-
-Namespace PersistentStagingArea
-
-    Partial Public Class FrameworkInstallation
-
-        Friend Shared Function GetMetadata(ByVal DatabaseName As String, _
-                                           ByVal DatabaseSchema As String, _
-                                           ByVal DatabaseEntity As String, _
-                                           ByVal DatabaseConnection As SqlConnection) As DataSet
-
-            ' handle null values by flipping them to an empty string
-            If IsNothing(DatabaseName) Then DatabaseName = ""
-            If IsNothing(DatabaseSchema) Then DatabaseSchema = ""
-            If IsNothing(DatabaseEntity) Then DatabaseEntity = ""
-
-            If Not SystemObjectsInstalled(DatabaseConnection) Then ' test database exists and filegroups exist
-                GetMetadata = Nothing
-            Else
-
-                GetMetadata = New DataSet
-
-                Dim EntityString As String = My.Resources.SYS_PSAEntityDefinition
-                Dim AttributeString As String = My.Resources.SYS_PSAAttributeDefinition
-
-                If DatabaseSchema <> "" Then
-                    EntityString += " and [psa_schema]=N'" & DatabaseSchema & "'"
-                    AttributeString += " and [psa_schema]=N'" & DatabaseSchema & "'"
-                End If
-
-                If DatabaseEntity <> "" Then
-                    EntityString += " and [psa_entity]=N'" & DatabaseEntity & "'"
-                    AttributeString += " and [psa_entity]=N'" & DatabaseEntity & "'"
-                End If
-
-                EntityString += ";"
-                AttributeString += ";"
-
-                ' the following commands are under the 'master' database
-                Dim chngstr As String = "use [master];"
-                Dim chngdb As New SqlCommand(chngstr, DatabaseConnection)
-                chngdb.ExecuteNonQuery()
-
-                Dim cmd As New SqlCommand(My.Resources.SYS_InstanceProperties, DatabaseConnection)
-                Dim da As New SqlDataAdapter(cmd)
-                da.Fill(GetMetadata, "psa_instance_properties")
-
-                ' this command the passed in database name
-                chngstr = "use [" & DatabaseName & "];"
-                chngdb = New SqlCommand(chngstr, DatabaseConnection)
-                chngdb.ExecuteNonQuery()
-
-                cmd = New SqlCommand(My.Resources.SYS_DatabaseProperties, DatabaseConnection)
-                da = New SqlDataAdapter(cmd)
-                da.Fill(GetMetadata, "psa_database_properties")
-
-                cmd = New SqlCommand(EntityString, DatabaseConnection)
-                da = New SqlDataAdapter(cmd)
-                da.Fill(GetMetadata, "psa_entity_definition")
-
-                cmd = New SqlCommand(AttributeString, DatabaseConnection)
-                da = New SqlDataAdapter(cmd)
-                da.Fill(GetMetadata, "psa_attribute_definition")
-
-            End If
-
-        End Function
-
-        Friend Shared Function SystemObjectsInstalled(ByVal SqlCnn As SqlConnection) As Boolean
-
-            Dim chngstr As String = "use [master];"
-            Dim chngdb As New SqlCommand(chngstr, SqlCnn)
-            chngdb.ExecuteNonQuery()
-
-            Dim cmd As SqlCommand
-            Dim oid As Integer
-
-            cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'psa_attribute_definition' and [schema_id]=1;select @x;", SqlCnn)
-            oid = cmd.ExecuteScalar()
-
-            If oid = 0 Then
-                Return False
-            End If
-
-            cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'psa_entity_definition' and [schema_id]=1;select @x;", SqlCnn)
-            oid = cmd.ExecuteScalar()
-
-            If oid = 0 Then
-                Return False
-            End If
-
-            Return True
-        End Function
-
-        Friend Shared Sub AddDatabaseObjects(ByVal InstanceConnection As SqlConnection, ByVal DatabaseName As String)
-
-            Dim chngstr As String = "use [" & DatabaseName & "];"
-            Dim chngdb As New SqlCommand(chngstr, InstanceConnection)
-            chngdb.ExecuteNonQuery()
-
-            ' make sure the required database roles are there
-            ExecuteDDLCommand(My.Resources.PSA_RoleDefinitions, InstanceConnection)
-            PrintClientMessage("• Database role requirements synced [database]")
-
-            ' make sure change tracking is turned on
-            ExecuteDDLCommand(Replace(My.Resources.PSA_DatabaseChangeTrackingDefinition, "{{{db}}}", DatabaseName), InstanceConnection)
-            ExecuteDDLCommand(My.Resources.PSA_ChangeTrackingSystemDefinition, InstanceConnection)
-            PrintClientMessage("• Change tracking methodology in place [database]")
-
-            ' execute hashing algorithm needs
-            ExecuteDDLCommand(My.Resources.SYS_LocalMethodInstall, InstanceConnection)
-            ExecuteDDLCommand(My.Resources.PSA_HashingAlgorithm, InstanceConnection)
-            PrintClientMessage("• Hashing algorithms are intact [database]")
-
-            ' execute service broker security needs
-            ExecuteDDLCommand(My.Resources.PSA_ServiceBrokerUserDefinition, InstanceConnection)
-            PrintClientMessage("• Service broker user security aligned [database]")
-
-            ' execute service broker security needs
-            ExecuteDDLCommand(My.Resources.PSA_LoggingDefinition, InstanceConnection)
-            PrintClientMessage("• Logging objects created [database]")
-
-        End Sub
-
-    End Class
-
-End Namespace
-
-Namespace AnalyticReportingArea
-
-    Partial Public Class FrameworkInstallation
-
-        Friend Shared Function GetMetadata(ByVal DatabaseName As String, _
-                                           ByVal DatabaseConnection As SqlConnection) As DataSet
-
-            Dim cmd As SqlCommand
-            Dim da As SqlDataAdapter
-
-            GetMetadata = New DataSet
-
-            Dim InstanceQuery As String = My.Resources.SYS_InstanceProperties
-            Dim DatabaseQuery As String = My.Resources.SYS_DatabaseProperties
-
-            Dim EntityQuery As String = My.Resources.ARA_GetMetadataEntity
-            Dim AttributeQuery As String = My.Resources.ARA_GetMetadataAttribute
-            Dim AbstractQuery As String = My.Resources.ARA_GetMetadataAbstract
-            Dim AbstractColumnQuery As String = My.Resources.ARA_GetMetadataAbstractColumn
-            Dim SecurityQuery As String = My.Resources.ARA_GetMetadataSecurity
-
-            Dim chngstr As String = "use [master];"
-            Dim chngdb As New SqlCommand(chngstr, DatabaseConnection)
-            chngdb.ExecuteNonQuery()
-
-            ' the following commands are under the 'master' database
-            cmd = New SqlCommand(InstanceQuery, DatabaseConnection)
-            da = New SqlDataAdapter(cmd)
-            da.Fill(GetMetadata, "ara_instance_properties")
-
-            ' this command the passed in database name
-            chngstr = "use [" & DatabaseName & "];"
-            chngdb = New SqlCommand(chngstr, DatabaseConnection)
-            chngdb.ExecuteNonQuery()
-
-            cmd = New SqlCommand(DatabaseQuery, DatabaseConnection)
-            da = New SqlDataAdapter(cmd)
-            da.Fill(GetMetadata, "ara_database_properties")
-
-            cmd = New SqlCommand(EntityQuery, DatabaseConnection)
-            da = New SqlDataAdapter(cmd)
-            da.Fill(GetMetadata, "ara_entity_definition")
-
-            cmd = New SqlCommand(AttributeQuery, DatabaseConnection)
-            da = New SqlDataAdapter(cmd)
-            da.Fill(GetMetadata, "ara_attribute_definition")
-
-            cmd = New SqlCommand(AbstractQuery, DatabaseConnection)
-            da = New SqlDataAdapter(cmd)
-            da.Fill(GetMetadata, "ara_abstract_definition")
-
-            cmd = New SqlCommand(AbstractColumnQuery, DatabaseConnection)
-            da = New SqlDataAdapter(cmd)
-            da.Fill(GetMetadata, "ara_abstract_column_definition")
-
-            cmd = New SqlCommand(SecurityQuery, DatabaseConnection)
-            da = New SqlDataAdapter(cmd)
-            da.Fill(GetMetadata, "ara_security_definition")
-
-            Return GetMetadata
-
-        End Function
-
-        Friend Shared Function SystemObjectsInstalled(ByVal SqlCnn As SqlConnection) As Boolean
-
-            Dim chngstr As String = "use [master];"
-            Dim chngdb As New SqlCommand(chngstr, SqlCnn)
-            chngdb.ExecuteNonQuery()
-
-            Dim cmd As SqlCommand
-            Dim oid As Integer
-
-            cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'ara_attribute_definition' and [schema_id]=1;select @x;", SqlCnn)
-            oid = cmd.ExecuteScalar()
-
-            If oid = 0 Then Common.InstanceSettings.AddMetadataObjects(SqlCnn) : Return False
-
-            cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'ara_entity_definition' and [schema_id]=1;select @x;", SqlCnn)
-            oid = cmd.ExecuteScalar()
-
-            If oid = 0 Then Common.InstanceSettings.AddMetadataObjects(SqlCnn) : Return False
-
-            cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'ara_abstract_definition' and [schema_id]=1;select @x;", SqlCnn)
-            oid = cmd.ExecuteScalar()
-
-            If oid = 0 Then Common.InstanceSettings.AddMetadataObjects(SqlCnn) : Return False
-
-            cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'ara_abstract_column_definition' and [schema_id]=1;select @x;", SqlCnn)
-            oid = cmd.ExecuteScalar()
-
-            If oid = 0 Then Common.InstanceSettings.AddMetadataObjects(SqlCnn) : Return False
-
-            cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'ara_attribute_mapping' and [schema_id]=1;select @x;", SqlCnn)
-            oid = cmd.ExecuteScalar()
-
-            If oid = 0 Then Common.InstanceSettings.AddMetadataObjects(SqlCnn) : Return False
-
-            Return True
-        End Function
-
-        Friend Shared Sub AddDatabaseObjects(ByVal InstanceConnection As SqlConnection, ByVal DatabaseName As String)
-
-            Dim chngstr As String = "use [" & DatabaseName & "];"
-            Dim chngdb As New SqlCommand(chngstr, InstanceConnection)
-            chngdb.ExecuteNonQuery()
-
-            ' make sure the required database roles are there
-            ExecuteDDLCommand(My.Resources.ARA_RoleDefinitions, InstanceConnection)
-            PrintClientMessage("• Database role requirements synced [database]")
-
-            ' make sure an audit trigger is in place
-            ExecuteDDLCommand(My.Resources.ARA_Audit, InstanceConnection)
-            PrintClientMessage("• DDL audit trigger is in place [database]")
-
-            ' execute hashing algorithm needs
-            ExecuteDDLCommand(My.Resources.SYS_LocalMethodInstall, InstanceConnection)
-            ExecuteDDLCommand(My.Resources.ARA_HashingAlgorithm, InstanceConnection)
-            PrintClientMessage("• Hashing algorithms are intact [database]")
-
-            ' execute service broker security needs
-            ExecuteDDLCommand(My.Resources.ARA_LoggingDefinition, InstanceConnection)
-            PrintClientMessage("• Logging objects created [database]")
-
-        End Sub
-
-    End Class
 
 End Namespace
