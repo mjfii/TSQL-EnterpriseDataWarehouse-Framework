@@ -50,6 +50,10 @@ Namespace Common
 
 #End Region
 
+    ''' <summary>
+    ''' 
+    ''' </summary>
+    ''' <remarks></remarks>
     Partial Public Class SqlClientOutbound
 
         ''' <summary>

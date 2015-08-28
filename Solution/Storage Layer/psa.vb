@@ -8,15 +8,40 @@ Imports System.Runtime.InteropServices
 Imports EDW.Common.SqlClientOutbound
 Imports EDW.Common.InstanceSettings
 
+''' <summary>
+''' 
+''' </summary>
+''' <remarks></remarks>
 Partial Public Class PSA
 
 #Region "CLR Exposed Methods"
 
-    ''' <summary></summary>
+    ''' <summary>
+    ''' This is the primary method that is called to create the database objects in the PSA.  Before executing the DDL, 
+    ''' the method will ensure both required server and database level objects are in place.
+    ''' </summary>
+    ''' <param name="DatabaseName">The name of the database on the connected instance to build the entities.</param>
+    ''' <param name="DatabaseSchema">The schema subset of domain objects to process.</param>
+    ''' <param name="DatabaseEntity">The entity subset of domain objects to process.</param>
+    ''' <remarks>
+    ''' To snap-in this CLR method, use the following T-SQL, or some variant of it:
+    ''' <code language = "sqlserver" numberLines="true">
+    '''create procedure [dbo].[psa_build_entities]
+    ''' (
+    '''   @DatabaseName sysname,
+    '''   @DatabaseSchema sysname,
+    '''   @DatabaseObject sysname
+    ''' )
+    '''as external name [Slalom.Framework.StorageLayer].[EDW.PSA].[BuildEntities];
+    '''go
+    '''exec sys.sp_MS_marksystemobject 'psa_build_entities';
+    '''go 
+    ''' </code> 
+    ''' </remarks>
     <Microsoft.SqlServer.Server.SqlProcedure> _
-    Public Shared Sub BuildEntities(ByVal DatabaseName As String, _
-                                    ByVal DatabaseSchema As String, _
-                                    ByVal DatabaseEntity As String)
+    Public Shared Sub BuildEntities(ByVal DatabaseName As SqlString, _
+                                    ByVal DatabaseSchema As SqlString, _
+                                    ByVal DatabaseEntity As SqlString)
 
         Dim SqlCnn As New SqlConnection("context connection=true")
         SqlCnn.Open()
@@ -27,14 +52,13 @@ Partial Public Class PSA
             ' if the user is part of the sysadmin role, move along
             If Not UserIsSysAdmin(SqlCnn) Then Exit Try
 
-            ProcessCall(SqlCnn, DatabaseName, DatabaseSchema, DatabaseEntity, False, False)
+            ProcessCall(SqlCnn, DatabaseName.ToString, DatabaseSchema.ToString, DatabaseEntity.ToString, False, False)
 
         Catch ex As Exception
             PrintClientError(New StackFrame().GetMethod().Name, ex)
         End Try
 
         SqlCnn.Close()
-
 
     End Sub
 
@@ -140,7 +164,16 @@ Partial Public Class PSA
 
 #End Region
 
-    ''' <summary></summary>
+    ''' <summary>
+    ''' 
+    ''' </summary>
+    ''' <param name="SqlCnn"></param>
+    ''' <param name="DatabaseName"></param>
+    ''' <param name="DatabaseSchema"></param>
+    ''' <param name="DatabaseEntity"></param>
+    ''' <param name="vo"></param>
+    ''' <param name="del"></param>
+    ''' <remarks></remarks>
     Private Shared Sub ProcessCall(ByVal SqlCnn As SqlConnection,
                                    ByVal DatabaseName As String,
                                    ByVal DatabaseSchema As String,
@@ -196,7 +229,14 @@ Partial Public Class PSA
 
     End Sub
 
-    ''' <summary></summary>
+    ''' <summary>
+    ''' 
+    ''' </summary>
+    ''' <param name="pc"></param>
+    ''' <param name="SqlCnn"></param>
+    ''' <param name="VerifyOnly"></param>
+    ''' <param name="DeleteObjects"></param>
+    ''' <remarks></remarks>
     Private Shared Sub ProcessConstruct(pc As Construct, SqlCnn As SqlConnection, VerifyOnly As Boolean, DeleteObjects As Boolean)
 
         Dim st As Date = Now()
@@ -334,14 +374,24 @@ nextc:
 
     End Sub
 
-    ''' <summary></summary>
+    ''' <summary>
+    ''' 
+    ''' </summary>
+    ''' <param name="e"></param>
+    ''' <param name="SqlCnn"></param>
+    ''' <remarks></remarks>
     Private Shared Sub DropEntity(e As Construct.Entity, ByVal SqlCnn As SqlConnection)
 
         ExecuteDDLCommand(e.RenameDefintion, SqlCnn)
 
     End Sub
 
-    ''' <summary></summary>
+    ''' <summary>
+    ''' 
+    ''' </summary>
+    ''' <param name="e"></param>
+    ''' <param name="SqlCnn"></param>
+    ''' <remarks></remarks>
     Private Shared Sub BuildEntity(e As Construct.Entity, ByVal SqlCnn As SqlConnection)
 
         ExecuteDDLCommand(e.TableDefinition, SqlCnn)
@@ -356,13 +406,28 @@ nextc:
 
     End Sub
 
-    ''' <summary></summary>
+    ''' <summary>
+    ''' 
+    ''' </summary>
+    ''' <param name="e"></param>
+    ''' <param name="SqlCnn"></param>
+    ''' <remarks></remarks>
     Private Shared Sub DropAbstracts(e As Construct.Entity, ByVal SqlCnn As SqlConnection)
         ExecuteDDLCommand(e.DropRelatedObjectsDefintion, SqlCnn)
     End Sub
 
-    ''' <summary></summary>
+    ''' <summary>
+    ''' 
+    ''' </summary>
+    ''' <param name="e"></param>
+    ''' <param name="SqlCnn"></param>
+    ''' <remarks></remarks>
     Private Shared Sub BuildAbstracts(e As Construct.Entity, ByVal SqlCnn As SqlConnection)
+
+        If e.ObjectID = 0 Then
+            Dim oid As String = ExecuteSQLScalar("select object_id(N'" & e.Domain & "') [oid]", SqlCnn)
+            e.ObjectID = CInt(oid)
+        End If
 
         ' control abstract
         ExecuteDDLCommand(e.ControlViewDefinition, SqlCnn)
@@ -413,7 +478,12 @@ nextc:
 
     End Sub
 
-    ''' <summary></summary>
+    ''' <summary>
+    ''' 
+    ''' </summary>
+    ''' <param name="e"></param>
+    ''' <param name="SqlCnn"></param>
+    ''' <remarks></remarks>
     Private Shared Sub SyncMetadata(e As Construct.Entity, ByVal SqlCnn As SqlConnection)
 
         ExecuteDDLCommand(e.EntityMetadataDefinition, SqlCnn)
@@ -421,7 +491,10 @@ nextc:
 
     End Sub
 
-    ''' <summary></summary>
+    ''' <summary>
+    ''' 
+    ''' </summary>
+    ''' <remarks></remarks>
     Private Shared Sub PrintHeader()
 
         PrintClientMessage(My.Resources.SYS_SlalomTextArt1 & vbCrLf)
@@ -521,7 +594,10 @@ nextc:
     End Function
 
 
-    ''' <summary></summary>
+    ''' <summary>
+    ''' 
+    ''' </summary>
+    ''' <remarks></remarks>
     Class Construct
 
 #Region "Construct Variables"
@@ -532,7 +608,12 @@ nextc:
 
 #Region "Construct Properties"
 
-        ''' <summary></summary>
+        ''' <summary>
+        ''' 
+        ''' </summary>
+        ''' <value></value>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
         Protected Friend ReadOnly Property EntityCount As Integer
             Get
                 If IsNothing(_entities) Then
@@ -543,21 +624,37 @@ nextc:
             End Get
         End Property
 
-        ''' <summary></summary>
+        ''' <summary>
+        ''' 
+        ''' </summary>
+        ''' <param name="EntityNumber"></param>
+        ''' <value></value>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
         Protected Friend ReadOnly Property Entities(EntityNumber As Integer) As Entity
             Get
                 Return _entities(EntityNumber)
             End Get
         End Property
 
-        ''' <summary></summary>
+        ''' <summary>
+        ''' 
+        ''' </summary>
+        ''' <value></value>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
         Protected Friend ReadOnly Property DatabaseName As String
             Get
                 Return _databasename
             End Get
         End Property
 
-        ''' <summary></summary>
+        ''' <summary>
+        ''' 
+        ''' </summary>
+        ''' <value></value>
+        ''' <returns></returns>
+        ''' <remarks></remarks>
         Protected Friend ReadOnly Property DatabaseCompatibility As EDW.Common.SQLServerCompatibility
             Get
                 Return _databasecompatibility
@@ -620,7 +717,10 @@ nextc:
 
 #End Region
 
-        ''' <summary></summary>
+        ''' <summary>
+        ''' 
+        ''' </summary>
+        ''' <remarks></remarks>
         Class Entity
 
 #Region "Entity Variables"
@@ -1802,7 +1902,24 @@ nextc:
 
 #Region "Entity Constructors"
 
-            ''' <summary></summary>
+            ''' <summary>
+            ''' 
+            ''' </summary>
+            ''' <param name="NewSchema"></param>
+            ''' <param name="NewEntity"></param>
+            ''' <param name="NewDescription"></param>
+            ''' <param name="NewSourceStatement"></param>
+            ''' <param name="NewSourcePredicateValues"></param>
+            ''' <param name="NewSourceSchema"></param>
+            ''' <param name="NewSourceEntity"></param>
+            ''' <param name="NewHashLargeObjects"></param>
+            ''' <param name="NewInferDeletions"></param>
+            ''' <param name="NewBuildGroup"></param>
+            ''' <param name="NewLogicalSignature"></param>
+            ''' <param name="NewConstructSignature"></param>
+            ''' <param name="NewMaxThreads"></param>
+            ''' <param name="NewMaxRecordCount"></param>
+            ''' <remarks></remarks>
             Protected Friend Sub New(ByVal NewSchema As String,
                                      ByVal NewEntity As String,
                                      ByVal NewDescription As String,
@@ -1835,7 +1952,17 @@ nextc:
 
             End Sub
 
-            ''' <summary></summary>
+            ''' <summary>
+            ''' 
+            ''' </summary>
+            ''' <param name="AttributeName"></param>
+            ''' <param name="AttributeOrdinal"></param>
+            ''' <param name="AttributeDatatype"></param>
+            ''' <param name="AttributeOptionality"></param>
+            ''' <param name="AttributeBusinessIdentifier"></param>
+            ''' <param name="AttributeSortOrder"></param>
+            ''' <param name="AttributeDescription"></param>
+            ''' <remarks></remarks>
             Protected Friend Sub AddEntityAttribute(ByVal AttributeName As String,
                                                     ByVal AttributeOrdinal As Integer,
                                                     ByVal AttributeDatatype As String,
