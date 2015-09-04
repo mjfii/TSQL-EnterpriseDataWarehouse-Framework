@@ -78,4 +78,12 @@ Module BuildExtentions
 
     End Function
 
+    ''' <summary>Converts null string to and empty string.</summary>
+    ''' <param name="InputString">String to validate.</param>
+    ''' <returns>String</returns>
+    <Extension()> _
+    Friend Function EscapeTicks(ByVal InputString As String) As String
+        Return Replace(InputString, "'", "''")
+    End Function
+
 End Module

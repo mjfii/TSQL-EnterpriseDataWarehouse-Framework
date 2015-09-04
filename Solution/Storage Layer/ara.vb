@@ -110,7 +110,7 @@ Public Class ARA
                                           ByVal ProcessAbstractsInFull As Boolean)
 
         ' see if metadata tables are ready in master database
-        If Not SystemObjectsInstalled(SqlCnn) Then Exit Sub
+        If Not MetadataObjectsInstalled(SqlCnn) Then Exit Sub
 
         ' validate incoming database
         If Not DatabaseIsValid(DatabaseName, SqlCnn) Then Exit Sub

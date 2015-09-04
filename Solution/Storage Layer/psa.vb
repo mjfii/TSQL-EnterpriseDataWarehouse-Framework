@@ -39,9 +39,9 @@ Partial Public Class PSA
     ''' </code> 
     ''' </remarks>
     <Microsoft.SqlServer.Server.SqlProcedure> _
-    Public Shared Sub BuildEntities(ByVal DatabaseName As SqlString, _
-                                    ByVal DatabaseSchema As SqlString, _
-                                    ByVal DatabaseEntity As SqlString)
+    Public Shared Sub BuildEntities(ByVal DatabaseName As String, _
+                                    ByVal DatabaseSchema As String, _
+                                    ByVal DatabaseEntity As String)
 
         Dim SqlCnn As New SqlConnection("context connection=true")
         SqlCnn.Open()
@@ -52,7 +52,7 @@ Partial Public Class PSA
             ' if the user is part of the sysadmin role, move along
             If Not UserIsSysAdmin(SqlCnn) Then Exit Try
 
-            ProcessCall(SqlCnn, DatabaseName.ToString, DatabaseSchema.ToString, DatabaseEntity.ToString, False, False)
+            ProcessCall(SqlCnn, DatabaseName, DatabaseSchema, DatabaseEntity, False, False)
 
         Catch ex As Exception
             PrintClientError(New StackFrame().GetMethod().Name, ex)
@@ -62,7 +62,27 @@ Partial Public Class PSA
 
     End Sub
 
-    ''' <summary></summary>
+    ''' <summary>
+    ''' This method is called to verify potential changes to the database objects in the PSA.
+    ''' </summary>
+    ''' <param name="DatabaseName">The name of the database on the connected instance to build the entities.</param>
+    ''' <param name="DatabaseSchema">The schema subset of domain objects to process.</param>
+    ''' <param name="DatabaseEntity">The entity subset of domain objects to process.</param>
+    ''' <remarks>
+    ''' To snap-in this CLR method, use the following T-SQL, or some variant of it:
+    ''' <code language = "sqlserver" numberLines="true">
+    '''create procedure [dbo].[psa_verify_entities]
+    ''' (
+    '''   @DatabaseName sysname,
+    '''   @DatabaseSchema sysname,
+    '''   @DatabaseObject sysname
+    ''' )
+    '''as external name [Slalom.Framework.StorageLayer].[EDW.PSA].[VerifyEntities];
+    '''go
+    '''exec sys.sp_MS_marksystemobject 'psa_verify_entities';
+    '''go 
+    ''' </code> 
+    ''' </remarks>
     <Microsoft.SqlServer.Server.SqlProcedure> _
     Public Shared Sub VerifyEntities(ByVal DatabaseName As String, _
                                      ByVal DatabaseSchema As String, _
@@ -87,7 +107,27 @@ Partial Public Class PSA
 
     End Sub
 
-    ''' <summary></summary>
+    ''' <summary>
+    ''' 
+    ''' </summary>
+    ''' <param name="DatabaseName">The name of the database on the connected instance to build the entities.</param>
+    ''' <param name="DatabaseSchema">The schema subset of domain objects to process.</param>
+    ''' <param name="DatabaseEntity">The entity subset of domain objects to process.</param>
+    ''' <remarks>
+    ''' To snap-in this CLR method, use the following T-SQL, or some variant of it:
+    ''' <code language = "sqlserver" numberLines="true">
+    '''create procedure [dbo].[psa_drop_entities]
+    ''' (
+    '''   @DatabaseName sysname,
+    '''   @DatabaseSchema sysname,
+    '''   @DatabaseObject sysname
+    ''' )
+    '''as external name [Slalom.Framework.StorageLayer].[EDW.PSA].[DropEntities];
+    '''go
+    '''exec sys.sp_MS_marksystemobject 'psa_drop_entities';
+    '''go 
+    ''' </code> 
+    ''' </remarks>
     <Microsoft.SqlServer.Server.SqlProcedure> _
     Public Shared Sub DropEntities(ByVal DatabaseName As String, _
                                     ByVal DatabaseSchema As String, _
@@ -112,7 +152,10 @@ Partial Public Class PSA
 
     End Sub
 
-    ''' <summary></summary>
+    ''' <summary>
+    ''' 
+    ''' </summary>
+    ''' <remarks></remarks>
     <Microsoft.SqlServer.Server.SqlProcedure> _
     Public Shared Sub GetModel
 
@@ -127,6 +170,7 @@ Partial Public Class PSA
 
             Dim model_query As String = My.Resources.PSA_GetModel
             ReturnClientResults(model_query, SqlCnn)
+            PrintClientMessage("The model has been successfully exported.")
 
         Catch ex As Exception
             PrintClientError(New StackFrame().GetMethod().Name, ex)
@@ -136,9 +180,13 @@ Partial Public Class PSA
 
     End Sub
 
-    ''' <summary></summary>
+    ''' <summary>
+    ''' 
+    ''' </summary>
+    ''' <param name="ImportModel"></param>
+    ''' <remarks></remarks>
     <Microsoft.SqlServer.Server.SqlProcedure> _
-    Public Shared Sub SetModel(ByVal model As SqlXml)
+    Public Shared Sub SetModel(ByVal ImportModel As SqlXml)
 
         Dim SqlCnn As New SqlConnection("context connection=true")
         SqlCnn.Open()
@@ -149,10 +197,11 @@ Partial Public Class PSA
             ' if the user is part of the sysadmin role, move along
             If Not UserIsSysAdmin(SqlCnn) Then Exit Try
 
-            If IsNothing(model) Then PrintClientMessage("You cannot process a null model.") : Exit Try
+            If IsNothing(ImportModel) Then PrintClientMessage("You cannot process a null model.") : Exit Try
 
-            Dim model_query As String = Replace(My.Resources.PSA_SetModel, "{{{xml}}}", model.Value.ToString)
+            Dim model_query As String = Replace(My.Resources.PSA_SetModel, "{{{xml}}}", ImportModel.Value.ToString)
             ExecuteDDLCommand(model_query, SqlCnn)
+            PrintClientMessage("The model has been successfully imported.")
 
         Catch ex As Exception
             PrintClientError(New StackFrame().GetMethod().Name, ex)
@@ -182,7 +231,7 @@ Partial Public Class PSA
                                    ByVal del As Boolean)
 
         ' see if metadata tables are ready in master database
-        If Not SystemObjectsInstalled(SqlCnn) Then Exit Sub
+        If Not MetadataObjectsInstalled(SqlCnn) Then Exit Sub
 
         ' validate incoming database
         If Not DatabaseIsValid(DatabaseName, SqlCnn) Then Exit Sub
@@ -198,30 +247,18 @@ Partial Public Class PSA
             ' get the metadata from system tables
             Dim md As DataSet = GetMetadata(DatabaseName, DatabaseSchema, DatabaseEntity, SqlCnn)
 
-            ' if we have a promising set, i.e. the selects worked, we can move forward
-            If Not md Is Nothing Then
+            If md Is Nothing Then PrintClientMessage("metadata fatal error?!?!?!") : Exit Try
 
-                ' load up a variable with the usable construct
-                Dim cons As New Construct(md)
+            ' load up a variable with the usable construct
+            Dim cons As New Construct(md)
 
-                ' with we have records, we can begin with the DDL process, otherwise, alert client and exit
-                If cons.EntityCount > 0 Then
-                    ProcessConstruct(cons, SqlCnn, vo, del)
-                Else
-                    PrintClientMessage(vbCrLf)
-                    PrintClientMessage("There is not defined metadata for the PSA in [dbo].[psa_entity_definition] and/or [dbo].[psa_attribute_definition] in the [master] database.")
-                End If ' metadata content exists
-
+            ' with we have records, we can begin with the DDL process, otherwise, alert client and exit
+            If cons.EntityCount > 0 Then
+                ProcessConstruct(cons, SqlCnn, vo, del)
             Else
-                ' alert the tables arent there and make them
-                ' execute service broker security needs
-
-                ExecuteDDLCommand(My.Resources.SYS_MetadataTableDefinition, SqlCnn)
                 PrintClientMessage(vbCrLf)
-                PrintClientMessage("The PSA Framework was not ready for use. The required system tables have been built; you can now use the [dbo].[psa_entity_definition] and")
-                PrintClientMessage("[dbo].[psa_attribute_definition] tables in the [master] database to add the metadata construct elements to build each of the PSA objects.")
-
-            End If ' metadata tables exist
+                PrintClientMessage("There is not defined metadata for the PSA in [dbo].[psa_entity_definition] and/or [dbo].[psa_attribute_definition] in the [master] database.")
+            End If ' metadata content exists
 
         Catch ex As Exception
             PrintClientError(New StackFrame().GetMethod().Name, ex)
@@ -551,48 +588,53 @@ nextc:
                                         ByVal DatabaseEntity As String, _
                                         ByVal DatabaseConnection As SqlConnection) As DataSet
 
-        ' handle null values by flipping them to an empty string
-        If IsNothing(DatabaseName) Then DatabaseName = ""
-        If IsNothing(DatabaseSchema) Then DatabaseSchema = ""
-        If IsNothing(DatabaseEntity) Then DatabaseEntity = ""
+        Try
 
-        GetMetadata = New DataSet
+            ' handle null values by flipping them to an empty string
+            If IsNothing(DatabaseName) Then DatabaseName = ""
+            If IsNothing(DatabaseSchema) Then DatabaseSchema = ""
+            If IsNothing(DatabaseEntity) Then DatabaseEntity = ""
 
-        Dim InstanceString As String = My.Resources.SYS_InstanceProperties
-        Dim DatabaseString As String = My.Resources.SYS_DatabaseProperties
-        Dim EntityString As String = My.Resources.SYS_PSAEntityDefinition
-        Dim AttributeString As String = My.Resources.SYS_PSAAttributeDefinition
+            GetMetadata = New DataSet
 
+            Dim InstanceString As String = My.Resources.SYS_InstanceProperties
+            Dim DatabaseString As String = My.Resources.SYS_DatabaseProperties
+            Dim EntityString As String = My.Resources.SYS_PSAEntityDefinition
+            Dim AttributeString As String = My.Resources.SYS_PSAAttributeDefinition
 
-        If DatabaseSchema <> "" Then
-            EntityString += " and [psa_schema]=N'" & DatabaseSchema & "'"
-            AttributeString += " and [psa_schema]=N'" & DatabaseSchema & "'"
-        End If
+            If DatabaseSchema <> "" Then
+                EntityString += " and [psa_schema]=N'" & DatabaseSchema & "'"
+                AttributeString += " and [psa_schema]=N'" & DatabaseSchema & "'"
+            End If
 
-        If DatabaseEntity <> "" Then
-            EntityString += " and [psa_entity]=N'" & DatabaseEntity & "'"
-            AttributeString += " and [psa_entity]=N'" & DatabaseEntity & "'"
-        End If
+            If DatabaseEntity <> "" Then
+                EntityString += " and [psa_entity]=N'" & DatabaseEntity & "'"
+                AttributeString += " and [psa_entity]=N'" & DatabaseEntity & "'"
+            End If
 
-        EntityString += ";"
-        AttributeString += ";"
+            EntityString += ";"
+            AttributeString += ";"
 
-        ' the following commands are under the 'master' database
-        ExecuteDDLCommand("use [master];", DatabaseConnection)
+            ' the following commands are under the 'master' database
+            ExecuteDDLCommand("use [master];", DatabaseConnection)
 
-        ReturnInternalResults(GetMetadata, InstanceString, "psa_instance_properties", DatabaseConnection)
+            ReturnInternalResults(GetMetadata, InstanceString, "psa_instance_properties", DatabaseConnection)
 
-        ' this command the passed in database name
-        ExecuteDDLCommand("use [" & DatabaseName & "];", DatabaseConnection)
+            ' this command the passed in database name
+            ExecuteDDLCommand("use [" & DatabaseName & "];", DatabaseConnection)
 
-        ReturnInternalResults(GetMetadata, DatabaseString, "psa_database_properties", DatabaseConnection)
+            ReturnInternalResults(GetMetadata, DatabaseString, "psa_database_properties", DatabaseConnection)
 
-        ReturnInternalResults(GetMetadata, EntityString, "psa_entity_definition", DatabaseConnection)
+            ReturnInternalResults(GetMetadata, EntityString, "psa_entity_definition", DatabaseConnection)
 
-        ReturnInternalResults(GetMetadata, AttributeString, "psa_attribute_definition", DatabaseConnection)
+            ReturnInternalResults(GetMetadata, AttributeString, "psa_attribute_definition", DatabaseConnection)
+
+        Catch ex As Exception
+            PrintClientError(New StackFrame().GetMethod().Name, ex)
+            Return Nothing
+        End Try
 
     End Function
-
 
     ''' <summary>
     ''' 
@@ -668,50 +710,57 @@ nextc:
         ''' <summary></summary>
         Protected Friend Sub New(ByVal NewConstruct As DataSet)
 
-            Dim dp As DataTable = NewConstruct.Tables("psa_database_properties")
-            Dim edt As DataTable = NewConstruct.Tables("psa_entity_definition")
-            Dim adt As DataTable = NewConstruct.Tables("psa_attribute_definition")
-            Dim e As Entity
-            Dim i As Integer = 0
-            Dim edr As DataRow
+            Try
 
-            _databasename = CStr(dp.Rows(0).Item("database_name").ToString)
-            _databasecompatibility = dp.Rows(0).Item("compatibility_level").ToString.StringToDatabaseCompatibility
+                Dim dp As DataTable = NewConstruct.Tables("psa_database_properties")
+                Dim EntityDefinition As DataTable = NewConstruct.Tables("psa_entity_definition")
+                Dim adt As DataTable = NewConstruct.Tables("psa_attribute_definition")
+                Dim e As Entity
+                Dim edr As DataRow
 
-            For Each edr In edt.Rows
+                _databasename = CStr(dp.Rows(0).Item("database_name").ToString)
+                _databasecompatibility = dp.Rows(0).Item("compatibility_level").ToString.StringToDatabaseCompatibility
 
-                ReDim Preserve _entities(i)
-                e = New Entity(edr("psa_schema").ToString, _
-                               edr("psa_entity").ToString, _
-                               If(IsDBNull(edr("psa_entity_description").ToString), "", edr("psa_entity_description").ToString), _
-                               If(IsDBNull(edr("psa_source_statement").ToString), "", edr("psa_source_statement").ToString), _
-                               If(IsDBNull(edr("psa_source_predicate_values").ToString), "", edr("psa_source_predicate_values").ToString), _
-                               edr("source_schema").ToString, _
-                               edr("source_entity").ToString, _
-                               edr("hash_large_objects").ToString, _
-                               edr("psa_infer_deletions").ToString, _
-                               If(IsDBNull(edr("etl_build_group").ToString), "", edr("etl_build_group").ToString), _
-                               edr("psa_logical_signature").ToString, _
-                               edr("psa_construct_signature").ToString,
-                               CInt(edr("etl_max_threads")),
-                               CInt(edr("etl_max_record_count"))
-                               )
+                For Each edr In EntityDefinition.Rows
 
-                For Each adr In adt.Select("psa_schema = '" & edr("psa_schema").ToString & "' and psa_entity = '" & edr("psa_entity").ToString & "'", "psa_attribute_ordinal")
+                    e = New Entity(edr("psa_schema").ToString,
+                                   edr("psa_entity").ToString,
+                                   edr("psa_entity_description").ToString.RemoveNulls,
+                                   edr("source_schema").ToString,
+                                   edr("source_entity").ToString,
+                                   edr("psa_hash_large_objects").ToString,
+                                   edr("etl_infer_deletions").ToString,
+                                   edr("etl_build_group").ToString.RemoveNulls,
+                                   CShort(edr("etl_sequence_order").ToString),
+                                   edr("psa_logical_signature").ToString,
+                                   edr("psa_construct_signature").ToString,
+                                   CInt(edr("psa_max_threads")),
+                                   CInt(edr("etl_max_record_count")),
+                                   edr("etl_full_load").ToString,
+                                   edr("etl_source_variables").ToString,
+                                   edr("etl_fixed_predicate").ToString,
+                                   edr("etl_variable_predicate").ToString
+                                   )
 
-                    e.AddEntityAttribute(adr("psa_attribute").ToString, _
-                                         CInt(adr("psa_attribute_ordinal")), _
-                                         adr("psa_attribute_datatype").ToString, _
-                                         adr("psa_attribute_optional").ToString, _
-                                         adr("psa_attribute_business_identifier").ToString, _
-                                         adr("psa_attribute_sort").ToString, _
-                                         If(IsDBNull(adr("psa_attribute_description").ToString), "", adr("psa_attribute_description").ToString))
+                    For Each adr In adt.Select("psa_schema = '" & edr("psa_schema").ToString & "' and psa_entity = '" & edr("psa_entity").ToString & "'", "psa_attribute_ordinal")
 
+                        e.AddEntityAttribute(adr("psa_attribute").ToString, _
+                                             CInt(adr("psa_attribute_ordinal")), _
+                                             adr("psa_attribute_datatype").ToString, _
+                                             adr("psa_attribute_optional").ToString, _
+                                             adr("psa_attribute_business_id").ToString, _
+                                             adr("psa_attribute_index").ToString, _
+                                             adr("psa_attribute_sort").ToString, _
+                                             adr("psa_attribute_description").ToString.RemoveNulls)
+
+                    Next
+
+                    _entities.AddMember(e)
                 Next
 
-                _entities(i) = e
-                i += 1 ' increment
-            Next
+            Catch ex As Exception
+                PrintClientError(New StackFrame().GetMethod().Name, ex)
+            End Try
 
         End Sub
 
@@ -727,18 +776,21 @@ nextc:
             Private _schema As String
             Private _entity As String
             Private _description As String
-            Private _sourcestatement As String
-            Private _sourcepredicatevalues As String
             Private _sourceschema As String
             Private _sourceentity As String
             Private _hashlargeobjects As EDW.Common.YesNoType
             Private _inferdeletions As EDW.Common.YesNoType
             Private _buildgroup As String
+            Private _sequenceorder As Short
             Private _logicalsig As String
             Private _constructsig As String
             Private _maxthreads As Integer
             Private _maxrecordcount As Integer
             Private _objectid As Integer
+            Private _fullload As EDW.Common.YesNoType
+            Private _sourcevariables As String
+            Private _fixedpredicate As String
+            Private _variablepredicate As String
             Private _attribute As EntityAttribute()
 #End Region
 
@@ -775,26 +827,6 @@ nextc:
             End Property
 
             ''' <summary></summary>
-            Protected Friend Property SourceStatement As String
-                Get
-                    Return _sourcestatement
-                End Get
-                Set(value As String)
-                    _sourcestatement = value
-                End Set
-            End Property
-
-            ''' <summary></summary>
-            Protected Friend Property SourcePredicateValues As String
-                Get
-                    Return _sourcepredicatevalues
-                End Get
-                Set(value As String)
-                    _sourcepredicatevalues = value
-                End Set
-            End Property
-
-            ''' <summary></summary>
             Protected Friend Property SourceSchema As String
                 Get
                     Return _sourceschema
@@ -825,12 +857,12 @@ nextc:
             End Property
 
             ''' <summary></summary>
-            Protected Friend Property InferDeletions As EDW.Common.YesNoType
+            Protected Friend Property MaxThreads As Integer
                 Get
-                    Return _inferdeletions
+                    Return _maxthreads
                 End Get
-                Set(value As EDW.Common.YesNoType)
-                    _inferdeletions = value
+                Set(value As Integer)
+                    _maxthreads = value
                 End Set
             End Property
 
@@ -845,37 +877,6 @@ nextc:
             End Property
 
             ''' <summary></summary>
-            Protected Friend Property LogicalSignature As String
-
-                Get
-                    Return _logicalsig
-                End Get
-                Set(value As String)
-                    _logicalsig = value
-                End Set
-            End Property
-
-            ''' <summary></summary>
-            Protected Friend Property ConstructSignature As String
-                Get
-                    Return _constructsig
-                End Get
-                Set(ByVal value As String)
-                    _constructsig = value
-                End Set
-            End Property
-
-            ''' <summary></summary>
-            Protected Friend Property MaxThreads As Integer
-                Get
-                    Return _maxthreads
-                End Get
-                Set(value As Integer)
-                    _maxthreads = value
-                End Set
-            End Property
-
-            ''' <summary></summary>
             Protected Friend Property MaxRecordCount As Integer
                 Get
                     Return _maxrecordcount
@@ -886,6 +887,91 @@ nextc:
             End Property
 
             ''' <summary></summary>
+            Protected Friend Property SequenceOrder As Short
+                Get
+                    Return _sequenceorder
+                End Get
+                Set(value As Short)
+                    _sequenceorder = value
+                End Set
+            End Property
+
+            ''' <summary></summary>
+            Protected Friend Property InferDeletions As EDW.Common.YesNoType
+                Get
+                    Return _inferdeletions
+                End Get
+                Set(value As EDW.Common.YesNoType)
+                    _inferdeletions = value
+                End Set
+            End Property
+
+            ''' <summary>
+            ''' 
+            ''' </summary>
+            ''' <value></value>
+            ''' <returns></returns>
+            ''' <remarks></remarks>
+            Protected Friend Property FullLoad As EDW.Common.YesNoType
+                Get
+                    Return _fullload
+                End Get
+                Set(value As EDW.Common.YesNoType)
+                    _fullload = value
+                End Set
+            End Property
+
+            ''' <summary>
+            ''' 
+            ''' </summary>
+            ''' <value></value>
+            ''' <returns></returns>
+            ''' <remarks></remarks>
+            Protected Friend Property SourceVariables As String
+                Get
+                    Return _sourcevariables
+                End Get
+                Set(value As String)
+                    _sourcevariables = value
+                End Set
+            End Property
+
+            ''' <summary>
+            ''' 
+            ''' </summary>
+            ''' <value></value>
+            ''' <returns></returns>
+            ''' <remarks></remarks>
+            Protected Friend Property FixedPredicate As String
+                Get
+                    Return _fixedpredicate
+                End Get
+                Set(value As String)
+                    _fixedpredicate = value
+                End Set
+            End Property
+
+            ''' <summary>
+            ''' 
+            ''' </summary>
+            ''' <value></value>
+            ''' <returns></returns>
+            ''' <remarks></remarks>
+            Protected Friend Property VariablePredicate As String
+                Get
+                    Return _variablepredicate
+                End Get
+                Set(value As String)
+                    _variablepredicate = value
+                End Set
+            End Property
+
+            ''' <summary>
+            ''' 
+            ''' </summary>
+            ''' <value></value>
+            ''' <returns></returns>
+            ''' <remarks></remarks>
             Protected Friend Property ObjectID As Integer
                 Get
                     Return If(IsNothing(_objectid), 0, _objectid)
@@ -895,7 +981,43 @@ nextc:
                 End Set
             End Property
 
-            ''' <summary></summary>
+            ''' <summary>
+            ''' 
+            ''' </summary>
+            ''' <value></value>
+            ''' <returns></returns>
+            ''' <remarks></remarks>
+            Protected Friend Property LogicalSignature As String
+
+                Get
+                    Return _logicalsig
+                End Get
+                Set(value As String)
+                    _logicalsig = value
+                End Set
+            End Property
+
+            ''' <summary>
+            ''' 
+            ''' </summary>
+            ''' <value></value>
+            ''' <returns></returns>
+            ''' <remarks></remarks>
+            Protected Friend Property ConstructSignature As String
+                Get
+                    Return _constructsig
+                End Get
+                Set(ByVal value As String)
+                    _constructsig = value
+                End Set
+            End Property
+
+            ''' <summary>
+            ''' 
+            ''' </summary>
+            ''' <value></value>
+            ''' <returns></returns>
+            ''' <remarks></remarks>
             Protected Friend ReadOnly Property LogicalSignatureLookup As String
                 Get
                     Dim sd As String
@@ -906,7 +1028,12 @@ nextc:
                 End Get
             End Property
 
-            ''' <summary></summary>
+            ''' <summary>
+            ''' 
+            ''' </summary>
+            ''' <value></value>
+            ''' <returns></returns>
+            ''' <remarks></remarks>
             Protected Friend ReadOnly Property ConstructSignatureLookup As String
                 Get
                     Dim sd As String
@@ -1473,7 +1600,12 @@ nextc:
                 End Get
             End Property
 
-            ''' <summary></summary>
+            ''' <summary>
+            ''' 
+            ''' </summary>
+            ''' <value></value>
+            ''' <returns></returns>
+            ''' <remarks></remarks>
             Protected Friend ReadOnly Property EntityMetadataDefinition As String
                 Get
                     Dim ep As String = ""
@@ -1487,31 +1619,19 @@ nextc:
                     ep += My.Resources.SYS_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "Description")
-                    ep = Replace(ep, "{{{value}}}", Replace(Description, "'", "''"))
-                    ep += vbCrLf
-
-                    ep += My.Resources.SYS_TablePropertyDefintion
-                    ep = Replace(ep, "{{{domain}}}", Domain)
-                    ep = Replace(ep, "{{{property}}}", "Source Statement")
-                    ep = Replace(ep, "{{{value}}}", Replace(SourceStatement, "'", "''"))
-                    ep += vbCrLf
-
-                    ep += My.Resources.SYS_TablePropertyDefintion
-                    ep = Replace(ep, "{{{domain}}}", Domain)
-                    ep = Replace(ep, "{{{property}}}", "Source Predicate Values")
-                    ep = Replace(ep, "{{{value}}}", Replace(SourcePredicateValues, "'", "''"))
+                    ep = Replace(ep, "{{{value}}}", Description.EscapeTicks)
                     ep += vbCrLf
 
                     ep += My.Resources.SYS_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "Source Schema")
-                    ep = Replace(ep, "{{{value}}}", Replace(SourceSchema, "'", "''"))
+                    ep = Replace(ep, "{{{value}}}", SourceSchema.EscapeTicks)
                     ep += vbCrLf
 
                     ep += My.Resources.SYS_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "Source Entity")
-                    ep = Replace(ep, "{{{value}}}", Replace(SourceEntity, "'", "''"))
+                    ep = Replace(ep, "{{{value}}}", SourceEntity.EscapeTicks)
                     ep += vbCrLf
 
                     ep += My.Resources.SYS_TablePropertyDefintion
@@ -1522,14 +1642,20 @@ nextc:
 
                     ep += My.Resources.SYS_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
-                    ep = Replace(ep, "{{{property}}}", "Infer Deltions from Source Domain")
+                    ep = Replace(ep, "{{{property}}}", "ETL Infer Deletions from Source Domain")
                     ep = Replace(ep, "{{{value}}}", InferDeletions.ToString)
                     ep += vbCrLf
 
                     ep += My.Resources.SYS_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "ETL Build Group")
-                    ep = Replace(ep, "{{{value}}}", Replace(BuildGroup, "'", "''"))
+                    ep = Replace(ep, "{{{value}}}", BuildGroup.EscapeTicks)
+                    ep += vbCrLf
+
+                    ep += My.Resources.SYS_TablePropertyDefintion
+                    ep = Replace(ep, "{{{domain}}}", Domain)
+                    ep = Replace(ep, "{{{property}}}", "ETL Build Group Sequence Order")
+                    ep = Replace(ep, "{{{value}}}", SequenceOrder.ToString)
                     ep += vbCrLf
 
                     ep += My.Resources.SYS_TablePropertyDefintion
@@ -1553,7 +1679,7 @@ nextc:
                     ep += My.Resources.SYS_TablePropertyDefintion
                     ep = Replace(ep, "{{{domain}}}", Domain)
                     ep = Replace(ep, "{{{property}}}", "Build Timestamp")
-                    ep = Replace(ep, "{{{value}}}", Now.ToString())
+                    ep = Replace(ep, "{{{value}}}", Now.ToString)
                     ep += vbCrLf
 
                     ep += My.Resources.SYS_TablePropertyDefintion
@@ -1580,11 +1706,40 @@ nextc:
                     ep = Replace(ep, "{{{value}}}", MaxRecordCount.ToString)
                     ep += vbCrLf
 
+                    ep += My.Resources.SYS_TablePropertyDefintion
+                    ep = Replace(ep, "{{{domain}}}", Domain)
+                    ep = Replace(ep, "{{{property}}}", "ETL Perform Full Load Only")
+                    ep = Replace(ep, "{{{value}}}", FullLoad.ToString)
+                    ep += vbCrLf
+
+                    ep += My.Resources.SYS_TablePropertyDefintion
+                    ep = Replace(ep, "{{{domain}}}", Domain)
+                    ep = Replace(ep, "{{{property}}}", "ETL Source Variables")
+                    ep = Replace(ep, "{{{value}}}", SourceVariables.EscapeTicks)
+                    ep += vbCrLf
+
+                    ep += My.Resources.SYS_TablePropertyDefintion
+                    ep = Replace(ep, "{{{domain}}}", Domain)
+                    ep = Replace(ep, "{{{property}}}", "ETL Fixed Predicate")
+                    ep = Replace(ep, "{{{value}}}", FixedPredicate.EscapeTicks)
+                    ep += vbCrLf
+
+                    ep += My.Resources.SYS_TablePropertyDefintion
+                    ep = Replace(ep, "{{{domain}}}", Domain)
+                    ep = Replace(ep, "{{{property}}}", "ETL Variable Predicate")
+                    ep = Replace(ep, "{{{value}}}", VariablePredicate.EscapeTicks)
+                    ep += vbCrLf
+
                     Return ep
                 End Get
             End Property
 
-            ''' <summary></summary>
+            ''' <summary>
+            ''' 
+            ''' </summary>
+            ''' <value></value>
+            ''' <returns></returns>
+            ''' <remarks></remarks>
             Protected Friend ReadOnly Property AttributeMetadataDefintion As String
                 Get
                     Dim bia As EntityAttribute = Nothing
@@ -1603,7 +1758,7 @@ nextc:
                         ep = Replace(ep, "{{{domain}}}", Domain)
                         ep = Replace(ep, "{{{attribute}}}", bia.Name)
                         ep = Replace(ep, "{{{property}}}", "Description")
-                        ep = Replace(ep, "{{{value}}}", Replace(bia.Description, "'", "''"))
+                        ep = Replace(ep, "{{{value}}}", bia.Description.EscapeTicks)
                         ep += vbCrLf
 
                         ep += My.Resources.SYS_ColumnPropertyDefinition
@@ -1641,22 +1796,11 @@ nextc:
                         ep = Replace(ep, "{{{value}}}", bia.BusinessIdentifier.ToString)
                         ep += vbCrLf
 
-                        ep += My.Resources.SYS_TablePropertyDefintion
+                        ep += My.Resources.SYS_ColumnPropertyDefinition
                         ep = Replace(ep, "{{{domain}}}", Domain)
-                        ep = Replace(ep, "{{{property}}}", "Assembly")
-                        ep = Replace(ep, "{{{value}}}", "Slalom.Framework")
-                        ep += vbCrLf
-
-                        ep += My.Resources.SYS_TablePropertyDefintion
-                        ep = Replace(ep, "{{{domain}}}", Domain)
-                        ep = Replace(ep, "{{{property}}}", "Copyright")
-                        ep = Replace(ep, "{{{value}}}", "Slalom Consulting © 2014")
-                        ep += vbCrLf
-
-                        ep += My.Resources.SYS_TablePropertyDefintion
-                        ep = Replace(ep, "{{{domain}}}", Domain)
-                        ep = Replace(ep, "{{{property}}}", "Website")
-                        ep = Replace(ep, "{{{value}}}", "www.slalom.com")
+                        ep = Replace(ep, "{{{attribute}}}", bia.Name)
+                        ep = Replace(ep, "{{{property}}}", "Optimize with Index")
+                        ep = Replace(ep, "{{{value}}}", bia.Index.ToString)
                         ep += vbCrLf
 
                     Next
@@ -1908,13 +2052,12 @@ nextc:
             ''' <param name="NewSchema"></param>
             ''' <param name="NewEntity"></param>
             ''' <param name="NewDescription"></param>
-            ''' <param name="NewSourceStatement"></param>
-            ''' <param name="NewSourcePredicateValues"></param>
             ''' <param name="NewSourceSchema"></param>
             ''' <param name="NewSourceEntity"></param>
             ''' <param name="NewHashLargeObjects"></param>
             ''' <param name="NewInferDeletions"></param>
             ''' <param name="NewBuildGroup"></param>
+            ''' <param name="NewSequenceOrder"></param>
             ''' <param name="NewLogicalSignature"></param>
             ''' <param name="NewConstructSignature"></param>
             ''' <param name="NewMaxThreads"></param>
@@ -1923,32 +2066,45 @@ nextc:
             Protected Friend Sub New(ByVal NewSchema As String,
                                      ByVal NewEntity As String,
                                      ByVal NewDescription As String,
-                                     ByVal NewSourceStatement As String,
-                                     ByVal NewSourcePredicateValues As String,
                                      ByVal NewSourceSchema As String,
                                      ByVal NewSourceEntity As String,
                                      ByVal NewHashLargeObjects As String,
                                      ByVal NewInferDeletions As String,
                                      ByVal NewBuildGroup As String,
+                                     ByVal NewSequenceOrder As Short,
                                      ByVal NewLogicalSignature As String,
                                      ByVal NewConstructSignature As String,
                                      ByVal NewMaxThreads As Integer,
-                                     ByVal NewMaxRecordCount As Integer)
+                                     ByVal NewMaxRecordCount As Integer,
+                                     ByVal NewFullLoad As String,
+                                     ByVal NewSourceVariables As String,
+                                     ByVal NewFixedPredicate As String,
+                                     ByVal NewVariablePredicate As String)
 
-                Schema = NewSchema
-                Entity = NewEntity
-                Description = NewDescription
-                SourceStatement = NewSourceStatement
-                NewSourcePredicateValues = NewSourcePredicateValues
-                SourceSchema = NewSourceSchema
-                SourceEntity = NewSourceEntity
-                HashLargeObjects = If(NewHashLargeObjects = "Yes", EDW.Common.YesNoType.Yes, EDW.Common.YesNoType.No)
-                InferDeletions = If(NewInferDeletions = "Yes", EDW.Common.YesNoType.Yes, EDW.Common.YesNoType.No)
-                BuildGroup = NewBuildGroup
-                LogicalSignature = NewLogicalSignature
-                ConstructSignature = NewConstructSignature
-                MaxThreads = NewMaxThreads
-                MaxRecordCount = NewMaxRecordCount
+                Try
+
+                    Schema = NewSchema
+                    Entity = NewEntity
+                    Description = NewDescription
+                    SourceSchema = NewSourceSchema
+                    SourceEntity = NewSourceEntity
+                    HashLargeObjects = NewHashLargeObjects.StringToYesNoType
+                    MaxThreads = NewMaxThreads
+                    BuildGroup = NewBuildGroup
+                    MaxRecordCount = NewMaxRecordCount
+                    SequenceOrder = NewSequenceOrder
+                    InferDeletions = NewInferDeletions.StringToYesNoType
+                    FullLoad = NewFullLoad.StringToYesNoType
+                    SourceVariables = NewSourceVariables
+                    FixedPredicate = NewFixedPredicate
+                    VariablePredicate = NewVariablePredicate
+                    LogicalSignature = NewLogicalSignature
+                    ConstructSignature = NewConstructSignature
+
+                Catch ex As Exception
+                    PrintClientError(New StackFrame().GetMethod().Name, ex)
+
+                End Try
 
             End Sub
 
@@ -1960,6 +2116,7 @@ nextc:
             ''' <param name="AttributeDatatype"></param>
             ''' <param name="AttributeOptionality"></param>
             ''' <param name="AttributeBusinessIdentifier"></param>
+            ''' <param name="AttributeIndex"></param>
             ''' <param name="AttributeSortOrder"></param>
             ''' <param name="AttributeDescription"></param>
             ''' <remarks></remarks>
@@ -1968,20 +2125,31 @@ nextc:
                                                     ByVal AttributeDatatype As String,
                                                     ByVal AttributeOptionality As String,
                                                     ByVal AttributeBusinessIdentifier As String,
+                                                    ByVal AttributeIndex As String,
                                                     ByVal AttributeSortOrder As String,
                                                     ByVal AttributeDescription As String)
 
-                Dim ao As EDW.Common.YesNoType = If(AttributeOptionality = "No", EDW.Common.YesNoType.No, EDW.Common.YesNoType.Yes)
-                Dim bi As EDW.Common.YesNoType = If(AttributeBusinessIdentifier = "No", EDW.Common.YesNoType.No, EDW.Common.YesNoType.Yes)
-                Dim so As EDW.Common.SortOrderType = If(AttributeSortOrder = "desc", EDW.Common.SortOrderType.desc, EDW.Common.SortOrderType.asc)
+                Try
 
-                If IsNothing(_attribute) Then
-                    ReDim _attribute(0)
-                    _attribute(0) = New EntityAttribute(AttributeName, AttributeOrdinal, AttributeDatatype, ao, bi, so, AttributeDescription)
-                Else
-                    ReDim Preserve _attribute(_attribute.Length)
-                    _attribute(_attribute.Length - 1) = New EntityAttribute(AttributeName, AttributeOrdinal, AttributeDatatype, ao, bi, so, AttributeDescription)
-                End If
+                    Dim ao As EDW.Common.YesNoType = If(AttributeOptionality = "No", EDW.Common.YesNoType.No, EDW.Common.YesNoType.Yes)
+                    Dim bi As EDW.Common.YesNoType = If(AttributeBusinessIdentifier = "No", EDW.Common.YesNoType.No, EDW.Common.YesNoType.Yes)
+                    Dim so As EDW.Common.SortOrderType = If(AttributeSortOrder = "desc", EDW.Common.SortOrderType.desc, EDW.Common.SortOrderType.asc)
+
+                    Dim ai As EDW.Common.YesNoType = AttributeIndex.StringToYesNoType
+
+                    _attribute.AddMember(New EntityAttribute(AttributeName, AttributeOrdinal, AttributeDatatype, ao, bi, ai, so, AttributeDescription))
+
+                    'If IsNothing(_attribute) Then
+                    '    ReDim _attribute(0)
+                    '    _attribute(0) = New EntityAttribute(AttributeName, AttributeOrdinal, AttributeDatatype, ao, bi, ai, so, AttributeDescription, AttributeSourcePredicate)
+                    'Else
+                    '    ReDim Preserve _attribute(_attribute.Length)
+                    '    _attribute(_attribute.Length - 1) = New EntityAttribute(AttributeName, AttributeOrdinal, AttributeDatatype, ao, bi, ai, so, AttributeDescription, AttributeSourcePredicate)
+                    'End If
+
+                Catch ex As Exception
+                    PrintClientError(New StackFrame().GetMethod().Name, ex)
+                End Try
 
             End Sub
 
@@ -1998,6 +2166,7 @@ nextc:
                 Private _sortorder As EDW.Common.SortOrderType
                 Private _optionality As EDW.Common.YesNoType
                 Private _businessidentifier As EDW.Common.YesNoType
+                Private _index As EDW.Common.YesNoType
                 Private _description As String
 
 #End Region
@@ -2080,6 +2249,16 @@ nextc:
                 End Property
 
                 ''' <summary></summary>
+                Protected Friend Property Index As EDW.Common.YesNoType
+                    Get
+                        Return _index
+                    End Get
+                    Set(value As EDW.Common.YesNoType)
+                        _index = value
+                    End Set
+                End Property
+
+                ''' <summary></summary>
                 Protected Friend Property Description As String
                     Get
                         Return _description
@@ -2093,12 +2272,24 @@ nextc:
 
 #Region "Entity Attribute Contructors"
 
-                ''' <summary></summary>
+                ''' <summary>
+                ''' 
+                ''' </summary>
+                ''' <param name="AttributeName"></param>
+                ''' <param name="AttributeOrdinal"></param>
+                ''' <param name="AttributeDatatype"></param>
+                ''' <param name="AttributeOptionality"></param>
+                ''' <param name="AttributeBusinessIdentifier"></param>
+                ''' <param name="AttributeIndex"></param>
+                ''' <param name="AttributeSortOrder"></param>
+                ''' <param name="AttributeDescription"></param>
+                ''' <remarks></remarks>
                 Protected Friend Sub New(ByVal AttributeName As String,
                                          ByVal AttributeOrdinal As Integer,
                                          ByVal AttributeDatatype As String,
                                          ByVal AttributeOptionality As EDW.Common.YesNoType,
                                          ByVal AttributeBusinessIdentifier As EDW.Common.YesNoType,
+                                         ByVal AttributeIndex As EDW.Common.YesNoType,
                                          ByVal AttributeSortOrder As EDW.Common.SortOrderType,
                                          ByVal AttributeDescription As String)
 
@@ -2107,6 +2298,7 @@ nextc:
                     Datatype = AttributeDatatype
                     Optionality = AttributeOptionality
                     BusinessIdentifier = AttributeBusinessIdentifier
+                    Index = AttributeIndex
                     SortOrder = AttributeSortOrder
                     Description = AttributeDescription
 

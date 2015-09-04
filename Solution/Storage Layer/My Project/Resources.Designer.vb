@@ -1243,23 +1243,25 @@ Namespace My.Resources
         End Property
         
         '''<summary>
-        '''  Looks up a localized string similar to with attr as
+        '''  Looks up a localized string similar to set nocount on;
+        '''declare @apos_rep nvarchar(10)=N&apos;|~|~|&apos;;
+        '''
+        '''with attr as
         ''' (
         '''   select
         '''      N&apos;[&apos;+[psa_schema]+N&apos;].[&apos;+[psa_entity]+N&apos;]&apos; [@psa_domain],
         '''      [psa_schema],
         '''      [psa_entity],
-        '''      replace([psa_entity_description],N&apos;&apos;&apos;&apos;,N&apos;&apos;) [psa_entity_description],
-        '''      [psa_source_statement],
-        '''      [psa_source_predicate_values],
+        '''      replace([psa_entity_description],N&apos;&apos;&apos;&apos;,@apos_rep) [psa_entity_description],
         '''      [source_schema],
         '''      [source_entity],
-        '''      [hash_large_objects],
-        '''      [psa_infer_deletions],
+        '''      [psa_max_threads],
+        '''      [psa_hash_large_objects],
         '''      [etl_build_group],
-        '''      [etl_max_threads],
+        '''      [etl_sequence_order],
         '''      [etl_max_record_count],
-        '''      convert(xml,sq.[attribute]) [attri [rest of string was truncated]&quot;;.
+        '''      [etl_infer_deletions],
+        '''      [et [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property PSA_GetModel() As String
             Get
@@ -1550,8 +1552,10 @@ Namespace My.Resources
         End Property
         
         '''<summary>
-        '''  Looks up a localized string similar to set nocount on;
-        '''declare @xml xml=&apos;{{{xml}}}&apos;;
+        '''  Looks up a localized string similar to declare @xml xml=&apos;{{{xml}}}&apos;;
+        '''
+        '''set nocount on;
+        '''declare @apos_rep nvarchar(10)=N&apos;|~|~|&apos;;
         '''
         '''begin try;
         '''
@@ -1563,14 +1567,13 @@ Namespace My.Resources
         '''      [psa_schema],
         '''      [psa_entity],
         '''      [psa_entity_description],
-        '''      [psa_source_statement],
-        '''      [psa_source_predicate_values],
         '''      [source_schema],
         '''      [source_entity],
-        '''      [hash_large_objects],
-        '''      [psa_infer_deletions],
+        '''      [psa_max_threads],
+        '''      [psa_hash_large_objects],
         '''      [etl_build_group],
-        '''      [ [rest of string was truncated]&quot;;.
+        '''      [etl_sequence_order],
+        '''    [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property PSA_SetModel() As String
             Get
@@ -1769,12 +1772,15 @@ Namespace My.Resources
         '''   create table [dbo].[psa_entity_definition]
         '''    (
         '''      [psa_schema] nvarchar(4) collate Latin1_General_100_BIN2,
+        '''      constraint [ck : dbo.psa_entity_definition :: psa_schema]
+        '''      check (len([psa_schema])=4),
+        '''
         '''      [psa_entity] nvarchar(31) collate Latin1_General_100_BIN2,
-        '''      constraint [pk : dbo.psa_entity_definition {domain}]
+        '''      
+        '''      constraint [pk : dbo.psa_entity_definition]
         '''      primary key clustered ([psa_schema],[psa_entity]),
         '''
-        '''      [psa_entity_description] nvarchar(4000) collate Latin1_General_100_BIN2 null,
-        '''      [psa_source_statement] nvarchar(max) collate L [rest of string was truncated]&quot;;.
+        '''      [psa_entity_description] nvar [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property SYS_MetadataTableDefinition() As String
             Get
@@ -1792,7 +1798,9 @@ Namespace My.Resources
         End Property
         
         '''<summary>
-        '''  Looks up a localized string similar to with x as
+        '''  Looks up a localized string similar to set nocount on;
+        '''
+        '''with [x] as
         ''' (
         '''   select
         '''      [psa_schema],
@@ -1801,8 +1809,7 @@ Namespace My.Resources
         '''      convert(nvarchar(max),
         '''      right(convert(nvarchar(42),hashbytes(N&apos;sha1&apos;,[psa_attribute]),1),40)+N&apos; : &apos;+
         '''      right(convert(nvarchar(42),hashbytes(N&apos;sha1&apos;,[psa_attribute_datatype]),1),40)+N&apos; : &apos;+
-        '''      right(convert(nvarchar(42),hashbytes(N&apos;sha1&apos;,convert(nvarchar(10),[psa_attribute_ordinal])),1),40)+N&apos; : &apos;+
-        '''  [rest of string was truncated]&quot;;.
+        '''      right(convert(nvarchar(42),hashbytes(N&apos;sha1&apos;,convert(nvarchar(10),[psa_attribute_ordinal [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property SYS_PSAEntityDefinition() As String
             Get
@@ -1832,6 +1839,19 @@ Namespace My.Resources
         Friend ReadOnly Property SYS_SlalomTextArt1() As String
             Get
                 Return ResourceManager.GetString("SYS_SlalomTextArt1", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to --   ______     __             _____                  ____  _          
+        '''--  / __/ /__ _/ /__  __ _    / ___/__  ___  _____ __/ / /_(_)__  ___ _
+        '''-- _\ \/ / _ `/ / _ \/  &apos; \  / /__/ _ \/ _ \(_-&lt; // / / __/ / _ \/ _ `/
+        '''--/___/_/\_,_/_/\___/_/_/_/  \___/\___/_//_/___|_,_/_/\__/_/_//_/\_, / 
+        '''--                                                              /___/.
+        '''</summary>
+        Friend ReadOnly Property SYS_SlalomTextArtSQL() As String
+            Get
+                Return ResourceManager.GetString("SYS_SlalomTextArtSQL", resourceCulture)
             End Get
         End Property
         

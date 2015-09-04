@@ -1102,7 +1102,9 @@ end;</value>
     <value>select * from [master].[dbo].[psa_attribute_definition] where 1=1</value>
   </data>
   <data name="SYS_PSAEntityDefinition" xml:space="preserve">
-    <value>with x as
+    <value>set nocount on;
+
+with [x] as
  (
    select
       [psa_schema],
@@ -1114,7 +1116,7 @@ end;</value>
       right(convert(nvarchar(42),hashbytes(N'sha1',convert(nvarchar(10),[psa_attribute_ordinal])),1),40)+N' : '+
       right(convert(nvarchar(42),hashbytes(N'sha1',[psa_attribute_sort]),1),40)+N' : '+
       right(convert(nvarchar(42),hashbytes(N'sha1',[psa_attribute_optional]),1),40)+N' : '+
-      right(convert(nvarchar(42),hashbytes(N'sha1',[psa_attribute_business_identifier]),1),40)) [sig]
+      right(convert(nvarchar(42),hashbytes(N'sha1',[psa_attribute_business_id]),1),40)) [sig]
    from
       [master].[dbo].[psa_attribute_definition]
  ), [sel] as
@@ -1123,20 +1125,21 @@ end;</value>
       e.[psa_schema],
       e.[psa_entity],
       e.[psa_entity_description],
-      e.[psa_source_statement],
-      e.[psa_source_predicate_values],
       e.[source_schema],
       e.[source_entity],
-      e.[hash_large_objects],
-      e.[psa_infer_deletions],
+      e.[psa_hash_large_objects],
+      e.[psa_max_threads],
       e.[etl_build_group],
-      right(convert(nvarchar(42),[dbo].[psa_hash](e.[hash_large_objects]),1),40)+N' : '+
-      right(convert(nvarchar(42),[dbo].[psa_hash](e.[etl_max_threads]),1),40)+N' : '+
-      right(convert(nvarchar(42),[dbo].[psa_hash](e.[psa_infer_deletions]),1),40) [logic_sig],
-      rtrim(ca.ah) [construct_sig],
-      isnull(c.[psa_attribute_count],0) [psa_attribute_count],
-      e.[etl_max_threads],
-      e.[etl_max_record_count]
+      e.[etl_max_record_count],
+      e.[etl_sequence_order],
+      e.[etl_infer_deletions],
+      e.[etl_full_load],
+      e.[etl_source_variables],
+      e.[etl_fixed_predicate],
+      e.[etl_variable_predicate],
+      right(convert(nvarchar(42),[dbo].[psa_hash](e.[psa_hash_large_objects]),1),40)+N' : '+
+      right(convert(nvarchar(42),[dbo].[psa_hash](e.[psa_max_threads]),1),40) [logic_sig],
+      rtrim(ca.ah) [construct_sig]
    from
       [master].dbo.[psa_entity_definition] e
       cross apply
@@ -1144,7 +1147,7 @@ end;</value>
          select
             convert(nvarchar(max),N'['+[sig]+N'] ')
          from
-            x
+            [x]
          where
             e.[psa_schema]=x.[psa_schema]
             and
@@ -1153,35 +1156,25 @@ end;</value>
             [ord]
          for xml path('')
        ) ca(ah)
-      left join
-       (
-         select
-            [psa_schema],
-            [psa_entity],
-            count([ord]) [psa_attribute_count]
-         from
-            x
-         group by
-            [psa_schema],
-            [psa_entity]
-       ) c on e.[psa_schema]=c.[psa_schema] and e.[psa_entity]=c.[psa_entity]
  )
 select
    [psa_schema],
    [psa_entity],
    [psa_entity_description],
-   [psa_source_statement],
-   [psa_source_predicate_values],
    [source_schema],
    [source_entity],
-   [hash_large_objects],
-   [psa_infer_deletions],
+   [psa_hash_large_objects],
+   [psa_max_threads],
    [etl_build_group],
+   [etl_max_record_count],
+   [etl_sequence_order],
+   [etl_infer_deletions],
+   [etl_full_load],
+   [etl_source_variables],
+   [etl_fixed_predicate],
+   [etl_variable_predicate],
    isnull(right(convert(nvarchar(42),[dbo].[psa_hash]([logic_sig]),1),40),N'') [psa_logical_signature],
-   isnull(right(convert(nvarchar(42),[dbo].[psa_hash]([construct_sig]),1),40),N'')  [psa_construct_signature],
-   [psa_attribute_count],
-   [etl_max_threads],
-   [etl_max_record_count]
+   isnull(right(convert(nvarchar(42),[dbo].[psa_hash]([construct_sig]),1),40),N'')  [psa_construct_signature]
 from
    [sel]
 where
@@ -1799,22 +1792,28 @@ alter role [db_owner] add member [psa_sb_manager];</value>
     <value>grant execute on [{{{schema}}}].[{{{entity}}}.ProcessUpsert] to [psa_etl_manager];</value>
   </data>
   <data name="PSA_GetModel" xml:space="preserve">
-    <value>with attr as
+    <value>set nocount on;
+declare @apos_rep nvarchar(10)=N'|~|~|';
+
+with attr as
  (
    select
       N'['+[psa_schema]+N'].['+[psa_entity]+N']' [@psa_domain],
       [psa_schema],
       [psa_entity],
-      replace([psa_entity_description],N'''',N'') [psa_entity_description],
-      [psa_source_statement],
-      [psa_source_predicate_values],
+      replace([psa_entity_description],N'''',@apos_rep) [psa_entity_description],
       [source_schema],
       [source_entity],
-      [hash_large_objects],
-      [psa_infer_deletions],
+      [psa_max_threads],
+      [psa_hash_large_objects],
       [etl_build_group],
-      [etl_max_threads],
+      [etl_sequence_order],
       [etl_max_record_count],
+      [etl_infer_deletions],
+      [etl_full_load],
+      replace([etl_fixed_predicate],N'''',@apos_rep) [etl_fixed_predicate],
+      replace([etl_variable_predicate],N'''',@apos_rep) [etl_variable_predicate],
+      replace([etl_source_variables],N'''',@apos_rep) [etl_source_variables],
       convert(xml,sq.[attribute]) [attributes]
    from
       [master].[dbo].[psa_entity_definition] e
@@ -1826,8 +1825,9 @@ alter role [db_owner] add member [psa_sb_manager];</value>
             [psa_attribute_ordinal],
             [psa_attribute_sort],
             [psa_attribute_optional],
-            [psa_attribute_business_identifier],
-            replace([psa_attribute_description],N'''',N'') [psa_attribute_description]
+            [psa_attribute_business_id],
+	         [psa_attribute_index],
+            replace([psa_attribute_description],N'''',@apos_rep) [psa_attribute_description]
          from
             [dbo].[psa_attribute_definition] a
          where
@@ -1843,15 +1843,18 @@ alter role [db_owner] add member [psa_sb_manager];</value>
       [psa_schema],
       [psa_entity],
       [psa_entity_description],
-      [psa_source_statement],
-      [psa_source_predicate_values],
       [source_schema],
       [source_entity],
-      [hash_large_objects],
-      [psa_infer_deletions],
+      [psa_max_threads],
+      [psa_hash_large_objects],
       [etl_build_group],
-      [etl_max_threads],
+      [etl_sequence_order],
       [etl_max_record_count],
+      [etl_infer_deletions],
+      [etl_full_load],
+      [etl_fixed_predicate],
+      [etl_variable_predicate],
+      [etl_source_variables],
       [attributes]
    from
       attr
@@ -1863,8 +1866,10 @@ from
    ent;</value>
   </data>
   <data name="PSA_SetModel" xml:space="preserve">
-    <value>set nocount on;
-declare @xml xml='{{{xml}}}';
+    <value>declare @xml xml='{{{xml}}}';
+
+set nocount on;
+declare @apos_rep nvarchar(10)=N'|~|~|';
 
 begin try;
 
@@ -1876,29 +1881,35 @@ begin try;
       [psa_schema],
       [psa_entity],
       [psa_entity_description],
-      [psa_source_statement],
-      [psa_source_predicate_values],
       [source_schema],
       [source_entity],
-      [hash_large_objects],
-      [psa_infer_deletions],
+      [psa_max_threads],
+      [psa_hash_large_objects],
       [etl_build_group],
-      [etl_max_threads],
-      [etl_max_record_count]
+      [etl_sequence_order],
+      [etl_max_record_count],
+      [etl_infer_deletions],
+      [etl_full_load],
+      [etl_fixed_predicate],
+      [etl_variable_predicate],
+      [etl_source_variables]
     )
    select
       x.e.value('./psa_schema[1]',N'nvarchar(4)') [psa_schema],
       x.e.value('./psa_entity[1]',N'nvarchar(31)') [psa_entity],
-      x.e.value('./psa_entity_description[1]',N'nvarchar(4000)') [psa_entity_description],
-      x.e.value('./psa_source_statement[1]',N'nvarchar(max)') [psa_source_statement],
-      x.e.value('./psa_source_predicate_values[1]',N'nvarchar(max)') [psa_source_predicate_values],
+      replace(x.e.value('./psa_entity_description[1]',N'nvarchar(4000)'),@apos_rep,N'''') [psa_entity_description],
       x.e.value('./source_schema[1]',N'nvarchar(128)') [source_schema],
       x.e.value('./source_entity[1]',N'nvarchar(128)') [source_entity],
-      x.e.value('./hash_large_objects[1]',N'nvarchar(3)') [hash_large_objects],
-      x.e.value('./psa_infer_deletions[1]',N'nvarchar(3)') [psa_infer_deletions],
+      x.e.value('./psa_max_threads[1]',N'int') [etl_max_threads],
+      x.e.value('./psa_hash_large_objects[1]',N'nvarchar(3)') [hash_large_objects],
       x.e.value('./etl_build_group[1]',N'nvarchar(128)') [etl_build_group],
-      x.e.value('./etl_max_threads[1]',N'int') [etl_max_threads],
-      x.e.value('./etl_max_record_count[1]',N'int') [etl_max_record_count]
+      x.e.value('./etl_sequence_order[1]',N'smallint') [etl_sequence_order],
+      x.e.value('./etl_max_record_count[1]',N'int') [etl_max_record_count],
+      x.e.value('./etl_infer_deletions[1]',N'nvarchar(3)') [psa_infer_deletions],
+      x.e.value('./etl_full_load[1]',N'nvarchar(3)') [etl_full_load],
+      replace(x.e.value('./etl_fixed_predicate[1]',N'nvarchar(max)'),@apos_rep,N'''') [etl_fixed_predicate],
+      replace(x.e.value('./etl_variable_predicate[1]',N'nvarchar(max)'),@apos_rep,N'''') [etl_variable_predicate],
+      replace(x.e.value('./etl_source_variables[1]',N'nvarchar(max)'),@apos_rep,N'''') [etl_source_variables]
    from
       @xml.nodes('/entities/entity') x(e);
 
@@ -1911,7 +1922,8 @@ begin try;
       [psa_attribute_ordinal],
       [psa_attribute_sort],
       [psa_attribute_optional],
-      [psa_attribute_business_identifier],
+      [psa_attribute_business_id],
+      [psa_attribute_index],
       [psa_attribute_description]
     )
    select
@@ -1922,8 +1934,9 @@ begin try;
       c.a.value('./psa_attribute_ordinal[1]',N'int') [psa_attribute_ordinal],
       c.a.value('./psa_attribute_sort[1]',N'nvarchar(4)') [psa_attribute_sort],
       c.a.value('./psa_attribute_optional[1]',N'nvarchar(3)') [psa_attribute_optional],
-      c.a.value('./psa_attribute_business_identifier[1]',N'nvarchar(3)') [psa_attribute_business_identifier],
-      c.a.value('./psa_attribute_description[1]',N'nvarchar(4000)') [psa_attribute_description]
+      c.a.value('./psa_attribute_business_id[1]',N'nvarchar(3)') [psa_attribute_business_id],
+      c.a.value('./psa_attribute_index[1]',N'nvarchar(3)') [psa_attribute_index],
+      replace(c.a.value('./psa_attribute_description[1]',N'nvarchar(4000)'),@apos_rep,N'''') [psa_attribute_description]
    from
       @xml.nodes('/entities/entity') p(e)
       cross apply
@@ -1935,6 +1948,7 @@ end try begin catch;
       declare @ErrorSeverity int=error_severity();
       declare @ErrorState int=error_state();
       raiserror(@ErrorMessage,@ErrorSeverity,@ErrorState) with log;
+
 end catch;</value>
   </data>
   <data name="PSA_LoggingDefinition" xml:space="preserve">
@@ -2313,25 +2327,40 @@ return @@error;</value>
    create table [dbo].[psa_entity_definition]
     (
       [psa_schema] nvarchar(4) collate Latin1_General_100_BIN2,
+      constraint [ck : dbo.psa_entity_definition :: psa_schema]
+      check (len([psa_schema])=4),
+
       [psa_entity] nvarchar(31) collate Latin1_General_100_BIN2,
-      constraint [pk : dbo.psa_entity_definition {domain}]
+      
+      constraint [pk : dbo.psa_entity_definition]
       primary key clustered ([psa_schema],[psa_entity]),
 
       [psa_entity_description] nvarchar(4000) collate Latin1_General_100_BIN2 null,
-      [psa_source_statement] nvarchar(max) collate Latin1_General_100_BIN2 null,      
-      [psa_source_predicate_values] nvarchar(max) collate Latin1_General_100_BIN2 null,
       
-      [source_schema] sysname collate Latin1_General_100_BIN2,
-      [source_entity] sysname collate Latin1_General_100_BIN2,
-      [hash_large_objects] nvarchar(3) collate Latin1_General_100_BIN2 not null,
-      constraint [ck : dbo.psa_entity_definition :: hash_large_objects]
-      check ([hash_large_objects] in(N'Yes',N'No')),
-      [psa_infer_deletions] nvarchar(3) collate Latin1_General_100_BIN2 not null,
+      [source_schema] nvarchar(128) collate Latin1_General_100_BIN2 not null,
+      [source_entity] nvarchar(128) collate Latin1_General_100_BIN2 not null,
+
+      [psa_hash_large_objects] nvarchar(3) collate Latin1_General_100_BIN2 not null,
+      constraint [ck : dbo.psa_entity_definition :: psa_hash_large_objects]
+      check ([psa_hash_large_objects] in(N'Yes',N'No')),
+
+      [psa_max_threads] int not null,
+
+      [etl_build_group] nvarchar(128) collate Latin1_General_100_BIN2 not null,
+      [etl_max_record_count] int not null,
+      [etl_sequence_order] smallint not null,
+      
+      [etl_infer_deletions] nvarchar(3) collate Latin1_General_100_BIN2 not null,
       constraint [ck : dbo.psa_entity_definition :: psa_infer_deletions]
-      check ([psa_infer_deletions] in(N'Yes',N'No')),
-      [etl_build_group] nvarchar(128) collate Latin1_General_100_BIN2 null,
-      [etl_max_threads] int not null,
-      [etl_max_record_count] int not null
+      check ([etl_infer_deletions] in(N'Yes',N'No')),
+
+      [etl_full_load] nvarchar(3) collate Latin1_General_100_BIN2 not null,
+      constraint [ck : dbo.psa_entity_definition :: etl_full_load]
+      check ([etl_full_load] in(N'Yes',N'No')),
+      
+      [etl_source_variables] nvarchar(max) collate Latin1_General_100_BIN2 null,
+      [etl_fixed_predicate] nvarchar(max) collate Latin1_General_100_BIN2 null,
+      [etl_variable_predicate] nvarchar(max) collate Latin1_General_100_BIN2 null
     );
 
    exec sys.sp_MS_marksystemobject N'psa_entity_definition';
@@ -2345,25 +2374,38 @@ if object_id(N'[dbo].[psa_attribute_definition]',N'U') is null begin;
       [psa_schema] nvarchar(4) collate Latin1_General_100_BIN2,
       constraint [ck : dbo.psa_attribute_definition :: psa_schema]
       check (len([psa_schema])=4),
+
       [psa_entity] nvarchar(31) collate Latin1_General_100_BIN2,
+      
       constraint [fk : psa_attribute_definition $ psa_entity_definition]
-      foreign key ([psa_schema],[psa_entity])
+      foreign key ([psa_schema],[psa_entity]) 
       references [dbo].[psa_entity_definition] ([psa_schema],[psa_entity])
       on update cascade,
-      [psa_attribute] sysname collate Latin1_General_100_BIN2,
-      constraint [pk : dbo.psa_attribute_definition {domain | attribute}]
+
+      [psa_attribute] nvarchar(128) collate Latin1_General_100_BIN2 not null,
+      constraint [pk : dbo.psa_attribute_definition]
       primary key clustered ([psa_schema],[psa_entity],[psa_attribute]),
-      [psa_attribute_datatype] sysname collate Latin1_General_100_BIN2,
+      
+      [psa_attribute_datatype] nvarchar(128) collate Latin1_General_100_BIN2 not null,
+      
       [psa_attribute_ordinal] int not null,
+      
       [psa_attribute_sort] nvarchar(4) collate Latin1_General_100_BIN2 not null,
       constraint [ck : dbo.psa_attribute_definition :: psa_attribute_sort]
       check ([psa_attribute_sort] in(N'asc',N'desc')),
-      [psa_attribute_optional] nvarchar(4) collate Latin1_General_100_BIN2 not null,
+      
+      [psa_attribute_optional] nvarchar(3) collate Latin1_General_100_BIN2 not null,
       constraint [ck : dbo.psa_attribute_definition :: psa_attribute_optional]
       check ([psa_attribute_optional] in(N'Yes',N'No')),
-      [psa_attribute_business_identifier] nvarchar(3) collate Latin1_General_100_BIN2,
-      constraint [ck : dbo.psa_attribute_definition :: psa_attribute_business_identifier]
-      check ([psa_attribute_business_identifier] in(N'Yes',N'No')),
+      
+      [psa_attribute_business_id] nvarchar(3) collate Latin1_General_100_BIN2,
+      constraint [ck : dbo.psa_attribute_definition :: psa_attribute_business_id]
+      check ([psa_attribute_business_id] in(N'Yes',N'No')),
+
+      [psa_attribute_index] nvarchar(3) collate Latin1_General_100_BIN2 not null,
+      constraint [ck : dbo.psa_attribute_definition :: psa_attribute_index]
+      check ([psa_attribute_index] in(N'Yes',N'No')),
+      
       [psa_attribute_description] nvarchar(4000) collate Latin1_General_100_BIN2 null
     );
 
@@ -3742,5 +3784,12 @@ end;</value>
   <data name="ARA_ControlSecurityDefinition" xml:space="preserve">
     <value>grant select,insert,update,delete on [dbo].[{{{entity}}}.Control] to [ara_etl_manager];
 exec sys.sp_MS_marksystemobject N'[{{{entity}}}.Control]';</value>
+  </data>
+  <data name="SYS_SlalomTextArtSQL" xml:space="preserve">
+    <value>--   ______     __             _____                  ____  _          
+--  / __/ /__ _/ /__  __ _    / ___/__  ___  _____ __/ / /_(_)__  ___ _
+-- _\ \/ / _ `/ / _ \/  ' \  / /__/ _ \/ _ \(_-&lt; // / / __/ / _ \/ _ `/
+--/___/_/\_,_/_/\___/_/_/_/  \___/\___/_//_/___|_,_/_/\__/_/_//_/\_, / 
+--                                                              /___/</value>
   </data>
 </root>
