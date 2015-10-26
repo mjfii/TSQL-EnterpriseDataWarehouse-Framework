@@ -13,7 +13,7 @@ Imports EDW.Common.InstanceSettings
 ''' 
 ''' </summary>
 ''' <remarks></remarks>
-Public Class ARA
+Public Class ODA
 
 #Region "CLR Exposed Methods"
 
@@ -122,7 +122,7 @@ Public Class ARA
         AddDatabaseObjects(SqlCnn, DatabaseName)
 
         ' load up a variable with the usable construct
-        Dim ModelToProcess As New Model(GetMetadata(DatabaseName, SqlCnn))
+        Dim ModelToProcess As New Store(GetMetadata(DatabaseName, SqlCnn))
 
         ' notify of invalidations to the model
         PrintClientMessage("• Determining model validation: ")
@@ -159,16 +159,16 @@ Public Class ARA
     ''' <param name="ModelToProcess"></param>
     ''' <param name="DatabaseConnection"></param>
     ''' <param name="VerifyOnly"></param>
-    Private Shared Sub BuildValidModel(ByVal ModelToProcess As Model,
+    Private Shared Sub BuildValidModel(ByVal ModelToProcess As Store,
                                        ByVal DatabaseConnection As SqlConnection,
                                        ByVal VerifyOnly As Boolean,
                                        ByVal ProcessAbstractsInFull As Boolean)
 
         Const space As String = " "
 
-        Dim Entity As Model.Entity = Nothing
-        Dim Entities As Model.Entity() = Nothing
-        Dim EntityAttributes As Model.Entity.EntityAttribute() = Nothing
+        Dim Entity As Store.Entity = Nothing
+        Dim Entities As Store.Entity() = Nothing
+        Dim EntityAttributes As Store.Entity.EntityAttribute() = Nothing
 
         Dim StartTime As Date = Now()
         Dim fmt As String = "yyyy-MM-dd HH:mm:ss.ff..."
@@ -249,9 +249,9 @@ Public Class ARA
     End Sub
 
     ''' <summary>...</summary>
-    Private Shared Sub PrintEstimatedChanges(ByVal ModelToProcess As Model)
+    Private Shared Sub PrintEstimatedChanges(ByVal ModelToProcess As Store)
 
-        Dim EntityAttributes As Model.Entity.EntityAttribute()
+        Dim EntityAttributes As Store.Entity.EntityAttribute()
         Dim Space As Char = Char.Parse(" ")
         Dim Dot As Char = Char.Parse(".")
         Dim Arrow As String = "."
@@ -291,7 +291,7 @@ Public Class ARA
     End Sub
 
     ''' <summary>...</summary>
-    Private Shared Sub ProcessAbstractDrop(ByVal ProcessEntity As Model.Entity,
+    Private Shared Sub ProcessAbstractDrop(ByVal ProcessEntity As Store.Entity,
                                            ByVal DatabaseConnection As SqlConnection)
 
         ExecuteDDLCommand(ProcessEntity.ControlDropDefinition, DatabaseConnection)
@@ -300,7 +300,7 @@ Public Class ARA
     End Sub
 
     ''' <summary>...</summary>
-    Private Shared Sub ProcessAbstractCreate(ByVal ProcessEntity As Model.Entity,
+    Private Shared Sub ProcessAbstractCreate(ByVal ProcessEntity As Store.Entity,
                                              ByVal DatabaseConnection As SqlConnection)
 
         ExecuteDDLCommand(ProcessEntity.ControlCreateDefinition, DatabaseConnection)
@@ -313,7 +313,7 @@ Public Class ARA
     End Sub
 
     ''' <summary>...</summary>
-    Private Shared Sub ProcessEntityMetadata(ByVal ProcessEntity As Model.Entity,
+    Private Shared Sub ProcessEntityMetadata(ByVal ProcessEntity As Store.Entity,
                                              ByVal DatabaseConnection As SqlConnection)
 
         ExecuteDDLCommand(ProcessEntity.EntityMetadataDefinition, DatabaseConnection)
@@ -322,10 +322,10 @@ Public Class ARA
     End Sub
 
     ''' <summary>...</summary>
-    Private Shared Sub ProcessAddEntity(ByVal ModelToProcess As Model, ByVal DatabaseConnection As SqlConnection)
+    Private Shared Sub ProcessAddEntity(ByVal ModelToProcess As Store, ByVal DatabaseConnection As SqlConnection)
 
-        Dim Entity As Model.Entity = Nothing
-        Dim Entities As Model.Entity() = Nothing
+        Dim Entity As Store.Entity = Nothing
+        Dim Entities As Store.Entity() = Nothing
 
         PrintClientMessage("  -> Adding New Entities")
 
@@ -354,10 +354,10 @@ Public Class ARA
     End Sub
 
     ''' <summary>...</summary>
-    Private Shared Sub ProcessAlterEntity(ByVal ModelToProcess As Model, ByVal DatabaseConnection As SqlConnection)
+    Private Shared Sub ProcessAlterEntity(ByVal ModelToProcess As Store, ByVal DatabaseConnection As SqlConnection)
 
-        Dim Entity As Model.Entity = Nothing
-        Dim Entities As Model.Entity() = Nothing
+        Dim Entity As Store.Entity = Nothing
+        Dim Entities As Store.Entity() = Nothing
 
         PrintClientMessage("  -> Altering Existing Entities")
         Entities = ModelToProcess.ChangedEntities
@@ -396,13 +396,13 @@ Public Class ARA
     End Sub
 
     ''' <summary>...</summary>
-    Private Shared Sub ProcessDropEntity(ByVal ModelToProcess As Model, ByVal DatabaseConnection As SqlConnection)
+    Private Shared Sub ProcessDropEntity(ByVal StoreToProcess As Store, ByVal DatabaseConnection As SqlConnection)
 
-        Dim Entity As Model.Entity = Nothing
-        Dim Entities As Model.Entity() = Nothing
+        Dim Entity As Store.Entity = Nothing
+        Dim Entities As Store.Entity() = Nothing
 
         PrintClientMessage("  -> Dropping Old Entities")
-        Entities = ModelToProcess.DeletedEntities
+        Entities = StoreToProcess.DeletedEntities
 
         For Each Entity In Entities
 
@@ -455,7 +455,7 @@ Public Class ARA
     ''' <returns></returns>
     ''' <remarks></remarks>
     Private Shared Function GetMetadata(ByVal DatabaseName As String, _
-                                   ByVal DatabaseConnection As SqlConnection) As DataSet
+                                        ByVal DatabaseConnection As SqlConnection) As DataSet
 
 
         GetMetadata = New DataSet
@@ -495,7 +495,7 @@ Public Class ARA
     ''' 
     ''' </summary>
     ''' <remarks></remarks>
-    Protected Friend Class Model
+    Protected Friend Class Store
 
 #Region "Model Variables"
         Private _entities As Entity()
@@ -2567,3 +2567,4 @@ Public Class ARA
     End Class ' Model
 
 End Class
+

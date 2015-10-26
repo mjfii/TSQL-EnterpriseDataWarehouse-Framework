@@ -2321,7 +2321,7 @@ return @@error;</value>
   <data name="PSA_ProcessDeleteSecurityDefinition" xml:space="preserve">
     <value>grant execute on [{{{schema}}}].[{{{entity}}}.ProcessDelete] to [psa_etl_manager];</value>
   </data>
-  <data name="SYS_MetadataTableDefinition" xml:space="preserve">
+  <data name="SYS_MetadataDefinition" xml:space="preserve">
     <value>if object_id(N'[dbo].[psa_entity_definition]',N'U') is null begin;
 
    create table [dbo].[psa_entity_definition]
@@ -2569,7 +2569,408 @@ if object_id(N'[dbo].[ara_attribute_mapping]',N'U') is null begin;
 
    exec sys.sp_MS_marksystemobject N'ara_attribute_mapping';
 
-end;</value>
+end;
+
+if object_id(N'[dbo].[psa_etl_package]',N'V') is not null drop view [dbo].[psa_etl_package];
+if object_id(N'[dbo].[psa_etl_package_variable]',N'V') is not null drop view [dbo].[psa_etl_package_variable];
+if object_id(N'[dbo].[psa_etl_parent_package]',N'V') is not null drop view [dbo].[psa_etl_parent_package];
+
+exec sp_executesql N'create view [dbo].[psa_etl_package] with encryption
+as
+with [entities] as
+ (
+   select
+      e.[psa_schema], 
+      e.[psa_entity], 
+      e.[source_schema], 
+      e.[source_entity], 
+      e.[etl_build_group],
+      e.[etl_max_record_count],
+      e.[etl_sequence_order],
+      e.[etl_infer_deletions],
+      e.[etl_full_load],
+      e.[etl_fixed_predicate],
+      e.[etl_variable_predicate],
+      isnull((len(e.[etl_variable_predicate]+N'' ;'')-len(replace(e.[etl_variable_predicate]+N'' ;'',N'' ? '',N'''')))/3,0) [etl_query_variable_count]
+   from
+      [dbo].[psa_entity_definition] e 
+ ), [variables] as
+ (
+   select
+      b.[psa_schema],
+      b.[psa_entity],
+      row_number() over (partition by b.[psa_schema],b.[psa_entity] order by b.[psa_entity]) [etl_parent_number],
+      t2.x.value(N''(.)[1]'',N''nvarchar(max)'') [variables]
+   from
+       (
+         select
+            d.[psa_schema],
+            d.[psa_entity],
+            sq.[variables]
+         from
+            [dbo].[psa_entity_definition] d
+            cross apply
+             (
+               select
+                  convert(xml,N''&lt;vars&gt;''+ N''&lt;v&gt;'' + replace([etl_source_variables],N''~~~'',N''&lt;/v&gt;&lt;v&gt;'') + N''&lt;/v&gt;''+N''&lt;/vars&gt;'') [variables]
+               from
+                  [dbo].[psa_entity_definition] x
+               where
+                  x.[psa_schema]=d.[psa_schema]
+                  and
+                  x.[psa_entity]=d.[psa_entity]
+                  and
+                  [etl_source_variables] is not null
+                  and
+                  [etl_full_load]=N''No''
+             ) sq   
+          ) b
+         cross apply
+         b.[variables].nodes(N''/vars/v'') t2(x)
+ ), [source_query] as
+ (
+   select
+      e.[psa_schema],
+      e.[psa_entity],
+      N''select ''+char(13)+char(10)+
+      replace(right(sq.[cols],len(sq.[cols])-11),N''{{{crlf}}}'',char(13)+char(10))+char(13)+char(10)+
+      N''from''+char(13)+char(10)+N''   ''+
+      quotename([source_schema],''"'')+N''.''+quotename([source_entity],''"'')+char(13)+char(10)+
+      N''where''+char(13)+char(10)+N''   1=1''+
+      case when e.[etl_fixed_predicate] is null then N'''' else char(13)+char(10)+N''   and ''+e.[etl_fixed_predicate] end [source_query]
+   from
+      [dbo].[psa_entity_definition] e
+      cross apply
+       (
+         select
+            N'',{{{crlf}}}   ''+quotename(x.[psa_attribute],''"'')
+         from
+            [dbo].[psa_attribute_definition] x
+         where
+            e.[psa_schema]=x.[psa_schema]
+            and
+            e.[psa_entity]=x.[psa_entity]
+         order by
+            x.[psa_attribute_ordinal]
+         for xml path(N'''')
+       ) sq(cols)
+ ), [dest_query] as
+ (
+   select
+      e.[psa_schema], 
+      e.[psa_entity],
+      N''select ''+char(13)+char(10)+
+      replace(right(sq.[cols],len(sq.[cols])-11),N''{{{crlf}}}'',char(13)+char(10))+char(13)+char(10)+
+      N''from''+char(13)+char(10)+N''   ''+
+      quotename([psa_schema],''"'')+N''.''+quotename([psa_entity]+N''.AsIs'',''"'')+char(13)+char(10)+
+      N''where''+char(13)+char(10)+N''   1=1''+
+      case when e.[etl_fixed_predicate] is null then N'''' else char(13)+char(10)+N''   and ''+e.[etl_fixed_predicate] end+
+      case when e.[etl_variable_predicate] is null then N'''' else char(13)+char(10)+N''   and ''+e.[etl_variable_predicate]+N'''' end [dest_query]
+   from
+      [dbo].[psa_entity_definition] e
+      cross apply
+       (
+         select
+            N'',{{{crlf}}}   ''+quotename(x.[psa_attribute],''"'')
+         from
+            [dbo].[psa_attribute_definition] x
+         where
+            x.[psa_attribute_business_id]=N''Yes''
+            and
+            e.[psa_schema]=x.[psa_schema]
+            and
+            e.[psa_entity]=x.[psa_entity]
+         order by
+            x.[psa_attribute_ordinal]
+         for xml path(N'''')
+       ) sq(cols)
+ ), [packages] as
+ (
+   select
+      e.[psa_schema], 
+      e.[psa_entity], 
+      e.[source_schema], 
+      e.[source_entity], 
+      e.[psa_schema]+N''-''+e.[etl_build_group]+N''-''+e.[psa_entity]+N''-Full {0}'' [etl_package],     
+      e.[etl_build_group],
+      e.[etl_max_record_count],
+      e.[etl_sequence_order],
+      e.[etl_infer_deletions],
+      e.[etl_full_load],
+      convert(nvarchar(3),N''Yes'') [etl_full_load_package],
+      e.[etl_fixed_predicate],
+      e.[etl_variable_predicate],
+      0 [etl_parent_number],
+      null [variables],
+      e.[etl_query_variable_count]
+   from
+      [entities] e
+   where 
+      [etl_full_load] is not null
+   union all
+   select
+      e.[psa_schema],
+      e.[psa_entity],
+      e.[source_schema],
+      e.[source_entity],
+      e.[psa_schema]+N''-''+e.[etl_build_group]+N''-''+e.[psa_entity]+N''-Incremental {''+convert(nvarchar(10),isnull(v.[etl_parent_number],1))+N''}'' [etl_package],       
+      e.[etl_build_group],
+      e.[etl_max_record_count],
+      e.[etl_sequence_order],
+      e.[etl_infer_deletions],
+      e.[etl_full_load],
+      e.[etl_full_load] [etl_full_load_package],
+      e.[etl_fixed_predicate],
+      e.[etl_variable_predicate],
+      isnull(v.[etl_parent_number],1),
+      ltrim(rtrim(v.[variables])) [variables],
+      e.[etl_query_variable_count]
+   from
+      [entities] e
+      left join
+      [variables] v on e.[psa_schema]=v.[psa_schema]
+                   and e.[psa_entity]=v.[psa_entity]
+   where 
+      [etl_full_load]=N''No''
+ )
+select
+   e.[psa_schema],
+   e.[psa_entity],
+   e.[source_schema],
+   e.[source_entity],
+
+   case  
+      when e.[etl_query_variable_count]&gt;0 and e.[variables] is null 
+      then s.[source_query]
+      else s.[source_query]+case when e.[etl_variable_predicate] is null then N'''' else char(13)+char(10)+N''   and ''+e.[etl_variable_predicate]+N'''' end
+   end [source_query],
+   
+   d.[dest_query],
+   e.[etl_package],
+   e.[etl_build_group],
+   e.[etl_max_record_count],
+   e.[etl_sequence_order],
+   e.[etl_infer_deletions],
+   e.[etl_full_load],
+   e.[etl_full_load_package],
+   e.[etl_fixed_predicate],
+   case  
+      when e.[etl_query_variable_count]&gt;0 and e.[variables] is null then null
+      else e.[etl_variable_predicate]
+   end [etl_variable_predicate],
+   convert(int,e.[etl_parent_number]) [etl_parent_number],
+   convert(int,e.[etl_query_variable_count]) [etl_query_variable_count]
+from
+   [packages] e
+   left join
+   [source_query] s on e.[psa_schema]=s.[psa_schema]
+                   and e.[psa_entity]=s.[psa_entity]
+   left join
+   [dest_query] d on e.[psa_schema]=d.[psa_schema]
+                 and e.[psa_entity]=d.[psa_entity];';
+
+exec sp_executesql N'create view [dbo].[psa_etl_package_variable] with encryption
+as
+select 
+   sq.[psa_schema],
+   sq.[psa_entity],
+   convert(int,sq.[etl_parent_number]) [etl_parent_number],
+   convert(int,sq.[etl_query_variable_count]) [etl_query_variable_count],
+   convert(int,sq.[etl_query_variable_number]) [etl_query_variable_number],
+   N''@v''+convert(nvarchar(10),sq.[etl_query_variable_number]) [etl_variable_name],
+   sq.[variable]
+from
+    (
+      select
+         c.[psa_schema],
+         c.[psa_entity],
+         c.[etl_parent_number],
+         c.[etl_query_variable_count],
+         row_number() over (partition by c.[psa_schema],c.[psa_entity],c.[etl_parent_number] order by c.[psa_entity]) [etl_query_variable_number],
+         ltrim(rtrim(t2.x.value(N''(.)[1]'',N''nvarchar(max)'')))+N'';'' [variable]
+      from
+          (
+            select
+               b.[psa_schema],
+               b.[psa_entity],
+               b.[etl_query_variable_count],
+               row_number() over (partition by b.[psa_schema],b.[psa_entity] order by b.[psa_entity]) [etl_parent_number],
+               convert(xml,N''&lt;vars&gt;''+ N''&lt;v&gt;'' + replace(t2.x.value(N''(.)[1]'',N''nvarchar(max)''),N''~~'',N''&lt;/v&gt;&lt;v&gt;'') + N''&lt;/v&gt;''+N''&lt;/vars&gt;'') [variables]
+            from
+                (
+                  select
+                     d.[psa_schema],
+                     d.[psa_entity],
+                     sq.[variables],
+                     isnull((len(d.[etl_variable_predicate]+N'' ;'')-len(replace(d.[etl_variable_predicate]+N'' ;'',N'' ? '',N'''')))/3,0) [etl_query_variable_count]
+                  from
+                     [dbo].[psa_entity_definition] d
+                     cross apply
+                      (
+                        select
+                           convert(xml,N''&lt;vars&gt;''+ N''&lt;v&gt;'' + replace([etl_source_variables],N''~~~'',N''&lt;/v&gt;&lt;v&gt;'') + N''&lt;/v&gt;''+N''&lt;/vars&gt;'') [variables]
+                        from
+                           [dbo].[psa_entity_definition] x
+                        where
+                           x.[psa_schema]=d.[psa_schema]
+                           and
+                           x.[psa_entity]=d.[psa_entity]
+                           and
+                           [etl_source_variables] is not null
+                           and
+                           [etl_full_load]=N''No''
+                   ) sq
+                ) b
+               cross apply
+               b.[variables].nodes(''/vars/v'') t2(x)
+          ) c
+         cross apply
+         c.[variables].nodes(''/vars/v'') t2(x)
+    ) sq
+where
+   sq.[etl_query_variable_number]&lt;= sq.[etl_query_variable_count];';
+
+exec sp_executesql N'create view [dbo].[psa_etl_parent_package] with encryption
+as
+with [entities] as
+ (
+   select
+      e.[psa_schema], 
+      e.[psa_entity], 
+      e.[etl_build_group],
+      e.[etl_full_load],
+      e.[etl_sequence_order]
+   from
+      [dbo].[psa_entity_definition] e 
+ ), [variables] as
+ (
+   select
+      b.[psa_schema],
+      b.[psa_entity],
+      row_number() over (partition by b.[psa_schema],b.[psa_entity] order by b.[psa_entity]) [etl_parent_number],
+      t2.x.value(N''(.)[1]'',N''nvarchar(max)'') [variables]
+   from
+       (
+         select
+            d.[psa_schema],
+            d.[psa_entity],
+            sq.[variables]
+         from
+            [dbo].[psa_entity_definition] d
+            cross apply
+             (
+               select
+                  convert(xml,N''&lt;vars&gt;''+ N''&lt;v&gt;'' + replace([etl_source_variables],N''~~~'',N''&lt;/v&gt;&lt;v&gt;'') + N''&lt;/v&gt;''+N''&lt;/vars&gt;'') [variables]
+               from
+                  [dbo].[psa_entity_definition] x
+               where
+                  x.[psa_schema]=d.[psa_schema]
+                  and
+                  x.[psa_entity]=d.[psa_entity]
+                  and
+                  [etl_source_variables] is not null
+                  and
+                  [etl_full_load]=N''No''
+          ) sq   
+       ) b
+      cross apply
+      b.[variables].nodes(''/vars/v'') t2(x)
+ ), [packages] as
+ (
+   select
+      e.[psa_schema], 
+      e.[psa_entity], 
+      e.[psa_schema]+N''-''+e.[etl_build_group]+N''-''+e.[psa_entity]+N''-Full {0}'' [etl_package],
+      e.[etl_full_load],
+      e.[etl_sequence_order],
+      e.[etl_build_group],
+      0 [etl_parent_number]
+   from
+      [entities] e
+   union all
+   select
+      e.psa_schema, 
+      e.psa_entity, 
+      e.[psa_schema]+N''-''+e.[etl_build_group]+N''-''+e.[psa_entity]+N''-Incremental {''+convert(nvarchar(10),isnull(v.[etl_parent_number],1))+N''}'' [etl_package],
+      e.[etl_full_load],
+      e.[etl_sequence_order],
+      e.etl_build_group, 
+      isnull(v.[etl_parent_number],1)
+   from
+      [entities] e
+      left join
+      [variables] v on e.[psa_schema]=v.[psa_schema]
+                   and e.[psa_entity]=v.[psa_entity]
+   where 
+      [etl_full_load]=N''No''
+ ), [result] as
+ (
+   select 
+      p.[psa_schema], 
+      p.[psa_entity], 
+      p.[etl_package],
+      p.[etl_full_load],
+      p.[etl_sequence_order],
+      p.[etl_build_group],
+      p.[etl_parent_number]
+   from 
+      [packages] p
+   where 
+      p.[etl_parent_number]=0
+   union all
+   select
+      x.[psa_schema], 
+      x.[psa_entity], 
+      x.[etl_package],
+      x.[etl_full_load],
+      x.[etl_sequence_order],
+      x.[etl_build_group],
+      p.[etl_parent_number]
+   from 
+      [packages] p
+      inner join
+      [packages] x on p.[psa_schema]=x.[psa_schema]
+                  and p.[etl_build_group]=x.[etl_build_group]
+                  and x.[etl_full_load]=N''Yes''
+   where 
+      p.[etl_full_load]=N''No'' 
+      and 
+      p.[etl_parent_number]!=0 
+   union all
+   select 
+      p.[psa_schema], 
+      p.[psa_entity], 
+      p.[etl_package],
+      p.[etl_full_load],
+      p.[etl_sequence_order],
+      p.[etl_build_group],
+      p.[etl_parent_number]
+   from 
+      [packages] p
+   where 
+      p.[etl_full_load]=N''No'' 
+      and 
+      p.[etl_parent_number]!=0 
+ )
+select
+   p.[psa_schema], 
+   p.[psa_entity], 
+   p.[psa_schema]+N''-''+p.[etl_build_group]+N''-Parent {''+convert(nvarchar(10),isnull(p.[etl_parent_number],1))+N''}'' [etl_parent_package],
+   p.[etl_package],
+   p.[etl_full_load],
+   p.[etl_sequence_order],
+   p.[etl_build_group],
+   convert(int,p.[etl_parent_number]) [etl_parent_number]
+from
+   [result] p
+group by
+   p.[psa_schema], 
+   p.[psa_entity], 
+   p.[etl_package],
+   p.[etl_full_load],
+   p.[etl_sequence_order],
+   p.[etl_build_group],
+   p.[etl_parent_number];';</value>
   </data>
   <data name="ARA_LoggingDefinition" xml:space="preserve">
     <value>if object_id(N'[dbo].[ara_batch_control]',N'U') is null begin;

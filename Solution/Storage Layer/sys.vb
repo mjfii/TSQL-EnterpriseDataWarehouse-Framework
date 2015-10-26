@@ -377,10 +377,10 @@ Namespace Common
         ''' <remarks></remarks>
         Friend Shared Sub AddMetadataObjects(ByVal SqlCnn As SqlConnection)
             ' alert the tables arent there and make them
-            ExecuteDDLCommand(My.Resources.SYS_MetadataTableDefinition, SqlCnn)
+            ExecuteDDLCommand(My.Resources.SYS_MetadataDefinition, SqlCnn)
             PrintClientMessage(vbCrLf)
-            PrintClientMessage("The metadata framework was not ready for use. The required system tables have NOW been built; you can now use the [ara | psa | ods]")
-            PrintClientMessage("tables in the [master] database to add the metadata construct elements to build each of the objects.")
+            PrintClientMessage("The metadata framework was not ready for use. The required system tables have NOW been built; you can now use the [ara | psa | oda]")
+            PrintClientMessage("system tables in the [master] database to add the metadata construct elements to build each of the objects.")
 
         End Sub
 
@@ -471,8 +471,8 @@ Namespace Common
         Private Shared Sub PrintHeader()
 
             PrintClientMessage(My.Resources.SYS_SlalomTextArt1 & vbCrLf)
-            PrintClientMessage("EDW Framework")
-            PrintClientMessage("Slalom Consulting | Copyright © 2015 | www.slalom.com" & vbCrLf & vbCrLf)
+            PrintClientMessage("Enterprise Data Warehouse ('EDW') Framework")
+            PrintClientMessage("Slalom Consulting | Copyright © 2014 | www.slalom.com" & vbCrLf & vbCrLf)
 
         End Sub
 

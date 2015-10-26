@@ -1782,9 +1782,9 @@ Namespace My.Resources
         '''
         '''      [psa_entity_description] nvar [rest of string was truncated]&quot;;.
         '''</summary>
-        Friend ReadOnly Property SYS_MetadataTableDefinition() As String
+        Friend ReadOnly Property SYS_MetadataDefinition() As String
             Get
-                Return ResourceManager.GetString("SYS_MetadataTableDefinition", resourceCulture)
+                Return ResourceManager.GetString("SYS_MetadataDefinition", resourceCulture)
             End Get
         End Property
         

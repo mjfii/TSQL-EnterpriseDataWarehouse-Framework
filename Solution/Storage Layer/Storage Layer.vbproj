@@ -72,6 +72,7 @@
   <ItemGroup>
     <Compile Include="ara.vb" />
     <Compile Include="ext.vb" />
+    <Compile Include="oda.vb" />
     <Compile Include="sys.vb" />
     <Compile Include="psa.vb" />
     <Compile Include="My Project\AssemblyInfo.vb" />
