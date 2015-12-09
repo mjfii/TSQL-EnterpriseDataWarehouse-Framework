@@ -8,17 +8,17 @@ Imports System.Runtime.InteropServices
 
 ' Review the values of the assembly attributes
 
-<Assembly: AssemblyTitle("EDW Framework for Storage Layer")> 
-<Assembly: AssemblyDescription("This framework provides T-SQL DDL for a PSA and ARA.")> 
-<Assembly: AssemblyCompany("Slalom Consulting LLC")> 
-<Assembly: AssemblyProduct("")> 
-<Assembly: AssemblyCopyright("Copyright © 2014")> 
+<Assembly: AssemblyTitle("Methods")> 
+<Assembly: AssemblyDescription("")> 
+<Assembly: AssemblyCompany("")> 
+<Assembly: AssemblyProduct("Methods")> 
+<Assembly: AssemblyCopyright("Copyright ©  2015")> 
 <Assembly: AssemblyTrademark("")> 
 
 <Assembly: ComVisible(False)>
 
 'The following GUID is for the ID of the typelib if this project is exposed to COM
-<Assembly: Guid("c3372a41-716b-4808-bf05-453e36ceb502")> 
+<Assembly: Guid("a69f36fb-825b-46d2-9ce8-b91acd1fd259")> 
 
 ' Version information for an assembly consists of the following four values:
 '
@@ -31,5 +31,5 @@ Imports System.Runtime.InteropServices
 ' by using the '*' as shown below:
 ' <Assembly: AssemblyVersion("1.0.*")> 
 
-<Assembly: AssemblyVersion("2.0.0.0")> 
+<Assembly: AssemblyVersion("1.0.0.0")> 
 <Assembly: AssemblyFileVersion("1.0.0.0")> 

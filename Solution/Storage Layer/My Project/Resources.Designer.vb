@@ -61,7 +61,749 @@ Namespace My.Resources
         End Property
         
         '''<summary>
-        '''  Looks up a localized string similar to grant select on [{{{schema}}}].[{{{entity}}}.AsIs] to [psa_abstractreader];.
+        '''  Looks up a localized string similar to exec sys.sp_executesql N&apos;create view [{{{security group}}}].[{{{abstract name}}}]
+        ''' (
+        '''-- EDW Framework - Analytics &amp; Reporting Area (&apos;&apos;ARA&apos;&apos;) Definition
+        '''-- Slalom Consulting | Copyright © 2015 | www.slalom.com
+        '''-- Do NOT alter/add/extend this view
+        '''   [{{{entity}}}Key],
+        '''{{{return set}}}
+        '''   [ara_start_period],
+        '''   [ara_modify_period],
+        '''   [ara_active_state],
+        '''   [ara_dml_action]
+        ''' ) with schemabinding
+        '''as
+        '''select
+        '''   [{{{entity}}}Key],
+        '''{{{column set}}}
+        '''   [ara_start_period],
+        '''   [ara_modify_period],
+        '''  [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property ARA_AbstractDefinitionTypeI() As String
+            Get
+                Return ResourceManager.GetString("ARA_AbstractDefinitionTypeI", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to --&gt; none yet.
+        '''</summary>
+        Friend ReadOnly Property ARA_AbstractDefinitionTypeII() As String
+            Get
+                Return ResourceManager.GetString("ARA_AbstractDefinitionTypeII", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to declare @drop_dependencies nvarchar(max);
+        '''
+        '''while 1!=2 begin;
+        '''
+        '''   select top 1
+        '''      @drop_dependencies=N&apos;drop view [&apos;+object_schema_name(d.[object_id])+N&apos;].[&apos;+object_name(d.[object_id])+N&apos;];&apos; 
+        '''   from
+        '''      sys.sql_dependencies d
+        '''      inner join
+        '''      sys.objects o on d.[object_id]=o.[object_id]
+        '''   where 
+        '''      object_name(d.[object_id])=N&apos;{{{entity}}}&apos; 
+        '''      and 
+        '''      d.[class]=1 
+        '''      and 
+        '''      d.[is_selected]=1 
+        '''      and 
+        '''      d.[referenced_minor_id]=0 
+        '''      and 
+        '''      parsenam [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property ARA_AbstractDropDefinition() As String
+            Get
+                Return ResourceManager.GetString("ARA_AbstractDropDefinition", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to if not exists(select N&apos;?&apos; from sys.columns where object_name([object_id])=N&apos;{{{entity}}}&apos; and [name]=N&apos;{{{name}}}&apos;) begin;
+        '''   alter table [dbo].[{{{entity}}}] add {{{column name}}} {{{datatype}}} {{{optionality}}}{{{default clause}}};
+        '''end;.
+        '''</summary>
+        Friend ReadOnly Property ARA_AddColumnDefinitionTypeI() As String
+            Get
+                Return ResourceManager.GetString("ARA_AddColumnDefinitionTypeI", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to if not exists(select N&apos;?&apos; from sys.columns where object_name([object_id])=N&apos;{{{entity}}}.Keystore&apos; and [name]=N&apos;{{{name}}}&apos;) begin;
+        '''   alter table [dbo].[{{{entity}}}.Keystore] add {{{column name}}} {{{datatype}}} {{{optionality}}};
+        '''end;
+        '''if not exists(select N&apos;?&apos; from sys.columns where object_name([object_id])=N&apos;{{{entity}}}&apos; and [name]=N&apos;{{{name}}}&apos;) begin;
+        '''   alter table [dbo].[{{{entity}}}] add {{{column name}}} {{{datatype}}} {{{optionality}}};
+        '''end;.
+        '''</summary>
+        Friend ReadOnly Property ARA_AddColumnDefinitionTypeII() As String
+            Get
+                Return ResourceManager.GetString("ARA_AddColumnDefinitionTypeII", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to alter table [dbo].[{{{entity}}}] alter column {{{column name}}} {{{datatype}}}{{{default}}}{{{optionality}}};.
+        '''</summary>
+        Friend ReadOnly Property ARA_AlterColumnDefinitionTypeI() As String
+            Get
+                Return ResourceManager.GetString("ARA_AlterColumnDefinitionTypeI", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to if not exists(select N&apos;?&apos; from sys.columns where object_name([object_id])=N&apos;{{{entity}}}.Keystore&apos; and [name]=N&apos;{{{name}}}&apos;) begin;
+        '''   alter table [dbo].[{{{entity}}}.Keystore] alter column {{{column name}}} {{{datatype}}}{{{default}}}{{{optionality}}};
+        '''end;
+        '''if not exists(select N&apos;?&apos; from sys.columns where object_name([object_id])=N&apos;{{{entity}}}&apos; and [name]=N&apos;{{{name}}}&apos;) begin;
+        '''   alter table [dbo].[{{{entity}}}] alter column {{{column name}}} {{{datatype}}}{{{default}}}{{{optionality}}};
+        '''end;.
+        '''</summary>
+        Friend ReadOnly Property ARA_AlterColumnDefinitionTypeII() As String
+            Get
+                Return ResourceManager.GetString("ARA_AlterColumnDefinitionTypeII", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to if not exists(select N&apos;?&apos; from sys.triggers where name=&apos;ara_audit&apos; and [parent_class]=0) begin;
+        '''
+        '''exec sys.sp_executesql N&apos;create trigger [ara_audit] on database for DDL_DATABASE_LEVEL_EVENTS
+        '''as
+        '''begin;
+        '''   set nocount on;
+        '''
+        '''   declare
+        '''      @EventData xml=eventdata(),
+        '''      @EventType nvarchar(128),
+        '''      @HostName nvarchar(128),
+        '''      @LoginName nvarchar(128),
+        '''      @DatabaseName nvarchar(128),
+        '''      @ObjectType nvarchar(128),
+        '''      @SchemaName nvarchar(128),
+        '''      @ObjectName nvarchar(128),
+        '''  [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property ARA_Audit() As String
+            Get
+                Return ResourceManager.GetString("ARA_Audit", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to if col_length(&apos;[dbo].[{{{entity}}}]&apos;,&apos;{{{column name}}}&apos;) is not null begin; 
+        '''   alter table [dbo].[{{{entity}}}] add constraint [df : {{{entity}}} :: {{{column name}}}] default ({{{default value}}}) for [{{{column name}}}];
+        '''end;
+        '''if col_length(&apos;[dbo].[{{{entity}}}.Keystore]&apos;,&apos;{{{column name}}}&apos;) is not null begin; 
+        '''   alter table [dbo].[{{{entity}}}.Keystore] add constraint [df : {{{entity}}}.Keystore :: {{{column name}}}] default ({{{default value}}}) for [{{{column name}}}];
+        '''end;.
+        '''</summary>
+        Friend ReadOnly Property ARA_ConstraintDefaultDefinition() As String
+            Get
+                Return ResourceManager.GetString("ARA_ConstraintDefaultDefinition", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to constraint [df : {{{entity}}} :: {{{attribute}}}] default ({{{default value}}}).
+        '''</summary>
+        Friend ReadOnly Property ARA_ConstraintDefaultDefinitionOnAdd() As String
+            Get
+                Return ResourceManager.GetString("ARA_ConstraintDefaultDefinitionOnAdd", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to if col_length(&apos;[dbo].[{{{entity}}}]&apos;,&apos;{{{column name}}}&apos;) is not null and object_id(N&apos;[dbo].[fk : {{{entity}}} $ {{{referenced entity}}}{{{referenced entity type}}}{{{role}}}]&apos;,N&apos;F&apos;) is null begin;
+        '''   alter table [dbo].[{{{entity}}}] with check add constraint [fk : {{{entity}}} $ {{{referenced entity}}}{{{referenced entity type}}}{{{role}}}] 
+        '''   foreign key([{{{column name}}}]) references [dbo].[{{{referenced entity}}}{{{referenced entity type}}}] ([{{{referenced entity}}}Key]);
+        '''end;
+        '''if col_length(&apos;[dbo [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property ARA_ConstraintForeignKeyDefinition() As String
+            Get
+                Return ResourceManager.GetString("ARA_ConstraintForeignKeyDefinition", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to create view [dbo].[{{{entity}}}.Control] with schemabinding
+        '''-- EDW Framework - Analytics &amp; Reporting Area (&apos;ARA&apos;) Definition
+        '''-- Slalom Consulting | Copyright © 2015 | www.slalom.com
+        '''-- Do NOT alter/add/extend this view
+        '''as
+        '''select 
+        '''{{{column set}}}
+        '''from
+        '''   [dbo].[{{{entity}}}];.
+        '''</summary>
+        Friend ReadOnly Property ARA_ControlCreateDefinitionTypeI() As String
+            Get
+                Return ResourceManager.GetString("ARA_ControlCreateDefinitionTypeI", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to create view [dbo].[{{{entity}}}.Control] with schemabinding
+        '''as
+        '''select 
+        '''{{{column set}}}
+        '''from
+        '''   [dbo].[{{{entity}}}]
+        '''where
+        '''   [ara_current_flag]=1;.
+        '''</summary>
+        Friend ReadOnly Property ARA_ControlCreateDefinitionTypeII() As String
+            Get
+                Return ResourceManager.GetString("ARA_ControlCreateDefinitionTypeII", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to create trigger [dbo].[tr : dbo.{{{entity}}}.Control !! delete] on [dbo].[{{{entity}}}.Control]
+        '''instead of delete
+        '''-- EDW Framework - Analytics &amp; Reporting Area (&apos;ARA&apos;) Definition
+        '''-- Slalom Consulting | Copyright © 2015 | www.slalom.com
+        '''-- Do NOT alter/add/extend this instead-of trigger
+        '''as
+        '''begin;
+        '''
+        '''   set nocount on;
+        '''
+        '''   declare @k smallint=4;
+        '''   declare @ts datetime2(7)=sysutcdatetime();
+        '''   declare @batch uniqueidentifier=try_convert(uniqueidentifier,context_info());
+        '''
+        '''   with [delete_source] as        ''' [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property ARA_ControlDeleteDefinitionTypeI() As String
+            Get
+                Return ResourceManager.GetString("ARA_ControlDeleteDefinitionTypeI", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to --&gt;.
+        '''</summary>
+        Friend ReadOnly Property ARA_ControlDeleteDefinitionTypeII() As String
+            Get
+                Return ResourceManager.GetString("ARA_ControlDeleteDefinitionTypeII", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to if object_id(N&apos;[dbo].[{{{entity}}}.Control]&apos;,N&apos;V&apos;) is not null drop view [dbo].[{{{entity}}}.Control];.
+        '''</summary>
+        Friend ReadOnly Property ARA_ControlDropDefinition() As String
+            Get
+                Return ResourceManager.GetString("ARA_ControlDropDefinition", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to create trigger [dbo].[tr : dbo.{{{entity}}}.Control !! insert] on [dbo].[{{{entity}}}.Control]
+        '''instead of insert
+        '''-- EDW Framework - Analytics &amp; Reporting Area (&apos;ARA&apos;) Definition
+        '''-- Slalom Consulting | Copyright © 2015 | www.slalom.com
+        '''-- Do NOT alter/add/extend this instead-of trigger
+        '''as
+        '''begin;
+        '''
+        '''   set nocount on;
+        '''   
+        '''   declare @ts datetime2(7)=sysutcdatetime();
+        '''   declare @batch uniqueidentifier=try_convert(uniqueidentifier,context_info());
+        '''
+        '''   insert [dbo].[{{{entity}}}]
+        '''    (
+        '''{{{column se [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property ARA_ControlInsertDefinitionTypeI() As String
+            Get
+                Return ResourceManager.GetString("ARA_ControlInsertDefinitionTypeI", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to --&gt;.
+        '''</summary>
+        Friend ReadOnly Property ARA_ControlInsertDefinitionTypeII() As String
+            Get
+                Return ResourceManager.GetString("ARA_ControlInsertDefinitionTypeII", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to grant select,insert,update,delete on [dbo].[{{{entity}}}.Control] to [ara_etl_manager];
+        '''exec sys.sp_MS_marksystemobject N&apos;[{{{entity}}}.Control]&apos;;.
+        '''</summary>
+        Friend ReadOnly Property ARA_ControlSecurityDefinition() As String
+            Get
+                Return ResourceManager.GetString("ARA_ControlSecurityDefinition", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to create trigger [dbo].[tr : dbo.{{{entity}}}.Control !! update] on [dbo].[{{{entity}}}.Control]
+        '''instead of update
+        '''-- EDW Framework - Analytics &amp; Reporting Area (&apos;ARA&apos;) Definition
+        '''-- Slalom Consulting | Copyright © 2015 | www.slalom.com
+        '''-- Do NOT alter/add/extend this instead-of trigger
+        '''as
+        '''begin;
+        '''
+        '''   set nocount on;
+        '''   
+        '''   declare @k smallint=2;
+        '''   declare @ts datetime2(7)=sysutcdatetime();
+        '''   declare @batch uniqueidentifier=try_convert(uniqueidentifier,context_info());
+        '''   declare @bs nvarchar(36 [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property ARA_ControlUpdateDefinitionTypeI() As String
+            Get
+                Return ResourceManager.GetString("ARA_ControlUpdateDefinitionTypeI", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to --&gt;.
+        '''</summary>
+        Friend ReadOnly Property ARA_ControlUpdateDefinitionTypeII() As String
+            Get
+                Return ResourceManager.GetString("ARA_ControlUpdateDefinitionTypeII", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to    if update({{{column name}}}) begin;
+        '''      raiserror(@errmsg,16,1,@bs,@dbname,N&apos;dbo&apos;,N&apos;{{{entity}}}&apos;,@method) with log;
+        '''   end;.
+        '''</summary>
+        Friend ReadOnly Property ARA_ControlUpdateInvalidation() As String
+            Get
+                Return ResourceManager.GetString("ARA_ControlUpdateInvalidation", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to create unique nonclustered index [ak : {{{entity}}}] on [dbo].[{{{entity}}}]
+        ''' (
+        '''{{{alternate key index column set}}}
+        ''' )
+        '''with (fillfactor=80,data_compression=page);.
+        '''</summary>
+        Friend ReadOnly Property ARA_CreateAlternateKeyDefinitionTypeI() As String
+            Get
+                Return ResourceManager.GetString("ARA_CreateAlternateKeyDefinitionTypeI", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to create unique nonclustered index [ak : {{{entity}}}.Keystore] on [dbo].[{{{entity}}}.Keystore]
+        ''' (
+        '''{{{alternate key index column set}}}
+        ''' )
+        '''with (fillfactor=80,data_compression=page);
+        '''
+        '''create unique nonclustered index [ak : {{{entity}}}] on [dbo].[{{{entity}}}]
+        ''' (
+        '''{{{alternate key index column set 2}}}
+        '''   [ara_member_sequence] desc
+        ''' )
+        '''with (fillfactor=80,data_compression=page);.
+        '''</summary>
+        Friend ReadOnly Property ARA_CreateAlternateKeyDefinitionTypeII() As String
+            Get
+                Return ResourceManager.GetString("ARA_CreateAlternateKeyDefinitionTypeII", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to declare @drop_constraints nvarchar(max);
+        '''
+        '''while 1!=2 begin;
+        '''
+        '''   select top 1
+        '''      @drop_constraints=N&apos;alter table [dbo].[&apos;+object_name(fk.[parent_object_id])+N&apos;] drop constraint [&apos;+fk.[name]+N&apos;];&apos;
+        '''   from
+        '''      sys.foreign_keys fk
+        '''      inner join
+        '''      sys.tables t on fk.[parent_object_id]=t.[object_id]
+        '''   where
+        '''      object_name(fk.[referenced_object_id])=N&apos;{{{entity}}}&apos; 
+        '''      or 
+        '''      object_name(fk.[referenced_object_id])=N&apos;{{{entity}}}.Keystore&apos;
+        '''
+        '''    if @@rowcount = 0 break;
+        '''
+        '''    ex [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property ARA_DeleteEntityDefinition() As String
+            Get
+                Return ResourceManager.GetString("ARA_DeleteEntityDefinition", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to if exists(select N&apos;?&apos; from sys.indexes where [name]=N&apos;ak : {{{entity}}}.Keystore&apos; and object_name([object_id])=N&apos;{{{entity}}}.Keystore&apos;) begin;
+        '''   drop index [ak : {{{entity}}}.Keystore] on [dbo].[{{{entity}}}.Keystore];
+        '''end;
+        '''if exists(select N&apos;?&apos; from sys.indexes where [name]=N&apos;ak : {{{entity}}}&apos; and object_name([object_id])=N&apos;{{{entity}}}&apos;) begin;
+        '''   drop index [ak : {{{entity}}}] on [dbo].[{{{entity}}}];
+        '''end;.
+        '''</summary>
+        Friend ReadOnly Property ARA_DropAlternateKeyDefinition() As String
+            Get
+                Return ResourceManager.GetString("ARA_DropAlternateKeyDefinition", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to if col_length(&apos;[dbo].[{{{entity}}}.Keystore]&apos;,&apos;{{{attribute}}}&apos;) is not null begin;
+        '''   alter table [dbo].[{{{entity}}}.Keystore] drop column {{{column name}}};
+        '''end;.
+        '''</summary>
+        Friend ReadOnly Property ARA_DropAlternateKeyDefinitionTypeII() As String
+            Get
+                Return ResourceManager.GetString("ARA_DropAlternateKeyDefinitionTypeII", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to while 1!=2 begin;
+        '''
+        '''   select top 1
+        '''      @drop_constraints=N&apos;alter table [dbo].[&apos;+object_name(fk.[parent_object_id])+N&apos;] drop constraint [&apos;+fk.[name]+N&apos;];&apos;
+        '''   from
+        '''      sys.foreign_key_columns fkc
+        '''      inner join
+        '''      sys.foreign_keys fk on fkc.[constraint_object_id]=fk.[object_id]
+        '''      inner join
+        '''      sys.columns c on fkc.[parent_object_id]=c.[object_id] and fkc.[parent_column_id]=c.[column_id]
+        '''   where
+        '''      (object_name(fk.[parent_object_id])=N&apos;{{{entity}}}&apos; or object_name(fk.[parent_obje [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property ARA_DropColumnConstraints() As String
+            Get
+                Return ResourceManager.GetString("ARA_DropColumnConstraints", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to if exists(select N&apos;?&apos; from sys.columns where [name]=N&apos;{{{attribute name}}}&apos; and [object_id]=object_id(N&apos;[dbo].[{{{entity}}}.Keystore]&apos;)) begin;
+        '''   alter table [dbo].[{{{entity}}}.Keystore] drop column {{{column name}}};
+        '''end;
+        '''if exists(select N&apos;?&apos; from sys.columns where [name]=N&apos;{{{attribute name}}}&apos; and [object_id]=object_id(N&apos;[dbo].[{{{entity}}}]&apos;)) begin;
+        '''   alter table [dbo].[{{{entity}}}] drop column {{{column name}}};
+        '''end;.
+        '''</summary>
+        Friend ReadOnly Property ARA_DropColumnDefinition() As String
+            Get
+                Return ResourceManager.GetString("ARA_DropColumnDefinition", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to if object_id(N&apos;[dbo].[{{{entity}}}.SPK]&apos;,N&apos;SO&apos;) is null begin;
+        '''
+        '''   create sequence [dbo].[{{{entity}}}.SPK] as int
+        '''      start with 1
+        '''      increment by 1
+        '''      minvalue 1
+        '''      maxvalue 2000000000
+        '''      cycle
+        '''      cache 100;
+        '''
+        '''end;
+        '''
+        '''if object_id(N&apos;[dbo].[{{{entity}}}]&apos;,N&apos;U&apos;) is null begin;
+        '''
+        '''   create table [dbo].[{{{entity}}}]
+        '''    (
+        '''      -- define the surrogate key
+        '''      [{{{entity}}}Key] int not null
+        '''
+        '''      -- call the sequence
+        '''      constraint [df : {{{entity}}} :: {{{entity}}}Key]
+        ''' [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property ARA_EntityDefinitionTypeI() As String
+            Get
+                Return ResourceManager.GetString("ARA_EntityDefinitionTypeI", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to if object_id(N&apos;[dbo].[{{{entity}}}.SPK]&apos;,N&apos;SO&apos;) is null begin;
+        '''
+        '''   create sequence [dbo].[{{{entity}}}.SPK] as int
+        '''      start with 1
+        '''      increment by 1
+        '''      minvalue 1
+        '''      maxvalue 2000000000
+        '''      cycle
+        '''      cache 100;
+        '''
+        '''end;
+        '''
+        '''if object_id(N&apos;[dbo].[{{{entity}}}.Keystore]&apos;,N&apos;U&apos;) is null begin;
+        '''
+        '''   create table [dbo].[{{{entity}}}.Keystore]
+        '''    (
+        '''      [{{{entity}}}Key] int not null
+        '''
+        '''      -- call the sequence
+        '''      constraint [df : {{{entity}}}.Keystore :: {{{entity}}}Key]
+        '''      de [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property ARA_EntityDefinitionTypeII() As String
+            Get
+                Return ResourceManager.GetString("ARA_EntityDefinitionTypeII", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to if col_length(N&apos;[dbo].[{{{entity}}}]&apos;,N&apos;{{{attribute}}}&apos;) is not null and not exists(select N&apos;?&apos; from sys.stats where [name]=&apos;st : {{{entity}}} :: {{{attribute}}}&apos;) begin;
+        '''   create statistics [st : {{{entity}}} :: {{{attribute}}}] on [dbo].[{{{entity}}}]
+        '''    (
+        '''      [{{{attribute}}}]
+        '''    );
+        '''end;.
+        '''</summary>
+        Friend ReadOnly Property ARA_EntityStatistics() As String
+            Get
+                Return ResourceManager.GetString("ARA_EntityStatistics", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to select
+        '''   [ara_abstract_security_group],
+        '''   [ara_abstract_name],
+        '''   [ara_entity],
+        '''   [ara_abstract_security_role],
+        '''   isnull([ara_abstract_description],N&apos;&apos;) [ara_abstract_description],
+        '''   isnull([ara_abstract_predicate],N&apos;&apos;) [ara_abstract_predicate]
+        '''from
+        '''   [master].[dbo].[ara_abstract_definition];.
+        '''</summary>
+        Friend ReadOnly Property ARA_GetMetadataAbstract() As String
+            Get
+                Return ResourceManager.GetString("ARA_GetMetadataAbstract", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to select
+        '''   [ara_abstract_security_group],
+        '''   [ara_abstract_name],
+        '''   [ara_attribute_name],
+        '''   [ara_entity],
+        '''   isnull([ara_abstract_alternate_name],N&apos;&apos;) [ara_abstract_alternate_name]
+        '''from 
+        '''   [master].[dbo].[ara_abstract_column_definition];.
+        '''</summary>
+        Friend ReadOnly Property ARA_GetMetadataAbstractColumn() As String
+            Get
+                Return ResourceManager.GetString("ARA_GetMetadataAbstractColumn", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to with [new_model] as
+        ''' (
+        '''   select
+        '''      a.[ara_entity],
+        '''      a.[ara_attribute_name],
+        '''      isnull(a.[ara_attribute_referenced_entity],N&apos;&apos;) [ara_attribute_referenced_entity],
+        '''      isnull(e.[ara_entity_type],N&apos;&apos;) [ara_attribute_referenced_entity_type],
+        '''      case when a.[ara_attribute_referenced_entity] is null then a.[ara_attribute_datatype] else N&apos;int&apos; end [ara_attribute_datatype],
+        '''      isnull(a.[ara_attribute_default],N&apos;&apos;) [ara_attribute_default],
+        '''      row_number() over(partition by a.[ara_enti [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property ARA_GetMetadataAttribute() As String
+            Get
+                Return ResourceManager.GetString("ARA_GetMetadataAttribute", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to with [new_model] as
+        ''' (
+        '''   select
+        '''      [ara_entity],
+        '''      [ara_entity_description],
+        '''      [ara_entity_type],
+        '''      [ara_hash_large_objects]
+        '''   from
+        '''      [master].[dbo].[ara_entity_definition]
+        ''' ), [existing_model] as
+        ''' (
+        '''   select
+        '''      o.[name] [ara_entity],
+        '''      case when sq.[name] is not null then N&apos;2&apos; else N&apos;1&apos; end [ara_entity_type]
+        '''   from
+        '''      sys.tables o
+        '''      left join
+        '''       (
+        '''         select
+        '''            parsename(o.[name],2) [name]
+        '''         from
+        '''            sys.tables o
+        '''   [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property ARA_GetMetadataEntity() As String
+            Get
+                Return ResourceManager.GetString("ARA_GetMetadataEntity", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to select distinct [ara_abstract_security_group],[ara_abstract_security_role] from [master].[dbo].[ara_abstract_definition];.
+        '''</summary>
+        Friend ReadOnly Property ARA_GetMetadataSecurity() As String
+            Get
+                Return ResourceManager.GetString("ARA_GetMetadataSecurity", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to if object_id(N&apos;[dbo].[ara_hash]&apos;,N&apos;FS&apos;) is not null drop function [dbo].[ara_hash];
+        '''
+        '''exec sys.sp_executesql
+        '''N&apos;
+        '''create function [dbo].[ara_hash] 
+        ''' (
+        '''   @string nvarchar(max)
+        ''' ) 
+        '''returns varbinary(20) with execute as owner
+        '''as external name [Slalom.Framework.Methods].[EDW.Common.Methods].[StringHash];&apos;
+        '''
+        '''exec sys.sp_MS_marksystemobject &apos;ara_hash&apos;;
+        '''
+        '''grant execute on [dbo].[ara_hash] to [ara_etl_manager];
+        '''--grant execute on [dbo].[ara_hash] to [ara_owner];.
+        '''</summary>
+        Friend ReadOnly Property ARA_HashingAlgorithm() As String
+            Get
+                Return ResourceManager.GetString("ARA_HashingAlgorithm", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to if object_id(N&apos;[dbo].[ara_batch_control]&apos;,N&apos;U&apos;) is null begin;
+        '''
+        '''   create table [dbo].[ara_batch_control] 
+        '''    (
+        '''      [ara_batch_id] uniqueidentifier not null
+        '''      constraint [df : dbo.ara_batch_control {Sequential GUID}] default (newsequentialid()),
+        '''	   constraint [pk : dbo.ara_batch_control :: ara_batch_id]
+        '''      primary key clustered ([ara_batch_id] asc)
+        '''      with (fillfactor=80),
+        '''	   [ara_batch_ssis_id] bigint not null,
+        '''      [ara_package_name] nvarchar(128) null,
+        '''	   [ara_batch_start] dat [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property ARA_LoggingDefinition() As String
+            Get
+                Return ResourceManager.GetString("ARA_LoggingDefinition", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to with [entity] ([entities]) as
+        ''' (
+        '''   select
+        '''      N&apos;[dbo].[&apos;+[ara_entity]+N&apos;]&apos; [@domain],
+        '''      [ara_entity],
+        '''      replace([ara_entity_description],N&apos;&apos;&apos;&apos;,N&apos;|~~|&apos;) [ara_entity_description],
+        '''      [ara_entity_type],
+        '''      [ara_hash_large_objects],
+        '''      convert(xml,sq.[attribute]) [attributes]
+        '''   from
+        '''      [master].[dbo].[ara_entity_definition] e
+        '''      cross apply
+        '''       (
+        '''         select
+        '''            [ara_attribute],
+        '''            [ara_attribute_referenced_entity],
+        '''            [ara_attribute_re [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property ARA_ModelGet() As String
+            Get
+                Return ResourceManager.GetString("ARA_ModelGet", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to if not exists(select N&apos;?&apos; from sys.schemas where [name]=N&apos;{{{security group}}}&apos;) begin;
+        '''   exec sys.sp_executesql N&apos;create schema [{{{security group}}}] authorization [dbo];&apos;
+        '''end;
+        '''
+        '''if not exists(select N&apos;?&apos; from sys.database_principals where [name]=N&apos;{{{security role}}}&apos; and [type]=N&apos;R&apos;) begin;
+        '''   create role [{{{security role}}}] authorization [dbo];
+        '''end;
+        '''
+        '''grant select on schema::[{{{security group}}}] to [{{{security role}}}];.
+        '''</summary>
+        Friend ReadOnly Property ARA_ModelSecurityDefinition() As String
+            Get
+                Return ResourceManager.GetString("ARA_ModelSecurityDefinition", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to set nocount on;
+        '''declare @xml xml=&apos;{{{xml}}}&apos;;
+        '''
+        '''begin try;
+        '''
+        '''   delete [master].[dbo].[ara_attribute_mapping];
+        '''   delete [master].[dbo].[ara_abstract_column_definition];
+        '''   delete [master].[dbo].[ara_abstract_definition];
+        '''   delete [master].[dbo].[ara_attribute_definition];
+        '''   delete [master].[dbo].[ara_entity_definition];
+        '''
+        '''   insert [master].[dbo].[ara_entity_definition]
+        '''    (
+        '''      [ara_entity],
+        '''      [ara_entity_description],
+        '''      [ara_entity_type],
+        '''      [ara_hash_large_objects]
+        '''    )
+        '''  [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property ARA_ModelSet() As String
+            Get
+                Return ResourceManager.GetString("ARA_ModelSet", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to --if not exists(select 1 from sys.sysusers where [name]=N&apos;ara_owner&apos;) begin;
+        '''--   create role [ara_owner] authorization [db_owner];
+        '''--end;
+        '''
+        '''if not exists(select 1 from sys.sysusers where [name]=N&apos;ara_etl_manager&apos;) begin;
+        '''   create role [ara_etl_manager] authorization [db_owner];
+        '''end;.
+        '''</summary>
+        Friend ReadOnly Property ARA_RoleDefinitions() As String
+            Get
+                Return ResourceManager.GetString("ARA_RoleDefinitions", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to grant select on [{{{schema}}}].[{{{entity}}}.AsIs] to [psa_abstractreader];
+        '''grant select on [{{{schema}}}].[{{{entity}}}.AsIs] to [psa_current_state_reader];.
         '''</summary>
         Friend ReadOnly Property PSA_AsIsSecurityDefinition() As String
             Get
@@ -86,10 +828,14 @@ Namespace My.Resources
         End Property
         
         '''<summary>
-        '''  Looks up a localized string similar to create view [{{{schema}}}].[{{{entity}}}.AsIs] with schemabinding --,encryption
+        '''  Looks up a localized string similar to create view [{{{schema}}}].[{{{entity}}}.AsIs] with schemabinding
         '''as
         '''select
-        '''   [psa_entity_key] [AbstractEntityKey],
+        '''   [psa_entity_key] [PersistentEntityKey],
+        '''   [psa_entity_sequence] [PersistentEntityIncrement],
+        '''   [psa_start_period] [PersistentEntityValidFrom],
+        '''   isnull([psa_end_period],&apos;9999-12-31 23:59:59.9999999&apos;) [PersistentEntityValidTo],
+        '''   [psa_dml_action] [PersistentEntityChangeAction],
         '''{{{columnset}}}
         '''from
         '''   {{{domain}}}
@@ -115,18 +861,17 @@ Namespace My.Resources
         '''as return
         '''
         '''select
-        '''   [psa_entity_key] [AbstractEntityKey],
+        '''   [psa_entity_key] [PersistentEntityKey],
+        '''   [psa_entity_sequence] [PersistentEntityIncrement],
+        '''   [psa_start_period] [PersistentEntityValidFrom],
+        '''   isnull([psa_end_period],&apos;9999-12-31 23:59:59.9999999&apos;) [PersistentEntityValidTo],
+        '''   [psa_dml_action] [PersistentEntityChangeAction],
         '''{{{columnset}}}
         '''from
         '''   {{{domain}}}
         '''where
         '''   [psa_archive_flag]=0
-        '''   and
-        '''   [psa_active_state]=1
-        '''   and
-        '''   [psa_start_period]&lt;=@AsOfDateTime
-        '''   and
-        '''   isnull([psa_end_period],&apos;9999-12-31 23:59:59.9999999&apos;)&gt;=@AsOfDateTime;.
+        '''    [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property PSA_AsOfFunctionDefinition() As String
             Get
@@ -172,11 +917,11 @@ Namespace My.Resources
         '''  Looks up a localized string similar to create view [{{{schema}}}].[{{{entity}}}.AsWas] with schemabinding
         '''as
         '''select
-        '''   [psa_entity_key] [AbstractEntityKey],
-        '''   [psa_entity_sequence] [AbstractChangeIncrement],
-        '''   [psa_start_period] [AbstractValidFrom],
-        '''   isnull([psa_end_period],&apos;9999-12-31 23:59:59.9999999&apos;) [AbstractValidTo],
-        '''   [psa_dml_action] [AbstractChangeAction],
+        '''   [psa_entity_key] [PersistentEntityKey],
+        '''   [psa_entity_sequence] [PersistentEntityIncrement],
+        '''   [psa_start_period] [PersistentEntityValidFrom],
+        '''   isnull([psa_end_period],&apos;9999-12-31 23:59:59.9999999&apos;) [PersistentEntityValidTo],
+        '''   [psa_dml_action] [PersistentEntityChangeAction],
         '''{{{columnset}}}
         '''from
         '''   {{{domain}}}
@@ -239,29 +984,29 @@ Namespace My.Resources
         '''<summary>
         '''  Looks up a localized string similar to create function [{{{schema}}}].[{{{entity}}}.Changes]
         ''' (
-        '''    @CurrentVersion bigint 
+        '''   @Version bigint=0,
+        '''   @NullOnDeletes bit=1
         ''' )
         '''returns table with schemabinding
         '''as return
         '''
         '''select
-        '''   d.[psa_entity_key] [AbstractEntityKey],
-        '''   [psa_dml_action] [AbstractChangeAction],
-        '''   case when d.[psa_archive_flag]=1 then N&apos;ARCHIVE&apos; else N&apos;ACTIVE&apos; end [AbstractArchiveActive],
+        '''   d.[psa_entity_key] [PersistentEntityKey],
+        '''   d.[psa_entity_sequence] [PersistentEntityIncrement],
+        '''   d.[psa_start_period] [PersistentEntityValidFrom],
+        '''   isnull(d.[psa_end_period],&apos;9999-12-31 23:59:59.9999999&apos;) [PersistentEntityValidTo],
+        '''   d.[psa_dml_action] [PersistentEntityChangeAction],
+        '''{{{ak_columnset}}}
         '''{{{columnset}}}
         '''from
-        '''   {{{domain}}} d 
-        '''   left join
-        '''   changetable(changes {{{domain}}},@CurrentVersion) c on d.[psa_surrogate_key]=c.[psa_surrogate_key]
-        '''where
-        '''   d.[psa_cu [rest of string was truncated]&quot;;.
+        '''    [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property PSA_ChangesFunctionDefinition() As String
             Get
                 Return ResourceManager.GetString("PSA_ChangesFunctionDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to grant select on [{{{schema}}}].[{{{entity}}}.Changes] to [psa_abstractreader];.
         '''</summary>
@@ -270,18 +1015,25 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_ChangesSecurityDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
-        '''  Looks up a localized string similar to if not exists(select * from sys.change_tracking_tables where [object_id]=object_id(N&apos;{{{domain}}}&apos;))
-        '''alter table {{{domain}}} enable change_tracking
-        '''with(track_columns_updated=off);.
+        '''  Looks up a localized string similar to if not exists(select N&apos;?&apos; from sys.change_tracking_tables where [object_id]=object_id(N&apos;{{{domain}}}&apos;)) begin;
+        '''   alter table {{{domain}}} enable change_tracking
+        '''   with(track_columns_updated=off);
+        '''end;
+        '''
+        '''if not exists(select N&apos;?&apos; from sys.stats where [name]=N&apos;st : syscommittab :: commit_ts&apos;) begin;
+        '''   create statistics [st : syscommittab :: commit_ts] on [edw_psa].[sys].[syscommittab] (commit_ts);
+        '''end;
+        '''
+        '''-- drop statistics [sys].[syscommittab].[st : syscommittab :: commit_ts].
         '''</summary>
         Friend ReadOnly Property PSA_ChangeTrackingDefinition() As String
             Get
                 Return ResourceManager.GetString("PSA_ChangeTrackingDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to set nocount on;
         '''set quoted_identifier on;
@@ -294,28 +1046,19 @@ Namespace My.Resources
         '''create table [dbo].[psa_change_tracking_entity_version]
         ''' (
         '''   [psa_object_id] int not null,
-        '''   [psa_activity] nvarchar(2) not null,
+        '''   [psa_activity] nvarchar(10) not null,
+        '''   constraint [pk : dbo.psa_change_tracking_entity_version] 
         '''   primary key clustered ([psa_activity],[psa_object_id]),
         '''
         '''   [psa_schema] sysname not null,
-        '''   [psa_entity] sysname not null,
-        '''   [psa_domain] as quotename([psa_schema])+N&apos;&apos;.&apos;&apos;+quotename([p [rest of string was truncated]&quot;;.
+        '''   [psa_entity] sysname not null,        ''' [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property PSA_ChangeTrackingSystemDefinition() As String
             Get
                 Return ResourceManager.GetString("PSA_ChangeTrackingSystemDefinition", resourceCulture)
             End Get
         End Property
-
-        '''<summary>
-        '''  Looks up a localized string similar to exec [dbo].[sp_manage_column_properties] N&apos;{{{domain}}}&apos;,N&apos;{{{attribute}}}&apos;,N&apos;{{{property}}}&apos;,N&apos;{{{value}}}&apos;;.
-        '''</summary>
-        Friend ReadOnly Property PSA_ColumnPropertyDefinition() As String
-            Get
-                Return ResourceManager.GetString("PSA_ColumnPropertyDefinition", resourceCulture)
-            End Get
-        End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to select
         '''   convert(nvarchar(40),[value]) [sig]
@@ -335,7 +1078,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_ConstructSignatureLookup", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to create trigger [tr : {{{label}}} {Control Delete}] on [{{{schema}}}].[{{{entity}}}.Control]
         '''instead of delete
@@ -353,15 +1096,16 @@ Namespace My.Resources
         '''    (
         '''      select
         '''{{{columnset}}}
-        '''         @batch [psa_batch_id],
-        '''         {{{hashfunction}}}( [rest of string was truncated]&quot;;.
+        '''         @batch [psa_batch_id]
+        '''      from
+        '''         [deleted [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property PSA_ControlDeleteDefinition() As String
             Get
                 Return ResourceManager.GetString("PSA_ControlDeleteDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to create trigger [tr : {{{label}}} {Control Insert}] on [{{{schema}}}].[{{{entity}}}.Control]
         '''instead of insert
@@ -390,7 +1134,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_ControlInsertDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to grant select,insert,update,delete on [{{{schema}}}].[{{{entity}}}.Control] to [psa_etl_manager];.
         '''</summary>
@@ -399,7 +1143,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_ControlSecurityDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to create trigger [tr : {{{label}}} {Control Update}] on [{{{schema}}}].[{{{entity}}}.Control]
         '''instead of update
@@ -426,7 +1170,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_ControlUpdateDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to create view [{{{schema}}}].[{{{entity}}}.Control] with schemabinding
         '''as
@@ -442,7 +1186,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_ControlViewDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to if not exists(select 1 from sys.change_tracking_databases where [database_id]=db_id()) begin;
         '''   alter database [{{{db}}}] set change_tracking=on (change_retention=5 days,auto_cleanup=on);
@@ -453,7 +1197,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_DatabaseChangeTrackingDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to --:SETVAR DatabaseName &apos;[edw_psa]&apos;
         '''--:SETVAR Path &apos;A:\SQL\Data\&apos;
@@ -474,19 +1218,19 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_DatabaseTemplate", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to -- service broker drops
         '''if exists(select 1 from sys.services where [name]=N&apos;//{{{schema}}}/{{{entity}}}/Upsert/Service/Processing&apos;) drop service [//{{{schema}}}/{{{entity}}}/Upsert/Service/Processing];
         '''if exists(select 1 from sys.services where [name]=N&apos;//{{{schema}}}/{{{entity}}}/Upsert/Service/Request&apos;) drop service [//{{{schema}}}/{{{entity}}}/Upsert/Service/Request];
-        '''if object_id(N&apos;[{{{schema}}}].[{{{entity}}}.RequestUpsert]&apos;,N&apos;SQ&apos;) is not null drop queue [{{{schema}}}].[{{{entity}}}.RequestUpsert];        ''' [rest of string was truncated]&quot;;.
+        '''if exists(select 1 from sys.services where [name]=N&apos;//{{{schema}}}/{{{entity}}}/Delete/Service/Processing&apos;) drop service [//{{{schema}} [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property PSA_DropRelatedObjects() As String
             Get
                 Return ResourceManager.GetString("PSA_DropRelatedObjects", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to if object_id(N&apos;[{{{schema}}}].[tr : {{{label}}} {Temporal Governor}]&apos;,N&apos;TR&apos;) is not null begin;
         '''   drop trigger [{{{schema}}}].[tr : {{{label}}} {Temporal Governor}];
@@ -497,46 +1241,57 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_DropTemporalGovernorDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
-        '''  Looks up a localized string similar to if object_id(N&apos;[dbo].[psa_hash]&apos;,N&apos;FN&apos;) is null begin;
+        '''  Looks up a localized string similar to set nocount on;
+        '''declare @apos_rep nvarchar(10)=N&apos;|~|~|&apos;;
         '''
-        '''   exec sys.sp_executesql
-        '''   N&apos;
-        '''   create function [dbo].[psa_hash] 
-        '''    (
-        '''      @string nvarchar(max)
-        '''    ) 
-        '''   returns varbinary(20) with encryption
-        '''   as 
-        '''   begin;
-        '''      return master.dbo.[fn_hash](@string);
-        '''   end;
-        '''   &apos;
-        '''   exec sys.sp_MS_marksystemobject &apos;psa_hash&apos;;
-        '''
-        '''end;.
+        '''with attr as
+        ''' (
+        '''   select
+        '''      N&apos;[&apos;+[psa_schema]+N&apos;].[&apos;+[psa_entity]+N&apos;]&apos; [@psa_domain],
+        '''      [psa_schema],
+        '''      [psa_entity],
+        '''      replace([psa_entity_description],N&apos;&apos;&apos;&apos;,@apos_rep) [psa_entity_description],
+        '''      [source_schema],
+        '''      [source_entity],
+        '''      [psa_max_threads],
+        '''      [psa_hash_large_objects],
+        '''      [etl_build_group],
+        '''      [etl_sequence_order],
+        '''      [etl_max_record_count],
+        '''      [etl_infer_deletions],
+        '''      [et [rest of string was truncated]&quot;;.
         '''</summary>
-        Friend ReadOnly Property PSA_HashingAlgorithmForPSA() As String
+        Friend ReadOnly Property PSA_GetModel() As String
             Get
-                Return ResourceManager.GetString("PSA_HashingAlgorithmForPSA", resourceCulture)
+                Return ResourceManager.GetString("PSA_GetModel", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
-        '''  Looks up a localized string similar to select
-        '''   db_name() [database_name],
-        '''   @@servername [instance_name],
-        '''   serverproperty(&apos;productlevel&apos;) [product_level],
-        '''   serverproperty(&apos;edition&apos;) [edition],
-        '''   parsename(convert(nvarchar(50),serverproperty(&apos;productversion&apos;)),4) [version];.
+        '''  Looks up a localized string similar to if object_id(N&apos;[dbo].[psa_hash]&apos;,N&apos;FS&apos;) is not null drop function [dbo].[psa_hash];
+        '''
+        '''exec sys.sp_executesql
+        '''N&apos;
+        '''create function [dbo].[psa_hash] 
+        ''' (
+        '''   @string nvarchar(max)
+        ''' ) 
+        '''returns varbinary(20) with execute as owner
+        '''as external name [Slalom.Framework.Methods].[EDW.Common.Methods].[StringHash];&apos;
+        '''
+        '''exec sys.sp_MS_marksystemobject &apos;psa_hash&apos;;
+        '''
+        '''grant execute on [dbo].[psa_hash] to [psa_etl_manager];
+        '''grant execute on [dbo].[psa_hash] to [psa_owner];.
         '''</summary>
-        Friend ReadOnly Property PSA_InstanceProperties() As String
+        Friend ReadOnly Property PSA_HashingAlgorithm() As String
             Get
-                Return ResourceManager.GetString("PSA_InstanceProperties", resourceCulture)
+                Return ResourceManager.GetString("PSA_HashingAlgorithm", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to -- create &apos;upsert stage&apos; abstraction
         '''if object_id(N&apos;[{{{schema}}}].[{{{entity}}}.UpsertStage]&apos;,N&apos;U&apos;) is not null drop table [{{{schema}}}].[{{{entity}}}.UpsertStage];
@@ -558,7 +1313,27 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_LoadStageDefinition", resourceCulture)
             End Get
         End Property
-
+        
+        '''<summary>
+        '''  Looks up a localized string similar to if object_id(N&apos;[dbo].[psa_batch_control]&apos;,N&apos;U&apos;) is null begin;
+        '''
+        '''   create table [dbo].[psa_batch_control] 
+        '''    (
+        '''      [psa_batch_id] uniqueidentifier not null
+        '''      constraint [df : dbo.psa_batch_control {Sequential GUID}] default (newsequentialid()),
+        '''	   constraint [pk : dbo.psa_batch_control :: psa_batch_id]
+        '''      primary key clustered ([psa_batch_id] asc)
+        '''      with (fillfactor=80),
+        '''	   [psa_batch_ssis_id] bigint not null,
+        '''      [psa_package_name] nvarchar(128) null,
+        '''	   [psa_batch_start] dat [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property PSA_LoggingDefinition() As String
+            Get
+                Return ResourceManager.GetString("PSA_LoggingDefinition", resourceCulture)
+            End Get
+        End Property
+        
         '''<summary>
         '''  Looks up a localized string similar to select
         '''   convert(nvarchar(40),[value]) [sig]
@@ -578,34 +1353,84 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_LogicalSignatureLookup", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
-        '''  Looks up a localized string similar to create procedure [{{{schema}}}].[{{{entity}}}.ProcessUpsert]
+        '''  Looks up a localized string similar to create procedure [{{{schema}}}].[{{{entity}}}.ProcessDelete]
         ''' (
         '''   @i_MaxRowCount int
-        ''' )
+        ''' ) with execute as N&apos;psa_sb_manager&apos;
         '''as
         '''-- do not alter/add/extend this stored procedure, or any psa stored procedure
         '''-- authored by slalom consulting 2014
         '''set nocount on;
         '''
-        '''declare @rc int, @mn int, @mx int;
-        '''declare @hist table([min] int,[max] int,[initiated] bit,[fulfilled] bit,[err] int,[errmsg] nvarchar(1000),unique([min] asc));
+        '''-- check to see is object is actively running on another thread
+        '''if not exists(
+        '''   select
+        '''      N&apos;?&apos;
+        '''   from
+        '''      sys.dm_broker_queue_monitors
+        '''   where
+        '''      object_name([queue_id])=N&apos;{{{entity}}}.ProcessingDelete&apos;
+        '''      and
+        '''      obje [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property PSA_ProcessDeleteDefinition() As String
+            Get
+                Return ResourceManager.GetString("PSA_ProcessDeleteDefinition", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to grant execute on [{{{schema}}}].[{{{entity}}}.ProcessDelete] to [psa_etl_manager];.
+        '''</summary>
+        Friend ReadOnly Property PSA_ProcessDeleteSecurityDefinition() As String
+            Get
+                Return ResourceManager.GetString("PSA_ProcessDeleteSecurityDefinition", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to create procedure [{{{schema}}}].[{{{entity}}}.ProcessUpsert]
+        ''' (
+        '''   @i_MaxRowCount int
+        ''' ) with execute as N&apos;psa_sb_manager&apos;
+        '''as
+        '''-- do not alter/add/extend this stored procedure, or any psa stored procedure
+        '''-- authored by slalom consulting 2014
+        '''set nocount on;
         '''
-        '''-- get bucketing inputs
-        '''select
-        '''   @rc=count([psa_stage_key]),
-        '''   @mn=min([psa_stage_key]),
-        '''   @mx=max([psa_st [rest of string was truncated]&quot;;.
+        '''-- check to see is object is actively running on another thread
+        '''if not exists(
+        '''   select
+        '''      N&apos;?&apos;
+        '''   from
+        '''      sys.dm_broker_queue_monitors
+        '''   where
+        '''      object_name([queue_id])=N&apos;{{{entity}}}.ProcessingUpsert&apos;
+        '''      and
+        '''      obje [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property PSA_ProcessUpsertDefinition() As String
             Get
                 Return ResourceManager.GetString("PSA_ProcessUpsertDefinition", resourceCulture)
             End Get
         End Property
-
+        
+        '''<summary>
+        '''  Looks up a localized string similar to grant execute on [{{{schema}}}].[{{{entity}}}.ProcessUpsert] to [psa_etl_manager];.
+        '''</summary>
+        Friend ReadOnly Property PSA_ProcessUpsertSecurityDefinition() As String
+            Get
+                Return ResourceManager.GetString("PSA_ProcessUpsertSecurityDefinition", resourceCulture)
+            End Get
+        End Property
+        
         '''<summary>
         '''  Looks up a localized string similar to if object_id(N&apos;{{{domain}}}&apos;,N&apos;U&apos;) is not null begin;
+        '''
+        '''   -- any existing change control
+        '''   delete [dbo].[psa_change_tracking_entity_version] where [psa_object_id]=object_id(&apos;{{{domain}}}&apos;,N&apos;U&apos;);
         '''
         '''   exec [sys].[sp_rename] N&apos;{{{domain}}}&apos;, N&apos;{{{label}}}.{{{ext}}}&apos;;
         '''   alter schema [dbo] transfer [{{{schema}}}].[{{{label}}}.{{{ext}}}];
@@ -618,21 +1443,14 @@ Namespace My.Resources
         '''      sys.partitions
         '''   where
         '''      [object_id]=object_id(N&apos;[dbo].[{{{label}}}.{{{ext}}}]&apos;,N&apos;U&apos;)
-        '''      and
-        '''      [partition_number]=1;
-        '''
-        '''   if @x=0 begin;
-        '''      drop table [dbo].[{{{label}}}.{{{ext}}}];
-        '''   end else begin;
-        '''
-        '''      exec [sys].[sp [rest of string was truncated]&quot;;.
+        '''      a [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property PSA_RenameDefinition() As String
             Get
                 Return ResourceManager.GetString("PSA_RenameDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to if not exists(select 1 from sys.sysusers where [name]=N&apos;psa_owner&apos;) begin;
         '''   create role [psa_owner] authorization [db_owner];
@@ -644,14 +1462,16 @@ Namespace My.Resources
         '''
         '''if not exists(select 1 from sys.sysusers where [name]=N&apos;psa_etl_manager&apos;) begin;
         '''   create role [psa_etl_manager] authorization [psa_owner];
-        '''end;.
+        '''end;
+        '''
+        '''if not exists(select 1 from sys.sysusers where [name]=N&apos;psa_curren [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property PSA_RoleDefinitions() As String
             Get
                 Return ResourceManager.GetString("PSA_RoleDefinitions", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to set nocount on;
         '''set quoted_identifier on;
@@ -674,7 +1494,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_SchemaDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to if not exists (select * from sys.sequences where [name]=N&apos;{{{entity}}}.SPK&apos; and object_schema_name([object_id])=N&apos;{{{schema}}}&apos;) begin;
         '''   exec sys.sp_executesql N&apos;create sequence [{{{schema}}}].[{{{entity}}}.SPK] start with 1 increment by 1 minvalue 1 cycle cache 1000;&apos;
@@ -685,7 +1505,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_SequenceDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to -- message type
         '''if not exists(select 1 from sys.service_message_types where [name]=&apos;//{{{schema}}}/{{{entity}}}/Message/Request&apos;) begin;
@@ -706,7 +1526,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_ServiceBrokerDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to if not exists(select * from sys.syslogins where [name]=N&apos;psa_sb_manager&apos;) begin;
         '''   create login [psa_sb_manager] with password=N&apos;{{{pw}}}&apos;, default_database=[edw_psa], check_expiration=off, check_policy=off
@@ -718,7 +1538,7 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_ServiceBrokerLoginDefinition", resourceCulture)
             End Get
         End Property
-
+        
         '''<summary>
         '''  Looks up a localized string similar to if not exists(select N&apos;?&apos; from sys.sysusers where [name]=N&apos;psa_sb_manager&apos;) begin;
         '''   create user [psa_sb_manager] for login [psa_sb_manager];
@@ -730,7 +1550,37 @@ Namespace My.Resources
                 Return ResourceManager.GetString("PSA_ServiceBrokerUserDefinition", resourceCulture)
             End Get
         End Property
-
+        
+        '''<summary>
+        '''  Looks up a localized string similar to declare @xml xml=&apos;{{{xml}}}&apos;;
+        '''
+        '''set nocount on;
+        '''declare @apos_rep nvarchar(10)=N&apos;|~|~|&apos;;
+        '''
+        '''begin try;
+        '''
+        '''   delete [master].[dbo].[psa_attribute_definition];
+        '''   delete [master].[dbo].[psa_entity_definition];
+        '''
+        '''   insert [master].[dbo].[psa_entity_definition]
+        '''    (
+        '''      [psa_schema],
+        '''      [psa_entity],
+        '''      [psa_entity_description],
+        '''      [source_schema],
+        '''      [source_entity],
+        '''      [psa_max_threads],
+        '''      [psa_hash_large_objects],
+        '''      [etl_build_group],
+        '''      [etl_sequence_order],
+        '''    [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property PSA_SetModel() As String
+            Get
+                Return ResourceManager.GetString("PSA_SetModel", resourceCulture)
+            End Get
+        End Property
+        
         '''<summary>
         '''  Looks up a localized string similar to set nocount on;
         '''set quoted_identifier on;
@@ -753,15 +1603,6 @@ Namespace My.Resources
         Friend ReadOnly Property PSA_TableDefinition() As String
             Get
                 Return ResourceManager.GetString("PSA_TableDefinition", resourceCulture)
-            End Get
-        End Property
-        
-        '''<summary>
-        '''  Looks up a localized string similar to exec [dbo].[sp_manage_table_properties] N&apos;{{{domain}}}&apos;,N&apos;{{{property}}}&apos;,N&apos;{{{value}}}&apos;;.
-        '''</summary>
-        Friend ReadOnly Property PSA_TablePropertyDefintion() As String
-            Get
-                Return ResourceManager.GetString("PSA_TablePropertyDefintion", resourceCulture)
             End Get
         End Property
         
@@ -797,6 +1638,30 @@ Namespace My.Resources
         End Property
         
         '''<summary>
+        '''  Looks up a localized string similar to create procedure [{{{schema}}}].[{{{entity}}}.WorkerDelete]
+        '''as
+        '''-- do not alter/add/extend this stored procedure, or any psa stored procedure
+        '''-- authored by slalom consulting 2014
+        '''set nocount on;
+        '''
+        '''-- declare variables
+        '''declare @conversation_handle uniqueidentifier;
+        '''declare @inbound_message_body xml;
+        '''declare @outbound_message_body xml;
+        '''declare @message_type_name sysname;
+        '''declare @min_psa_stage_key int;
+        '''declare @max_psa_stage_key int;
+        '''declare @batch_id varbinary(128);
+        '''declare @re nvarchar(4000);
+        ''' [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property PSA_WorkerDeleteDefinition() As String
+            Get
+                Return ResourceManager.GetString("PSA_WorkerDeleteDefinition", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
         '''  Looks up a localized string similar to create procedure [{{{schema}}}].[{{{entity}}}.WorkerUpsert]
         '''as
         '''-- do not alter/add/extend this stored procedure, or any psa stored procedure
@@ -811,9 +1676,8 @@ Namespace My.Resources
         '''declare @min_psa_stage_key int;
         '''declare @max_psa_stage_key int;
         '''declare @batch_id varbinary(128);
-        '''
-        '''-- declare constants
-        '''decla [rest of string was truncated]&quot;;.
+        '''declare @re nvarchar(4000);
+        ''' [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property PSA_WorkerUpsertDefinition() As String
             Get
@@ -854,6 +1718,15 @@ Namespace My.Resources
         End Property
         
         '''<summary>
+        '''  Looks up a localized string similar to exec [dbo].[sp_manage_column_properties] N&apos;{{{domain}}}&apos;,N&apos;{{{attribute}}}&apos;,N&apos;{{{property}}}&apos;,N&apos;{{{value}}}&apos;;.
+        '''</summary>
+        Friend ReadOnly Property SYS_ColumnPropertyDefinition() As String
+            Get
+                Return ResourceManager.GetString("SYS_ColumnPropertyDefinition", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
         '''  Looks up a localized string similar to select
         '''   db_name() [database_name],
         '''   [compatibility_level]
@@ -869,7 +1742,54 @@ Namespace My.Resources
         End Property
         
         '''<summary>
-        '''  Looks up a localized string similar to select * from [dbo].[psa_attribute_definition] where 1=1.
+        '''  Looks up a localized string similar to select
+        '''   db_name() [database_name],
+        '''   @@servername [instance_name],
+        '''   serverproperty(&apos;productlevel&apos;) [product_level],
+        '''   serverproperty(&apos;edition&apos;) [edition],
+        '''   parsename(convert(nvarchar(50),serverproperty(&apos;productversion&apos;)),4) [version];.
+        '''</summary>
+        Friend ReadOnly Property SYS_InstanceProperties() As String
+            Get
+                Return ResourceManager.GetString("SYS_InstanceProperties", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to if not exists(select N&apos;?&apos; from sys.assemblies where [name]=N&apos;Slalom.Framework.Methods&apos;)
+        '''create assembly [Slalom.Framework.Methods]
+        '''from 0x4D5A90000300000004000000FFFF0000B800000000000000400000000000000000000000000000000000000000000000000000000000000000000000800000000E1FBA0E00B409CD21B8014CCD21546869732070726F6772616D2063616E6E6F742062652072756E20696E20444F53206D6F64652E0D0D0A2400000000000000504500004C01040024D09F550000000000000000E00002210B010B00002A00000034000000000000FE4700000020000000600000000040000020 [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property SYS_LocalMethodInstall() As String
+            Get
+                Return ResourceManager.GetString("SYS_LocalMethodInstall", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to if object_id(N&apos;[dbo].[psa_entity_definition]&apos;,N&apos;U&apos;) is null begin;
+        '''
+        '''   create table [dbo].[psa_entity_definition]
+        '''    (
+        '''      [psa_schema] nvarchar(4) collate Latin1_General_100_BIN2,
+        '''      constraint [ck : dbo.psa_entity_definition :: psa_schema]
+        '''      check (len([psa_schema])=4),
+        '''
+        '''      [psa_entity] nvarchar(31) collate Latin1_General_100_BIN2,
+        '''      
+        '''      constraint [pk : dbo.psa_entity_definition]
+        '''      primary key clustered ([psa_schema],[psa_entity]),
+        '''
+        '''      [psa_entity_description] nvar [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property SYS_MetadataDefinition() As String
+            Get
+                Return ResourceManager.GetString("SYS_MetadataDefinition", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to select * from [master].[dbo].[psa_attribute_definition] where 1=1.
         '''</summary>
         Friend ReadOnly Property SYS_PSAAttributeDefinition() As String
             Get
@@ -878,7 +1798,9 @@ Namespace My.Resources
         End Property
         
         '''<summary>
-        '''  Looks up a localized string similar to with x as
+        '''  Looks up a localized string similar to set nocount on;
+        '''
+        '''with [x] as
         ''' (
         '''   select
         '''      [psa_schema],
@@ -887,8 +1809,7 @@ Namespace My.Resources
         '''      convert(nvarchar(max),
         '''      right(convert(nvarchar(42),hashbytes(N&apos;sha1&apos;,[psa_attribute]),1),40)+N&apos; : &apos;+
         '''      right(convert(nvarchar(42),hashbytes(N&apos;sha1&apos;,[psa_attribute_datatype]),1),40)+N&apos; : &apos;+
-        '''      right(convert(nvarchar(42),hashbytes(N&apos;sha1&apos;,convert(nvarchar(10),[psa_attribute_ordinal])),1),40)+N&apos; : &apos;+
-        '''  [rest of string was truncated]&quot;;.
+        '''      right(convert(nvarchar(42),hashbytes(N&apos;sha1&apos;,convert(nvarchar(10),[psa_attribute_ordinal [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property SYS_PSAEntityDefinition() As String
             Get
@@ -922,6 +1843,19 @@ Namespace My.Resources
         End Property
         
         '''<summary>
+        '''  Looks up a localized string similar to --   ______     __             _____                  ____  _          
+        '''--  / __/ /__ _/ /__  __ _    / ___/__  ___  _____ __/ / /_(_)__  ___ _
+        '''-- _\ \/ / _ `/ / _ \/  &apos; \  / /__/ _ \/ _ \(_-&lt; // / / __/ / _ \/ _ `/
+        '''--/___/_/\_,_/_/\___/_/_/_/  \___/\___/_//_/___|_,_/_/\__/_/_//_/\_, / 
+        '''--                                                              /___/.
+        '''</summary>
+        Friend ReadOnly Property SYS_SlalomTextArtSQL() As String
+            Get
+                Return ResourceManager.GetString("SYS_SlalomTextArtSQL", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
         '''  Looks up a localized string similar to if object_id(&apos;[dbo].[sp_manage_table_properties]&apos;,N&apos;P&apos;) is not null drop procedure [dbo].[sp_manage_table_properties];
         '''
         '''exec sys.sp_executesql
@@ -948,6 +1882,15 @@ Namespace My.Resources
         Friend ReadOnly Property SYS_TableMetadataDefinition() As String
             Get
                 Return ResourceManager.GetString("SYS_TableMetadataDefinition", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
+        '''  Looks up a localized string similar to exec [dbo].[sp_manage_table_properties] N&apos;{{{domain}}}&apos;,N&apos;{{{property}}}&apos;,N&apos;{{{value}}}&apos;;.
+        '''</summary>
+        Friend ReadOnly Property SYS_TablePropertyDefintion() As String
+            Get
+                Return ResourceManager.GetString("SYS_TablePropertyDefintion", resourceCulture)
             End Get
         End Property
     End Module

@@ -4,14 +4,13 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{45292527-9B93-4BAF-B4D5-A7B7F4DF72C6}</ProjectGuid>
+    <ProjectGuid>{1DBDA08C-DB70-44D4-B755-1541293353E5}</ProjectGuid>
     <OutputType>Library</OutputType>
     <RootNamespace>EDW</RootNamespace>
-    <AssemblyName>Slalom.Framework.StorageLayer</AssemblyName>
+    <AssemblyName>Slalom.Framework.Methods</AssemblyName>
     <FileAlignment>512</FileAlignment>
     <MyType>Windows</MyType>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -19,12 +18,8 @@
     <DefineDebug>true</DefineDebug>
     <DefineTrace>true</DefineTrace>
     <OutputPath>bin\Debug\</OutputPath>
-    <DocumentationFile>Slalom.Framework.StorageLayer.xml</DocumentationFile>
-    <NoWarn>
-    </NoWarn>
-    <Prefer32Bit>false</Prefer32Bit>
-    <WarningsAsErrors>41999,42016,42017,42018,42019,42020,42021,42022,42032,42036</WarningsAsErrors>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <DocumentationFile>Slalom.Framework.Methods.xml</DocumentationFile>
+    <NoWarn>42016,41999,42017,42018,42019,42032,42036,42020,42021,42022</NoWarn>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -32,21 +27,17 @@
     <DefineTrace>true</DefineTrace>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
-    <DocumentationFile>Slalom.Framework.StorageLayer.xml</DocumentationFile>
-    <NoWarn>
-    </NoWarn>
-    <Prefer32Bit>false</Prefer32Bit>
-    <WarningsAsErrors>41999,42016,42017,42018,42019,42020,42021,42022,42032,42036</WarningsAsErrors>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <DocumentationFile>Slalom.Framework.Methods.xml</DocumentationFile>
+    <NoWarn>42016,41999,42017,42018,42019,42032,42036,42020,42021,42022</NoWarn>
   </PropertyGroup>
   <PropertyGroup>
     <OptionExplicit>On</OptionExplicit>
   </PropertyGroup>
   <PropertyGroup>
-    <OptionCompare>Text</OptionCompare>
+    <OptionCompare>Binary</OptionCompare>
   </PropertyGroup>
   <PropertyGroup>
-    <OptionStrict>On</OptionStrict>
+    <OptionStrict>Off</OptionStrict>
   </PropertyGroup>
   <PropertyGroup>
     <OptionInfer>On</OptionInfer>
@@ -68,13 +59,10 @@
     <Import Include="System.Diagnostics" />
     <Import Include="System.Linq" />
     <Import Include="System.Xml.Linq" />
+    <Import Include="System.Threading.Tasks" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ara.vb" />
-    <Compile Include="ext.vb" />
-    <Compile Include="oda.vb" />
-    <Compile Include="sys.vb" />
-    <Compile Include="psa.vb" />
+    <Compile Include="methods.vb" />
     <Compile Include="My Project\AssemblyInfo.vb" />
     <Compile Include="My Project\Application.Designer.vb">
       <AutoGen>True</AutoGen>
@@ -100,7 +88,6 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
-    <None Include="app.config" />
     <None Include="My Project\Application.myapp">
       <Generator>MyApplicationCodeGenerator</Generator>
       <LastGenOutput>Application.Designer.vb</LastGenOutput>
