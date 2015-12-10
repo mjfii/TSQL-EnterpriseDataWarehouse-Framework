@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
 VisualStudioVersion = 12.0.40629.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "Storage Layer", "solution\storage layer\Storage Layer.vbproj", "{45292527-9B93-4BAF-B4D5-A7B7F4DF72C6}"
+Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "Storage Layer", "solution\storage-layer\Storage Layer.vbproj", "{45292527-9B93-4BAF-B4D5-A7B7F4DF72C6}"
 EndProject
 Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "Methods", "solution\methods\Methods.vbproj", "{1DBDA08C-DB70-44D4-B755-1541293353E5}"
 EndProject
