@@ -9,9 +9,9 @@ Imports System.Runtime.InteropServices
 ' Review the values of the assembly attributes
 
 <Assembly: AssemblyTitle("EDW Framework for Storage Layer")> 
-<Assembly: AssemblyDescription("This framework provides T-SQL DDL for a PSA and ARA.")> 
+<Assembly: AssemblyDescription("This framework provides T-SQL DDL for a PSA, ODA, & ARA.")> 
 <Assembly: AssemblyCompany("Slalom Consulting LLC")> 
-<Assembly: AssemblyProduct("")> 
+<Assembly: AssemblyProduct("Slalom SQL Server Framework")> 
 <Assembly: AssemblyCopyright("Copyright © 2014")> 
 <Assembly: AssemblyTrademark("")> 
 
