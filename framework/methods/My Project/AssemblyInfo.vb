@@ -8,17 +8,17 @@ Imports System.Runtime.InteropServices
 
 ' Review the values of the assembly attributes
 
-<Assembly: AssemblyTitle("Aggregates")> 
+<Assembly: AssemblyTitle("Methods")> 
 <Assembly: AssemblyDescription("")> 
 <Assembly: AssemblyCompany("Slalom Consulting LLC")> 
 <Assembly: AssemblyProduct("Slalom SQL Server Framework")> 
-<Assembly: AssemblyCopyright("Copyright ©  2015")> 
+<Assembly: AssemblyCopyright("Copyright © 2014")> 
 <Assembly: AssemblyTrademark("")> 
 
 <Assembly: ComVisible(False)>
 
 'The following GUID is for the ID of the typelib if this project is exposed to COM
-<Assembly: Guid("acb0352c-432e-4c88-9708-e58a67423bf6")> 
+<Assembly: Guid("a69f36fb-825b-46d2-9ce8-b91acd1fd259")> 
 
 ' Version information for an assembly consists of the following four values:
 '
