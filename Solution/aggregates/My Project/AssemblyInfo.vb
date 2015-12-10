@@ -8,7 +8,7 @@ Imports System.Runtime.InteropServices
 
 ' Review the values of the assembly attributes
 
-<Assembly: AssemblyTitle("Methods")> 
+<Assembly: AssemblyTitle("Aggregates")> 
 <Assembly: AssemblyDescription("")> 
 <Assembly: AssemblyCompany("Slalom Consulting LLC")> 
 <Assembly: AssemblyProduct("Slalom SQL Server Framework")> 
@@ -18,7 +18,7 @@ Imports System.Runtime.InteropServices
 <Assembly: ComVisible(False)>
 
 'The following GUID is for the ID of the typelib if this project is exposed to COM
-<Assembly: Guid("a69f36fb-825b-46d2-9ce8-b91acd1fd259")> 
+<Assembly: Guid("acb0352c-432e-4c88-9708-e58a67423bf6")> 
 
 ' Version information for an assembly consists of the following four values:
 '

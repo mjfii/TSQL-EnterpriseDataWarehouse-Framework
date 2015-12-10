@@ -1,11 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
-VisualStudioVersion = 12.0.31101.0
+VisualStudioVersion = 12.0.40629.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "Storage Layer", "Solution\Storage Layer\Storage Layer.vbproj", "{45292527-9B93-4BAF-B4D5-A7B7F4DF72C6}"
+Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "Storage Layer", "solution\storage layer\Storage Layer.vbproj", "{45292527-9B93-4BAF-B4D5-A7B7F4DF72C6}"
 EndProject
-Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "Methods", "Solution\Methods\Methods.vbproj", "{1DBDA08C-DB70-44D4-B755-1541293353E5}"
+Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "Methods", "solution\methods\Methods.vbproj", "{1DBDA08C-DB70-44D4-B755-1541293353E5}"
+EndProject
+Project("{F184B08F-C81C-45F6-A57F-5ABD9991F28F}") = "Aggregates", "solution\aggregates\Aggregates.vbproj", "{4A3EB705-2C9D-4EF8-A0E4-5D4471B12E70}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,6 +23,10 @@ Global
 		{1DBDA08C-DB70-44D4-B755-1541293353E5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1DBDA08C-DB70-44D4-B755-1541293353E5}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1DBDA08C-DB70-44D4-B755-1541293353E5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4A3EB705-2C9D-4EF8-A0E4-5D4471B12E70}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4A3EB705-2C9D-4EF8-A0E4-5D4471B12E70}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4A3EB705-2C9D-4EF8-A0E4-5D4471B12E70}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4A3EB705-2C9D-4EF8-A0E4-5D4471B12E70}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
