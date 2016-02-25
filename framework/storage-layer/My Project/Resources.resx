@@ -1138,7 +1138,7 @@ with [x] as
       e.[etl_fixed_predicate],
       e.[etl_variable_predicate],
       right(convert(nvarchar(42),[dbo].[psa_hash](e.[psa_hash_large_objects]),1),40)+N' : '+
-      right(convert(nvarchar(42),[dbo].[psa_hash](e.[psa_max_threads]),1),40) [logic_sig],
+      right(convert(nvarchar(42),[dbo].[psa_hash](e.[psa_max_threads]),1),40)+N'v2.1' [logic_sig],
       rtrim(ca.ah) [construct_sig]
    from
       [master].dbo.[psa_entity_definition] e
@@ -1561,9 +1561,9 @@ declare @message_type sysname=N'//{{{schema}}}/{{{entity}}}/Message/Request';
 declare @msg xml;
 
 -- before we begin the process, lock the table
-if not exists(select N'?' from sys.objects where [name]=N'{{{schema}}}.{{{entity}}}.UpsertStage is in a read-only state.') begin;
-   alter table [{{{schema}}}].[{{{entity}}}.UpsertStage] with nocheck add constraint [{{{schema}}}.{{{entity}}}.UpsertStage is in a read-only state.] check(1=0);
-end;
+--if not exists(select N'?' from sys.objects where [name]=N'{{{schema}}}.{{{entity}}}.UpsertStage is in a read-only state.') begin;
+--   alter table [{{{schema}}}].[{{{entity}}}.UpsertStage] with nocheck add constraint [{{{schema}}}.{{{entity}}}.UpsertStage is in a read-only state.] check(1=0);
+--end;
 
 -- lets roll...
 begin try;
@@ -1625,9 +1625,9 @@ end try begin catch;
 end catch;
 
 -- remove any locking on the table
-if  exists(select N'?' from sys.objects where [name]=N'{{{schema}}}.{{{entity}}}.UpsertStage is in a read-only state.') begin;
-   alter table [{{{schema}}}].[{{{entity}}}.UpsertStage] drop constraint [{{{schema}}}.{{{entity}}}.UpsertStage is in a read-only state.];
-end;
+--if  exists(select N'?' from sys.objects where [name]=N'{{{schema}}}.{{{entity}}}.UpsertStage is in a read-only state.') begin;
+--   alter table [{{{schema}}}].[{{{entity}}}.UpsertStage] drop constraint [{{{schema}}}.{{{entity}}}.UpsertStage is in a read-only state.];
+--end;
 
 return @@error;</value>
   </data>
@@ -2115,9 +2115,9 @@ declare @message_type sysname=N'//{{{schema}}}/{{{entity}}}/Message/Request';
 declare @msg xml;
 
 -- before we begin the process, lock the table
-if not exists(select N'?' from sys.objects where [name]=N'{{{schema}}}.{{{entity}}}.DeleteStage is in a read-only state.') begin;
-   alter table [{{{schema}}}].[{{{entity}}}.DeleteStage] with nocheck add constraint [{{{schema}}}.{{{entity}}}.DeleteStage is in a read-only state.] check(1=0);
-end;
+--if not exists(select N'?' from sys.objects where [name]=N'{{{schema}}}.{{{entity}}}.DeleteStage is in a read-only state.') begin;
+--   alter table [{{{schema}}}].[{{{entity}}}.DeleteStage] with nocheck add constraint [{{{schema}}}.{{{entity}}}.DeleteStage is in a read-only state.] check(1=0);
+--end;
 
 -- lets roll...
 begin try;
@@ -2179,9 +2179,9 @@ end try begin catch;
 end catch;
 
 -- remove any locking on the table
-if  exists(select N'?' from sys.objects where [name]=N'{{{schema}}}.{{{entity}}}.DeleteStage is in a read-only state.') begin;
-   alter table [{{{schema}}}].[{{{entity}}}.DeleteStage] drop constraint [{{{schema}}}.{{{entity}}}.DeleteStage is in a read-only state.];
-end;
+--if  exists(select N'?' from sys.objects where [name]=N'{{{schema}}}.{{{entity}}}.DeleteStage is in a read-only state.') begin;
+--   alter table [{{{schema}}}].[{{{entity}}}.DeleteStage] drop constraint [{{{schema}}}.{{{entity}}}.DeleteStage is in a read-only state.];
+--end;
 
 return @@error;</value>
   </data>

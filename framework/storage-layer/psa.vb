@@ -327,6 +327,12 @@ Partial Public Class PSA
                     GoTo nextc
                 End If
 
+                ' check for no attributes
+                If e.BusinessIdentifierCount = 0 Then
+                    lbl = "[NO BUSINESS IDENTIFIER DEFINED]"
+                    GoTo nextc
+                End If
+
                 ' check for deletes
                 If DeleteObjects = True Then
                     lbl = "[DELETED]"
@@ -1051,6 +1057,18 @@ nextc:
                         Return 0
                     Else
                         Return _attribute.Count
+                    End If
+
+                End Get
+            End Property
+
+            ''' <summary></summary>
+            Protected Friend ReadOnly Property BusinessIdentifierCount As Integer
+                Get
+                    If _attribute Is Nothing Then
+                        Return 0
+                    Else
+                        Return (Aggregate ea As Entity.EntityAttribute In _attribute Where ea.BusinessIdentifier = Common.YesNoType.Yes Into Count())
                     End If
 
                 End Get
