@@ -840,11 +840,9 @@ Namespace My.Resources
         '''from
         '''   {{{domain}}}
         '''where
-        '''   [psa_archive_flag]=0
-        '''   and
         '''   [psa_active_state]=1
         '''   and
-        '''   [psa_current_flag]=1;.
+        '''   [psa_end_period] is null;.
         '''</summary>
         Friend ReadOnly Property PSA_AsIsViewDefinition() As String
             Get
@@ -870,7 +868,7 @@ Namespace My.Resources
         '''from
         '''   {{{domain}}}
         '''where
-        '''   [psa_archive_flag]=0
+        '''   [psa_active_state]=1
         '''    [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property PSA_AsOfFunctionDefinition() As String
@@ -924,9 +922,7 @@ Namespace My.Resources
         '''   [psa_dml_action] [PersistentEntityChangeAction],
         '''{{{columnset}}}
         '''from
-        '''   {{{domain}}}
-        '''where
-        '''   [psa_archive_flag]=0;.
+        '''   {{{domain}}};.
         '''</summary>
         Friend ReadOnly Property PSA_AsWasViewDefinition() As String
             Get
@@ -996,10 +992,9 @@ Namespace My.Resources
         '''   d.[psa_start_period] [PersistentEntityValidFrom],
         '''   isnull(d.[psa_end_period],&apos;9999-12-31 23:59:59.9999999&apos;) [PersistentEntityValidTo],
         '''   d.[psa_dml_action] [PersistentEntityChangeAction],
-        '''{{{ak_columnset}}}
-        '''{{{columnset}}}
+        '''{{{ak_columnset}}}{{{columnset}}}
         '''from
-        '''    [rest of string was truncated]&quot;;.
+        '''   ch [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property PSA_ChangesFunctionDefinition() As String
             Get
@@ -1179,7 +1174,7 @@ Namespace My.Resources
         '''from
         '''   {{{domain}}}
         '''where
-        '''   [psa_current_flag]=1;.
+        '''   [psa_end_period] is null;.
         '''</summary>
         Friend ReadOnly Property PSA_ControlViewDefinition() As String
             Get
@@ -1357,7 +1352,8 @@ Namespace My.Resources
         '''<summary>
         '''  Looks up a localized string similar to create procedure [{{{schema}}}].[{{{entity}}}.ProcessDelete]
         ''' (
-        '''   @i_MaxRowCount int
+        '''   @i_MaxRowCount int=1000000,
+        '''   @i_WaitForBrokerToClear bit=0
         ''' ) with execute as N&apos;psa_sb_manager&apos;
         '''as
         '''-- do not alter/add/extend this stored procedure, or any psa stored procedure
@@ -1371,9 +1367,7 @@ Namespace My.Resources
         '''   from
         '''      sys.dm_broker_queue_monitors
         '''   where
-        '''      object_name([queue_id])=N&apos;{{{entity}}}.ProcessingDelete&apos;
-        '''      and
-        '''      obje [rest of string was truncated]&quot;;.
+        '''      object_name([queue_id])=N&apos;{{{entity} [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property PSA_ProcessDeleteDefinition() As String
             Get
@@ -1393,7 +1387,8 @@ Namespace My.Resources
         '''<summary>
         '''  Looks up a localized string similar to create procedure [{{{schema}}}].[{{{entity}}}.ProcessUpsert]
         ''' (
-        '''   @i_MaxRowCount int
+        '''   @i_MaxRowCount int=1000000,
+        '''   @i_WaitForBrokerToClear bit=0
         ''' ) with execute as N&apos;psa_sb_manager&apos;
         '''as
         '''-- do not alter/add/extend this stored procedure, or any psa stored procedure
@@ -1407,9 +1402,7 @@ Namespace My.Resources
         '''   from
         '''      sys.dm_broker_queue_monitors
         '''   where
-        '''      object_name([queue_id])=N&apos;{{{entity}}}.ProcessingUpsert&apos;
-        '''      and
-        '''      obje [rest of string was truncated]&quot;;.
+        '''      object_name([queue_id])=N&apos;{{{entity} [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property PSA_ProcessUpsertDefinition() As String
             Get
@@ -1473,21 +1466,13 @@ Namespace My.Resources
         End Property
         
         '''<summary>
-        '''  Looks up a localized string similar to set nocount on;
-        '''set quoted_identifier on;
-        '''set ansi_nulls on;
-        '''set ansi_warnings on;
-        '''
-        '''if not exists (select * from sys.sysusers where [name]=&apos;psa_owner&apos;) begin;
-        '''   create role [psa_owner] authorization [db_owner];
+        '''  Looks up a localized string similar to if not exists (select 1 from sys.schemas where [name]=N&apos;{{{schema}}}&apos;) begin;
+        '''   exec sys.sp_executesql N&apos;create schema [{{{schema}}}] authorization [psa_owner];&apos;
         '''end;
         '''
-        '''if not exists (select * from sys.sysusers where [name]=&apos;psa_etl_manager&apos;) begin;
-        '''   create role [psa_etl_manager] authorization [psa_owner];
-        '''end;
-        '''
-        '''if not exists (select * from sys.sysusers where [name]=&apos;psa_abstractreader&apos;) begin;
-        '''   create role [psa_abstractreader] authorization [rest of string was truncated]&quot;;.
+        '''if not exists (select 1 from sys.database_principals where [type]=N&apos;R&apos; and [name]=N&apos;psa_{{{schema2}}}_reader&apos;) begin;
+        '''   create role [psa_{{{schema2}}}_reader] authorization [psa_owner];
+        '''   exec sys.sp_addextendedproperty @name=N&apos;Description&apos;,@value=N&apos;Role to allow read-only privileges to the [{{{schema}}}] schema.&apos;, @level0type=N&apos;USER [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property PSA_SchemaDefinition() As String
             Get
@@ -1624,11 +1609,11 @@ Namespace My.Resources
         '''      [psa_end_period],
         '''      [psa_active_state],
         '''      [psa_batch_id],
-        '''      [psa_archive_flag],
         '''{{{insertset}}}
         '''      [psa_hash_id]
         '''    )
         '''   select
+        '''      d.[psa_entity_key],
         '''      d.[psa_entity_ [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property PSA_TemporalGovernorDefinition() As String
@@ -1727,6 +1712,31 @@ Namespace My.Resources
         End Property
         
         '''<summary>
+        '''  Looks up a localized string similar to set nocount on;
+        '''
+        '''use [master];
+        '''
+        '''declare
+        '''   @db_name sysname=N&apos;{{{database}}}&apos;;
+        '''
+        '''declare
+        '''   @db_data nvarchar(4000)=convert(nvarchar(4000),serverproperty(&apos;instancedefaultdatapath&apos;)),
+        '''   @db_log nvarchar(4000)=convert(nvarchar(4000),serverproperty(&apos;instancedefaultlogpath&apos;))
+        '''
+        '''declare @tree table ([subdirectory] nvarchar(255),[depth] int);
+        '''
+        '''insert @tree([subdirectory], [depth])
+        '''exec master.sys.xp_dirtree @db_data;
+        '''
+        '''if not exists(select 1 from @tree where [subdirectory]=N&apos;{{{database}}}&apos;) begin;        ''' [rest of string was truncated]&quot;;.
+        '''</summary>
+        Friend ReadOnly Property SYS_CreateDatabaseSubdirectories() As String
+            Get
+                Return ResourceManager.GetString("SYS_CreateDatabaseSubdirectories", resourceCulture)
+            End Get
+        End Property
+        
+        '''<summary>
         '''  Looks up a localized string similar to select
         '''   db_name() [database_name],
         '''   [compatibility_level]
@@ -1743,11 +1753,14 @@ Namespace My.Resources
         
         '''<summary>
         '''  Looks up a localized string similar to select
-        '''   db_name() [database_name],
-        '''   @@servername [instance_name],
-        '''   serverproperty(&apos;productlevel&apos;) [product_level],
-        '''   serverproperty(&apos;edition&apos;) [edition],
-        '''   parsename(convert(nvarchar(50),serverproperty(&apos;productversion&apos;)),4) [version];.
+        '''   convert(nvarchar(128),@@servername) [InstanceName],
+        '''   convert(nvarchar(128),serverproperty(&apos;ProductLevel&apos;)) [ProductLevel],
+        '''   convert(nvarchar(128),serverproperty(&apos;Edition&apos;)) [Edition],
+        '''   convert(bigint,serverproperty(&apos;EditionID&apos;)) [EditionID],
+        '''   convert(int,serverproperty(&apos;EngineEdition&apos;)) [EngineEdition],
+        '''   convert(int,serverproperty(&apos;IsClustered&apos;)) [IsClustered],
+        '''   convert(nvarchar(128),serverproperty(&apos;MachineName&apos;)) [MachineName],
+        '''   convert(nvarchar(128),serverproperty(&apos;ServerNa [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property SYS_InstanceProperties() As String
             Get

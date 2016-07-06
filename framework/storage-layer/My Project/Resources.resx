@@ -144,11 +144,9 @@ select
 from
    {{{domain}}}
 where
-   [psa_archive_flag]=0
-   and
    [psa_active_state]=1
    and
-   [psa_current_flag]=1;</value>
+   [psa_end_period] is null;</value>
   </data>
   <data name="PSA_AsOfFunctionDefinition" xml:space="preserve">
     <value>create function [{{{schema}}}].[{{{entity}}}.AsOf]
@@ -168,8 +166,6 @@ select
 from
    {{{domain}}}
 where
-   [psa_archive_flag]=0
-   and
    [psa_active_state]=1
    and
    [psa_start_period]&lt;=@AsOfDateTime
@@ -203,9 +199,7 @@ select
    [psa_dml_action] [PersistentEntityChangeAction],
 {{{columnset}}}
 from
-   {{{domain}}}
-where
-   [psa_archive_flag]=0;</value>
+   {{{domain}}};</value>
   </data>
   <data name="PSA_BatchCountSecurityDefinition" xml:space="preserve">
     <value>grant select on [{{{schema}}}].[{{{entity}}}.BatchCount] to [psa_etl_manager];</value>
@@ -251,12 +245,11 @@ select
    d.[psa_start_period] [PersistentEntityValidFrom],
    isnull(d.[psa_end_period],'9999-12-31 23:59:59.9999999') [PersistentEntityValidTo],
    d.[psa_dml_action] [PersistentEntityChangeAction],
-{{{ak_columnset}}}
-{{{columnset}}}
+{{{ak_columnset}}}{{{columnset}}}
 from
    changetable(changes {{{domain}}},@Version) c
    inner join
-   {{{domain}}} d  on c.[psa_surrogate_key]=d.[psa_surrogate_key] and d.[psa_current_flag]=1;</value>
+   {{{domain}}} d  on c.[psa_surrogate_key]=d.[psa_surrogate_key] and d.[psa_end_period] is null;</value>
   </data>
   <data name="PSA_ChangesSecurityDefinition" xml:space="preserve">
     <value>grant select on [{{{schema}}}].[{{{entity}}}.Changes] to [psa_abstractreader];</value>
@@ -281,7 +274,7 @@ select
 from
    {{{domain}}}
 where
-   [psa_current_flag]=1;</value>
+   [psa_end_period] is null;</value>
   </data>
   <data name="SYS_DatabaseProperties" xml:space="preserve">
     <value>select
@@ -335,11 +328,20 @@ end;</value>
   </data>
   <data name="SYS_InstanceProperties" xml:space="preserve">
     <value>select
-   db_name() [database_name],
-   @@servername [instance_name],
-   serverproperty('productlevel') [product_level],
-   serverproperty('edition') [edition],
-   parsename(convert(nvarchar(50),serverproperty('productversion')),4) [version];</value>
+   convert(nvarchar(128),@@servername) [InstanceName],
+   convert(nvarchar(128),serverproperty('ProductLevel')) [ProductLevel],
+   convert(nvarchar(128),serverproperty('Edition')) [Edition],
+   convert(bigint,serverproperty('EditionID')) [EditionID],
+   convert(int,serverproperty('EngineEdition')) [EngineEdition],
+   convert(int,serverproperty('IsClustered')) [IsClustered],
+   convert(nvarchar(128),serverproperty('MachineName')) [MachineName],
+   convert(nvarchar(128),serverproperty('ServerName')) [ServerName],
+   convert(nvarchar(128),serverproperty('ComputerNamePhysicalNetBIOS')) [ComputerNamePhysicalNetBIOS],
+   parsename(convert(nvarchar(50),serverproperty('ProductVersion')),4) [ProductVersion],
+   convert(nvarchar(4000),serverproperty('InstanceDefaultDatapath')) [InstanceDefaultDatapath],
+   convert(nvarchar(4000),serverproperty('InstanceDefaultLogpath')) [InstanceDefaultLogpath],
+   convert(nvarchar(128),serverproperty('Collation')) [Collation],
+   convert(nvarchar(128),serverproperty('ComparisonStyle')) [BuildClrVersion];</value>
   </data>
   <data name="SYS_QueryBehavior" xml:space="preserve">
     <value>set nocount on;
@@ -368,22 +370,41 @@ set ansi_warnings on;</value>
       [partition_number]=1;
 
    if @x=0 begin;
+
       drop table [dbo].[{{{label}}}.{{{ext}}}];
+
    end else begin;
 
+      -- contraints
       exec [sys].[sp_rename] N'[dbo].[pk : {{{label}}} {Surrogate Primary Key}]',N'pk : {{{label}}} {Surrogate Primary Key} {{{ext}}}';
-      exec [sys].[sp_rename] N'[dbo].[ak : {{{label}}} {Source Natural Key}]',N'pk : {{{label}}} {Source Natural Key} {{{ext}}}';
+      exec [sys].[sp_rename] N'[dbo].[ak : {{{label}}} {Source Natural Key}]',N'ak : {{{label}}} {Source Natural Key} {{{ext}}}';
 
-      exec [sys].[sp_rename] N'[dbo].[ck : {{{label}}} {Postive Incrementation}]',N'pk : {{{label}}} {Postive Incrementation} {{{ext}}}';
-      exec [sys].[sp_rename] N'[dbo].[ck : {{{label}}} {Temporal Sequence On Current Period}]',N'pk : {{{label}}} {Temporal Sequence On Current Period} {{{ext}}}';
+      -- checks
+      exec [sys].[sp_rename] N'[dbo].[ck : {{{label}}} {Postive Incrementation}]',N'ck : {{{label}}} {Postive Incrementation} {{{ext}}}';
+      exec [sys].[sp_rename] N'[dbo].[ck : {{{label}}} {Temporal Sequence On Current Period}]',N'ck : {{{label}}} {Temporal Sequence On Current Period} {{{ext}}}';
 
-      exec [sys].[sp_rename] N'[dbo].[df : {{{label}}} {Archive Record Flag}]',N'pk : {{{label}}} {Archive Record Flag} {{{ext}}}';
-      exec [sys].[sp_rename] N'[dbo].[df : {{{label}}} {Change Incrementation Sequence Number}]',N'pk : {{{label}}} {Change Incrementation Sequence Number} {{{ext}}}';
-      exec [sys].[sp_rename] N'[dbo].[df : {{{label}}} {New Record State}]',N'pk : {{{label}}} {New Record State} {{{ext}}}';
-      exec [sys].[sp_rename] N'[dbo].[df : {{{label}}} {Parent SPK Sequence Number}]',N'pk : {{{label}}} {Parent SPK Sequence Number} {{{ext}}}';
-      exec [sys].[sp_rename] N'[dbo].[df : {{{label}}} {SPK Sequence Number}]',N'pk : {{{label}}} {SPK Sequence Number} {{{ext}}}';
+      -- defaults
+      if object_id('[dbo].[df : {{{label}}} {Archive Record Flag}]',N'D') is not null begin;
+         exec [sys].[sp_rename] N'[dbo].[df : {{{label}}} {Archive Record Flag}]',N'df : {{{label}}} {Archive Record Flag} {{{ext}}}';
+      end;
 
-      drop trigger [dbo].[tr : {{{label}}} {Temporal Governor}]
+      if object_id('[dbo].[df : {{{label}}} {Change Incrementation Sequence Number}]',N'D') is not null begin;
+         exec [sys].[sp_rename] N'[dbo].[df : {{{label}}} {Change Incrementation Sequence Number}]',N'df : {{{label}}} {Change Incrementation Sequence Number} {{{ext}}}';
+       end;
+            
+      if object_id('[dbo].[df : {{{label}}} {New Record State}]',N'D') is not null begin;
+         exec [sys].[sp_rename] N'[dbo].[df : {{{label}}} {New Record State}]',N'df : {{{label}}} {New Record State} {{{ext}}}';
+      end;
+            
+      if object_id('[dbo].[df : {{{label}}} {Parent SPK Sequence Number}]',N'D') is not null begin;
+         exec [sys].[sp_rename] N'[dbo].[df : {{{label}}} {Parent SPK Sequence Number}]',N'df : {{{label}}} {Parent SPK Sequence Number} {{{ext}}}';
+      end;      
+     
+      if object_id('[dbo].[df : {{{label}}} {SPK Sequence Number}]',N'D') is not null begin;
+         exec [sys].[sp_rename] N'[dbo].[df : {{{label}}} {SPK Sequence Number}]',N'df : {{{label}}} {SPK Sequence Number} {{{ext}}}';
+      end;
+
+      drop trigger [dbo].[tr : {{{label}}} {Temporal Governor}];
 
    end;
 
@@ -407,26 +428,16 @@ if not exists(select 1 from sys.sysusers where [name]=N'psa_current_state_reader
 end;</value>
   </data>
   <data name="PSA_SchemaDefinition" xml:space="preserve">
-    <value>set nocount on;
-set quoted_identifier on;
-set ansi_nulls on;
-set ansi_warnings on;
-
-if not exists (select * from sys.sysusers where [name]='psa_owner') begin;
-   create role [psa_owner] authorization [db_owner];
-end;
-
-if not exists (select * from sys.sysusers where [name]='psa_etl_manager') begin;
-   create role [psa_etl_manager] authorization [psa_owner];
-end;
-
-if not exists (select * from sys.sysusers where [name]='psa_abstractreader') begin;
-   create role [psa_abstractreader] authorization [psa_owner];
-end;
-
-if not exists (select 1 from sys.schemas where [name]=N'{{{schema}}}') begin;
+    <value>if not exists (select 1 from sys.schemas where [name]=N'{{{schema}}}') begin;
    exec sys.sp_executesql N'create schema [{{{schema}}}] authorization [psa_owner];'
-end;</value>
+end;
+
+if not exists (select 1 from sys.database_principals where [type]=N'R' and [name]=N'psa_{{{schema2}}}_reader') begin;
+   create role [psa_{{{schema2}}}_reader] authorization [psa_owner];
+   exec sys.sp_addextendedproperty @name=N'Description',@value=N'Role to allow read-only privileges to the [{{{schema}}}] schema.', @level0type=N'USER',@level0name=N'psa_{{{schema2}}}_reader'
+end;
+
+grant select on schema::[{{{schema}}}] to [psa_{{{schema2}}}_reader];</value>
   </data>
   <data name="PSA_SequenceDefinition" xml:space="preserve">
     <value>if not exists (select * from sys.sequences where [name]=N'{{{entity}}}.SPK' and object_schema_name([object_id])=N'{{{schema}}}') begin;
@@ -478,11 +489,13 @@ create table {{{domain}}}
    default (1),
 
    [psa_dml_action] as case when [psa_active_state]=0 then N'D' when [psa_entity_sequence]=1 then N'I' else N'U' end persisted not null,
-   [psa_current_flag] as convert(bit,case when [psa_end_period] is null then 1 else 0 end) persisted not null,
+   -- removed per issue #19
+   --[psa_current_flag] as convert(bit,case when [psa_end_period] is null then 1 else 0 end) persisted not null,
 
-   [psa_archive_flag] bit not null
-   constraint [df : {{{label}}} {Archive Record Flag}]
-   default (0),
+   -- removed per issue #18
+   --[psa_archive_flag] bit not null
+   --constraint [df : {{{label}}} {Archive Record Flag}]
+   --default (0),
 
    [psa_batch_id]	uniqueidentifier null,
    [psa_hash_id] varbinary(20) not null,
@@ -518,15 +531,17 @@ create statistics [st : {{{label}}} :: psa_dml_action] on {{{domain}}}
    [psa_dml_action]
  );
 
-create statistics [st : {{{label}}} :: psa_current_flag] on {{{domain}}}
- (
-   [psa_current_flag]
- );
+-- removed per issue #19
+--create statistics [st : {{{label}}} :: psa_current_flag] on {{{domain}}}
+-- (
+--   [psa_current_flag]
+-- );
 
-create statistics [st : {{{label}}} :: psa_archive_flag] on {{{domain}}}
- (
-   [psa_archive_flag]
- );
+-- removed per issue #18
+--create statistics [st : {{{label}}} :: psa_archive_flag] on {{{domain}}}
+-- (
+--   [psa_archive_flag]
+-- );
 
 create statistics [st : {{{label}}} :: psa_batch_id] on {{{domain}}}
  (
@@ -544,13 +559,15 @@ create nonclustered index [ie : {{{label}}} :: psa_start_period :: psa_end_perio
    [psa_end_period] desc
  ) with (fillfactor=80,data_compression=page);
 
-create nonclustered index [ie : {{{label}}} :: {Record State}] on {{{domain}}}
- (
-   [psa_entity_key] asc,
-   [psa_current_flag] desc,
-   [psa_active_state] desc,
-   [psa_archive_flag] desc
- ) with (fillfactor=80,data_compression=page);</value>
+-- removed due to inefficiencies - post below
+-- http://www.sqlskills.com/blogs/paul/dbcc-checkdb-performance-and-computed-column-indexes/
+--create nonclustered index [ie : {{{label}}} :: {Record State}] on {{{domain}}}
+-- (
+--   [psa_entity_key] asc,
+--   [psa_current_flag] desc,
+--   [psa_active_state] desc,
+--   [psa_archive_flag] desc
+-- ) with (fillfactor=80,data_compression=page);</value>
   </data>
   <data name="PSA_TemporalGovernorDefinition" xml:space="preserve">
     <value>create trigger [tr : {{{label}}} {Temporal Governor}] on {{{domain}}}
@@ -570,7 +587,6 @@ begin;
       [psa_end_period],
       [psa_active_state],
       [psa_batch_id],
-      [psa_archive_flag],
 {{{insertset}}}
       [psa_hash_id]
     )
@@ -581,7 +597,6 @@ begin;
       dateadd(nanosecond,-100,i.[psa_start_period]), -- contiguous time period from prior record
       d.[psa_active_state],
       d.[psa_batch_id],
-      d.[psa_archive_flag],
 {{{selectset}}}
       d.[psa_hash_id]
    from
@@ -1048,8 +1063,7 @@ begin;
       [psa_active_state]=1,
       [psa_start_period]=@ts,
       [psa_batch_id]=s.[psa_batch_id],
-      [psa_hash_id]=s.[psa_hash_id],
-      [psa_archive_flag]=0
+      [psa_hash_id]=s.[psa_hash_id]
    from
       [update_source] s
       inner join
@@ -1138,7 +1152,7 @@ with [x] as
       e.[etl_fixed_predicate],
       e.[etl_variable_predicate],
       right(convert(nvarchar(42),[dbo].[psa_hash](e.[psa_hash_large_objects]),1),40)+N' : '+
-      right(convert(nvarchar(42),[dbo].[psa_hash](e.[psa_max_threads]),1),40)+N'v2.1' [logic_sig],
+      right(convert(nvarchar(42),[dbo].[psa_hash](e.[psa_max_threads]),1),40)+N'v2.5' [logic_sig],
       rtrim(ca.ah) [construct_sig]
    from
       [master].dbo.[psa_entity_definition] e
@@ -1478,7 +1492,8 @@ end;</value>
   <data name="PSA_ProcessUpsertDefinition" xml:space="preserve">
     <value>create procedure [{{{schema}}}].[{{{entity}}}.ProcessUpsert]
  (
-   @i_MaxRowCount int
+   @i_MaxRowCount int=1000000,
+   @i_WaitForBrokerToClear bit=0
  ) with execute as N'psa_sb_manager'
 as
 -- do not alter/add/extend this stored procedure, or any psa stored procedure
@@ -1505,6 +1520,7 @@ if not exists(
 end;
 
 -- declare variables
+declare @dc int=1;
 declare @rc int, @mn int, @mx int;
 declare @hist table([min] int,[max] int,[initiated] bit,[fulfilled] bit,[err] int,[errmsg] nvarchar(1000),unique([min] asc));
 
@@ -1520,7 +1536,7 @@ from
 -- if we have no records, bail
 if @rc=0 begin;
    print N'There are no records to process in [{{{schema}}}].[{{{entity}}}.UpsertStage]. Execution is aborted.'
-   return -1;
+   return -2;
 end;
 
 -- get the histogram
@@ -1612,9 +1628,27 @@ begin try;
 
    end conversation @conversation_handle;
 
-   truncate table [{{{schema}}}].[{{{entity}}}.UpsertStage];
-
    {{{updatestats}}}update statistics [sys].[change_tracking_{{{objectid}}}] with fullscan;
+
+   while @i_WaitForBrokerToClear=1 and @dc&lt;=60 and not exists(
+      select
+         N'?'
+      from
+         sys.dm_broker_queue_monitors
+      where
+         object_name([queue_id])=N'{{{entity}}}.ProcessingUpsert'
+         and
+         object_schema_name([queue_id])=N'{{{schema}}}'
+         and
+         database_id=db_id()
+         and
+         [state]=N'INACTIVE'
+    ) begin;
+      waitfor delay '00:00:01';
+      select @dc=@dc+1;
+   end;
+
+   truncate table [{{{schema}}}].[{{{entity}}}.UpsertStage];
 
 end try begin catch;
 
@@ -1650,6 +1684,7 @@ declare @re nvarchar(4000);
 declare @en int;
 declare @em nvarchar(4000);
 declare @b nvarchar(36);
+declare @dummy bit;
 
 -- declare constants
 declare @request_message sysname=N'//{{{schema}}}/{{{entity}}}/Message/Request';
@@ -2032,7 +2067,8 @@ grant execute on [dbo].[psa_end_batch] to [psa_etl_manager];</value>
   <data name="PSA_ProcessDeleteDefinition" xml:space="preserve">
     <value>create procedure [{{{schema}}}].[{{{entity}}}.ProcessDelete]
  (
-   @i_MaxRowCount int
+   @i_MaxRowCount int=1000000,
+   @i_WaitForBrokerToClear bit=0
  ) with execute as N'psa_sb_manager'
 as
 -- do not alter/add/extend this stored procedure, or any psa stored procedure
@@ -2059,6 +2095,7 @@ if not exists(
 end;
 
 -- declare variables
+declare @dc int=1;
 declare @rc int, @mn int, @mx int;
 declare @hist table([min] int,[max] int,[initiated] bit,[fulfilled] bit,[err] int,[errmsg] nvarchar(1000),unique([min] asc));
 
@@ -2074,7 +2111,7 @@ from
 -- if we have no records, bail
 if @rc=0 begin;
    print N'There are no records to process in [{{{schema}}}].[{{{entity}}}.DeleteStage]. Execution is aborted.'
-   return -1;
+   return -2;
 end;
 
 -- get the histogram
@@ -2166,9 +2203,27 @@ begin try;
 
    end conversation @conversation_handle;
 
-   truncate table [{{{schema}}}].[{{{entity}}}.DeleteStage];
-
    {{{updatestats}}}update statistics [sys].[change_tracking_{{{objectid}}}] with fullscan;
+
+   while @i_WaitForBrokerToClear=1 and @dc&lt;=60 and not exists(
+      select
+         N'?'
+      from
+         sys.dm_broker_queue_monitors
+      where
+         object_name([queue_id])=N'ContactType.ProcessingDelete'
+         and
+         object_schema_name([queue_id])=N'AWKS'
+         and
+         database_id=db_id()
+         and
+         [state]=N'INACTIVE'
+    ) begin;
+      waitfor delay '00:00:01';
+      select @dc=@dc+1;
+   end;
+
+   truncate table [{{{schema}}}].[{{{entity}}}.DeleteStage];
 
 end try begin catch;
 
@@ -4192,5 +4247,37 @@ exec sys.sp_MS_marksystemobject N'[{{{entity}}}.Control]';</value>
 -- _\ \/ / _ `/ / _ \/  ' \  / /__/ _ \/ _ \(_-&lt; // / / __/ / _ \/ _ `/
 --/___/_/\_,_/_/\___/_/_/_/  \___/\___/_//_/___|_,_/_/\__/_/_//_/\_, / 
 --                                                              /___/</value>
+  </data>
+  <data name="SYS_CreateDatabaseSubdirectories" xml:space="preserve">
+    <value>set nocount on;
+
+use [master];
+
+declare
+   @db_name sysname=N'{{{database}}}';
+
+declare
+   @db_data nvarchar(4000)=convert(nvarchar(4000),serverproperty('instancedefaultdatapath')),
+   @db_log nvarchar(4000)=convert(nvarchar(4000),serverproperty('instancedefaultlogpath'))
+
+declare @tree table ([subdirectory] nvarchar(255),[depth] int);
+
+insert @tree([subdirectory], [depth])
+exec master.sys.xp_dirtree @db_data;
+
+if not exists(select 1 from @tree where [subdirectory]=N'{{{database}}}') begin;
+   select @db_data=concat(@db_data,@db_name);
+   exec master.dbo.xp_create_subdir @db_data;
+end;
+
+delete @tree;
+
+insert @tree([subdirectory], [depth])
+exec master.sys.xp_dirtree @db_log;
+
+if not exists(select 1 from @tree where [subdirectory]=N'{{{database}}}') begin;
+   select @db_log=concat(@db_log,@db_name);
+   exec master.dbo.xp_create_subdir @db_log;
+end;</value>
   </data>
 </root>
