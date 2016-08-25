@@ -184,10 +184,13 @@ Namespace Common
 
             Try
                 Dim cmd As New SqlCommand(Command, SqlCnn)
-
                 cmd.ExecuteNonQuery()
+
             Catch ex As Exception
-                PrintClientError(New StackFrame().GetMethod().Name, ex)
+                PrintClientError(New StackFrame().GetMethod().Name, ex, 0)
+                PrintClientMessage(vbCrLf)
+                PrintClientMessage(Command)
+                Throw ex
             End Try
 
         End Sub
@@ -215,6 +218,7 @@ Namespace Common
 
             Catch ex As Exception
                 PrintClientError(New StackFrame().GetMethod().Name, ex)
+                Throw ex
             End Try
 
             Return String.Empty
@@ -302,10 +306,15 @@ Namespace Common
         ''' <remarks></remarks>
         Friend Shared Sub PrintClientError(ByVal ErrorMethod As String,
                                            ByVal ErrorException As Exception,
-                                           Optional ByVal LeadingSpaces As UShort = 0)
+                                           Optional ByVal LeadingSpaces As UShort = 0,
+                                           Optional ByVal AdditionalText As String = "")
 
             SqlContext.Pipe.Send(New String(" "c, LeadingSpaces) & "Error on method: " & ErrorMethod)
             SqlContext.Pipe.Send(New String(" "c, LeadingSpaces) & "Exception message: " & ErrorException.Message.ToString)
+
+            If AdditionalText <> "" Then
+                SqlContext.Pipe.Send(AdditionalText)
+            End If
 
         End Sub
 
@@ -506,5 +515,178 @@ Namespace Common
         End Sub
 
     End Class ' InstanceSettings
+
+    Partial Public Class InstanceProperties
+
+        Public Sub New(ByVal instanceConnection As SqlConnection)
+
+            
+
+        End Sub
+
+        '''<remarks/>
+        <System.Xml.Serialization.XmlTypeAttribute(AnonymousType:=True), _
+         System.Xml.Serialization.XmlRootAttribute([Namespace]:="", IsNullable:=False)> _
+        Partial Public Class InstanceProperties
+
+            Private instanceNameField As String
+            Private productLevelField As String
+            Private editionField As String
+            Private editionIDField As Integer
+            Private engineEditionField As Byte
+            Private isClusteredField As Byte
+            Private machineNameField As String
+            Private serverNameField As String
+            Private computerNamePhysicalNetBIOSField As String
+            Private productVersionField As Byte
+            Private instanceDefaultDatapathField As String
+            Private instanceDefaultLogpathField As String
+            Private collationField As String
+            Private buildClrVersionField As UInteger
+
+            '''<remarks/>
+            Public Property InstanceName() As String
+                Get
+                    Return Me.instanceNameField
+                End Get
+                Set(value As String)
+                    Me.instanceNameField = Value
+                End Set
+            End Property
+
+            '''<remarks/>
+            Public Property ProductLevel() As String
+                Get
+                    Return Me.productLevelField
+                End Get
+                Set(value As String)
+                    Me.productLevelField = Value
+                End Set
+            End Property
+
+            '''<remarks/>
+            Public Property Edition() As String
+                Get
+                    Return Me.editionField
+                End Get
+                Set(value As String)
+                    Me.editionField = Value
+                End Set
+            End Property
+
+            '''<remarks/>
+            Public Property EditionID() As Integer
+                Get
+                    Return Me.editionIDField
+                End Get
+                Set(value As Integer)
+                    Me.editionIDField = Value
+                End Set
+            End Property
+
+            '''<remarks/>
+            Public Property EngineEdition() As Byte
+                Get
+                    Return Me.engineEditionField
+                End Get
+                Set(value As Byte)
+                    Me.engineEditionField = Value
+                End Set
+            End Property
+
+            '''<remarks/>
+            Public Property IsClustered() As Byte
+                Get
+                    Return Me.isClusteredField
+                End Get
+                Set(value As Byte)
+                    Me.isClusteredField = Value
+                End Set
+            End Property
+
+            '''<remarks/>
+            Public Property MachineName() As String
+                Get
+                    Return Me.machineNameField
+                End Get
+                Set(value As String)
+                    Me.machineNameField = Value
+                End Set
+            End Property
+
+            '''<remarks/>
+            Public Property ServerName() As String
+                Get
+                    Return Me.serverNameField
+                End Get
+                Set(value As String)
+                    Me.serverNameField = Value
+                End Set
+            End Property
+
+            '''<remarks/>
+            Public Property ComputerNamePhysicalNetBIOS() As String
+                Get
+                    Return Me.computerNamePhysicalNetBIOSField
+                End Get
+                Set(value As String)
+                    Me.computerNamePhysicalNetBIOSField = Value
+                End Set
+            End Property
+
+            '''<remarks/>
+            Public Property ProductVersion() As Byte
+                Get
+                    Return Me.productVersionField
+                End Get
+                Set(value As Byte)
+                    Me.productVersionField = value
+                End Set
+            End Property
+
+            '''<remarks/>
+            Public Property InstanceDefaultDatapath() As String
+                Get
+                    Return Me.instanceDefaultDatapathField
+                End Get
+                Set(value As String)
+                    Me.instanceDefaultDatapathField = Value
+                End Set
+            End Property
+
+            '''<remarks/>
+            Public Property InstanceDefaultLogpath() As String
+                Get
+                    Return Me.instanceDefaultLogpathField
+                End Get
+                Set(value As String)
+                    Me.instanceDefaultLogpathField = Value
+                End Set
+            End Property
+
+            '''<remarks/>
+            Public Property Collation() As String
+                Get
+                    Return Me.collationField
+                End Get
+                Set(value As String)
+                    Me.collationField = Value
+                End Set
+            End Property
+
+            '''<remarks/>
+            Public Property BuildClrVersion() As UInteger
+                Get
+                    Return Me.buildClrVersionField
+                End Get
+                Set(value As UInteger)
+                    Me.buildClrVersionField = Value
+                End Set
+            End Property
+        End Class
+
+
+
+    End Class
 
 End Namespace ' Common

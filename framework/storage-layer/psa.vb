@@ -327,6 +327,12 @@ Partial Public Class PSA
                     GoTo nextc
                 End If
 
+                ' check for no attributes
+                If e.BusinessIdentifierAttibuteCount = 0 Then
+                    lbl = "[NO BUSINESS IDENTIFIER DEFINED]"
+                    GoTo nextc
+                End If
+
                 ' check for deletes
                 If DeleteObjects = True Then
                     lbl = "[DELETED]"
@@ -359,6 +365,7 @@ Partial Public Class PSA
                         End If
                     End If
                 Else
+
                     ' the construct differs, so rebuild entity in full
                     lbl = If(cs = "", "[NEW ENTITY]", "[PHYSICAL CHANGE]")
                     If VerifyOnly = False Then
@@ -496,7 +503,7 @@ nextc:
         ExecuteDDLCommand(e.ChangesFunctionDefinition, SqlCnn)
         ExecuteDDLCommand(e.ChangesSecurityDefinition, SqlCnn)
 
-        ' queues
+        ' staging areas
         ExecuteDDLCommand(e.LoadStageDefinition, SqlCnn)
 
         ' methods
@@ -507,8 +514,6 @@ nextc:
         ExecuteDDLCommand(e.ProcessDeleteDefintion, SqlCnn)
         ExecuteDDLCommand(e.ProcessDeleteSecurityDefinition, SqlCnn)
         ExecuteDDLCommand(e.WorkerDeleteDefintion, SqlCnn)
-
-
 
         ' service broker
         ExecuteDDLCommand(e.ServiceBrokerDefinition, SqlCnn)
@@ -597,7 +602,7 @@ nextc:
 
             GetMetadata = New DataSet
 
-            Dim InstanceString As String = My.Resources.SYS_InstanceProperties
+            'Dim InstanceString As String = My.Resources.SYS_InstanceProperties
             Dim DatabaseString As String = My.Resources.SYS_DatabaseProperties
             Dim EntityString As String = My.Resources.SYS_PSAEntityDefinition
             Dim AttributeString As String = My.Resources.SYS_PSAAttributeDefinition
@@ -618,7 +623,7 @@ nextc:
             ' the following commands are under the 'master' database
             ExecuteDDLCommand("use [master];", DatabaseConnection)
 
-            ReturnInternalResults(GetMetadata, InstanceString, "psa_instance_properties", DatabaseConnection)
+            'ReturnInternalResults(GetMetadata, InstanceString, "psa_instance_properties", DatabaseConnection)
 
             ' this command the passed in database name
             ExecuteDDLCommand("use [" & DatabaseName & "];", DatabaseConnection)
@@ -1057,6 +1062,35 @@ nextc:
             End Property
 
             ''' <summary></summary>
+            Protected Friend ReadOnly Property BusinessIdentifierAttibuteCount As Integer
+                Get
+                    If _attribute Is Nothing Then
+                        Return 0
+                    Else
+                        Return (Aggregate ea As Entity.EntityAttribute In _attribute Where ea.BusinessIdentifier = Common.YesNoType.Yes Into Count())
+                    End If
+
+                End Get
+            End Property
+
+            ''' <summary>
+            ''' 
+            ''' </summary>
+            ''' <value></value>
+            ''' <returns></returns>
+            ''' <remarks></remarks>
+            Protected Friend ReadOnly Property AtomicAttributeCount As Integer
+                Get
+                    If _attribute Is Nothing Then
+                        Return 0
+                    Else
+                        Return (Aggregate ea As Entity.EntityAttribute In _attribute Where ea.BusinessIdentifier = Common.YesNoType.No Into Count())
+                    End If
+
+                End Get
+            End Property
+
+            ''' <summary></summary>
             Protected Friend ReadOnly Property Domain As String
                 Get
                     If Schema Is Nothing Or Entity Is Nothing Then
@@ -1084,6 +1118,7 @@ nextc:
                     Dim sd As String
                     sd = My.Resources.PSA_SchemaDefinition
                     sd = Replace(sd, "{{{schema}}}", Schema)
+                    sd = Replace(sd, "{{{schema2}}}", Schema.ToLower)
                     Return sd
                 End Get
             End Property
@@ -1280,7 +1315,6 @@ nextc:
                     sd = Replace(sd, "{{{entity}}}", Entity)
                     sd = Replace(sd, "{{{domain}}}", Domain)
                     sd = Replace(sd, "{{{label}}}", Label)
-                    sd = Replace(sd, "{{{updateset}}}", UpdateChunk)
                     sd = Replace(sd, "{{{joinset}}}", ControlJoinChunk)
                     sd = Replace(sd, "{{{hashset}}}", HashChunk)
                     sd = Replace(sd, "{{{columnset}}}", cs)
@@ -1444,20 +1478,33 @@ nextc:
                 End Get
             End Property
 
-            ''' <summary></summary>
+            ''' <summary>
+            ''' 
+            ''' </summary>
+            ''' <value></value>
+            ''' <returns></returns>
+            ''' <remarks></remarks>
             Protected Friend ReadOnly Property ChangesFunctionDefinition As String
                 Get
-                    Dim cs As String = NewColumnSetChunk("d", 3, "", "", EDW.Common.AttributeType.BusinessIdentifier)
+
+                    Dim atcs As String = ""
+                    Dim bics As String = ""
+
+                    If AtomicAttributeCount = 0 Then
+                        bics = NewColumnSetChunk("d", 3, "", "", EDW.Common.AttributeType.BusinessIdentifier, 3)
+                    Else
+                        bics = NewColumnSetChunk("d", 3, "", "", EDW.Common.AttributeType.BusinessIdentifier, 2)
+                        atcs = vbCrLf & NewColumnSetChunk("d", 3, "case when @NullOnDeletes=1 and d.[psa_dml_action]=N'D' then null else ", " end", EDW.Common.AttributeType.Atomic, 3)
+                    End If
 
                     Dim sd As String
                     sd = My.Resources.PSA_ChangesFunctionDefinition
                     sd = Replace(sd, "{{{schema}}}", Schema)
                     sd = Replace(sd, "{{{entity}}}", Entity)
                     sd = Replace(sd, "{{{domain}}}", Domain)
-                    sd = Replace(sd, "{{{ak_columnset}}}", cs)
-                    cs = NewColumnSetChunk("d", 3, "case when @NullOnDeletes=1 and d.[psa_dml_action]=N'D' then null else ", " end", EDW.Common.AttributeType.Atomic)
-                    cs = Left(cs, Len(cs) - 1) ' remove the last comma
-                    sd = Replace(sd, "{{{columnset}}}", cs)
+                    sd = Replace(sd, "{{{ak_columnset}}}", bics)
+                    sd = Replace(sd, "{{{columnset}}}", atcs)
+
                     Return sd
                 End Get
             End Property
@@ -1522,10 +1569,17 @@ nextc:
                 Get
                     Dim c As String = ColumnSetChunk("", 15)
                     c = Left(c, Len(c) - 1)
+
                     Dim i As String = ColumnSetChunk("s", 15)
                     i = Left(i, Len(i) - 1)
-                    Dim u As String = UpdateChunk(15)
-                    u = Left(u, Len(u) - 1)
+
+                    Dim u As String = ""
+                    u = UpdateChunk(15)
+                    If u = "" Then
+                        u = "               @dummy=null"
+                    Else
+                        u = Left(u, Len(u) - 1)
+                    End If
 
                     Dim d As String
                     d = My.Resources.PSA_WorkerUpsertDefinition
@@ -1905,7 +1959,7 @@ nextc:
                     If Len(rstr) > 0 Then
                         rstr = Left(rstr, Len(rstr) - 2)
                     Else
-                        rstr = cp & "-- there are no attributes in this psa entity, i.e. this code will never be reached..."
+                        rstr = ""
                     End If
 
                     Return rstr
@@ -1933,7 +1987,7 @@ nextc:
                         End If
                     Next
 
-                    rstr += spacer & "t.[psa_current_flag]=1;"
+                    rstr += spacer & "t.[psa_end_period] is null;"
 
                     Return rstr
                 End Get
@@ -2019,10 +2073,18 @@ nextc:
             End Property
 
             ''' <summary></summary>
-            Private ReadOnly Property NewColumnSetChunk(Optional ByVal ColumnSetAlias As String = "", Optional ByVal ColumnPadding As UShort = 0, _
-                                                        Optional ByVal ColumnPrefix As String = "", Optional ByVal ColumnSuffix As String = "", _
-                                                        Optional ByVal AttributeTypesToInclude As EDW.Common.AttributeType = EDW.Common.AttributeType.Both) As String
+            Private ReadOnly Property NewColumnSetChunk(Optional ByVal ColumnSetAlias As String = "",
+                                                        Optional ByVal ColumnPadding As UShort = 0,
+                                                        Optional ByVal ColumnPrefix As String = "",
+                                                        Optional ByVal ColumnSuffix As String = "",
+                                                        Optional ByVal AttributeTypesToInclude As EDW.Common.AttributeType = EDW.Common.AttributeType.Both,
+                                                        Optional ByVal TrailingCharactersToRemove As Integer = 0) As String
                 Get
+
+                    If AttributeTypesToInclude = Common.AttributeType.Atomic And AtomicAttributeCount = 0 Then Return ""
+                    If AttributeTypesToInclude = Common.AttributeType.BusinessIdentifier And BusinessIdentifierAttibuteCount = 0 Then Return ""
+                    If AttributeTypesToInclude = Common.AttributeType.Both And AttributeCount = 0 Then Return ""
+
                     Dim bia As EntityAttribute = Nothing
                     Dim rstr As String = ""
                     Dim pad As New String(" "c, ColumnPadding)
@@ -2038,7 +2100,12 @@ nextc:
 
                     Next
 
-                    Return Left(rstr, Len(rstr) - 2)
+                    If Len(rstr) > TrailingCharactersToRemove Then
+                        Return Left(rstr, Len(rstr) - TrailingCharactersToRemove)
+                    Else
+                        Return ""
+                    End If
+
                 End Get
             End Property
 
