@@ -261,7 +261,7 @@ from
 end;
 
 if not exists(select N'?' from sys.stats where [name]=N'st : syscommittab :: commit_ts') begin;
-   create statistics [st : syscommittab :: commit_ts] on [edw_psa].[sys].[syscommittab] (commit_ts);
+   create statistics [st : syscommittab :: commit_ts] on [sys].[syscommittab] (commit_ts);
 end;
 
 -- drop statistics [sys].[syscommittab].[st : syscommittab :: commit_ts]</value>
@@ -553,10 +553,10 @@ create statistics [st : {{{label}}} :: psa_hash_id] on {{{domain}}}
    [psa_hash_id]
  );
 
-create nonclustered index [ie : {{{label}}} :: psa_start_period :: psa_end_period] on {{{domain}}}
+create nonclustered index [ie : {{{label}}} :: psa_end_period :: psa_start_period] on {{{domain}}}
  (
-   [psa_start_period] desc,
-   [psa_end_period] desc
+   [psa_end_period] desc,
+   [psa_start_period] desc
  ) with (fillfactor=80,data_compression=page);
 
 -- removed due to inefficiencies - post below
@@ -598,7 +598,7 @@ begin;
       d.[psa_active_state],
       d.[psa_batch_id],
 {{{selectset}}}
-      d.[psa_hash_id]
+      0x
    from
       [deleted] d
       inner join
@@ -869,7 +869,7 @@ merge
 using
    merge_source s on t.[psa_object_id]=s.[psa_object_id]
                  and t.[psa_activity]=s.[psa_activity]
-when matched then
+when matched and t.[psa_change_tracking_set]=t.[psa_change_tracking_get] then
    update
       -- [dbo].[psa_change_tracking_entity_version]
    set
@@ -961,7 +961,7 @@ merge
 using
    merge_source s on t.[psa_object_id]=s.[psa_object_id]
                  and t.[psa_activity]=s.[psa_activity]
-when matched then
+when matched and t.[psa_change_tracking_set]!=t.[psa_change_tracking_get] then
    update
       -- [dbo].[psa_change_tracking_entity_version]
    set
@@ -1152,7 +1152,7 @@ with [x] as
       e.[etl_fixed_predicate],
       e.[etl_variable_predicate],
       right(convert(nvarchar(42),[dbo].[psa_hash](e.[psa_hash_large_objects]),1),40)+N' : '+
-      right(convert(nvarchar(42),[dbo].[psa_hash](e.[psa_max_threads]),1),40)+N'v2.5' [logic_sig],
+      right(convert(nvarchar(42),[dbo].[psa_hash](e.[psa_max_threads]),1),40)+N'v2.7' [logic_sig],
       rtrim(ca.ah) [construct_sig]
    from
       [master].dbo.[psa_entity_definition] e
@@ -1493,7 +1493,8 @@ end;</value>
     <value>create procedure [{{{schema}}}].[{{{entity}}}.ProcessUpsert]
  (
    @i_MaxRowCount int=1000000,
-   @i_WaitForBrokerToClear bit=0
+   @i_WaitForBrokerToClear bit=0,
+   @i_TruncateStageOnSuccess bit=1
  ) with execute as N'psa_sb_manager'
 as
 -- do not alter/add/extend this stored procedure, or any psa stored procedure
@@ -1648,7 +1649,9 @@ begin try;
       select @dc=@dc+1;
    end;
 
-   truncate table [{{{schema}}}].[{{{entity}}}.UpsertStage];
+   if @i_TruncateStageOnSuccess=1 begin;
+      truncate table [{{{schema}}}].[{{{entity}}}.UpsertStage];
+   end;
 
 end try begin catch;
 
@@ -2068,7 +2071,8 @@ grant execute on [dbo].[psa_end_batch] to [psa_etl_manager];</value>
     <value>create procedure [{{{schema}}}].[{{{entity}}}.ProcessDelete]
  (
    @i_MaxRowCount int=1000000,
-   @i_WaitForBrokerToClear bit=0
+   @i_WaitForBrokerToClear bit=0,
+   @i_TruncateStageOnSuccess bit=1
  ) with execute as N'psa_sb_manager'
 as
 -- do not alter/add/extend this stored procedure, or any psa stored procedure
@@ -2223,7 +2227,9 @@ begin try;
       select @dc=@dc+1;
    end;
 
-   truncate table [{{{schema}}}].[{{{entity}}}.DeleteStage];
+   if @i_TruncateStageOnSuccess=1 begin;
+      truncate table [{{{schema}}}].[{{{entity}}}.DeleteStage];
+   end;
 
 end try begin catch;
 

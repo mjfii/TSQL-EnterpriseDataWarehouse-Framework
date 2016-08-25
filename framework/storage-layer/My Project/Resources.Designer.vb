@@ -1018,7 +1018,7 @@ Namespace My.Resources
         '''end;
         '''
         '''if not exists(select N&apos;?&apos; from sys.stats where [name]=N&apos;st : syscommittab :: commit_ts&apos;) begin;
-        '''   create statistics [st : syscommittab :: commit_ts] on [edw_psa].[sys].[syscommittab] (commit_ts);
+        '''   create statistics [st : syscommittab :: commit_ts] on [sys].[syscommittab] (commit_ts);
         '''end;
         '''
         '''-- drop statistics [sys].[syscommittab].[st : syscommittab :: commit_ts].
@@ -1353,7 +1353,8 @@ Namespace My.Resources
         '''  Looks up a localized string similar to create procedure [{{{schema}}}].[{{{entity}}}.ProcessDelete]
         ''' (
         '''   @i_MaxRowCount int=1000000,
-        '''   @i_WaitForBrokerToClear bit=0
+        '''   @i_WaitForBrokerToClear bit=0,
+        '''   @i_TruncateStageOnSuccess bit=1
         ''' ) with execute as N&apos;psa_sb_manager&apos;
         '''as
         '''-- do not alter/add/extend this stored procedure, or any psa stored procedure
@@ -1367,7 +1368,7 @@ Namespace My.Resources
         '''   from
         '''      sys.dm_broker_queue_monitors
         '''   where
-        '''      object_name([queue_id])=N&apos;{{{entity} [rest of string was truncated]&quot;;.
+        '''      [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property PSA_ProcessDeleteDefinition() As String
             Get
@@ -1388,7 +1389,8 @@ Namespace My.Resources
         '''  Looks up a localized string similar to create procedure [{{{schema}}}].[{{{entity}}}.ProcessUpsert]
         ''' (
         '''   @i_MaxRowCount int=1000000,
-        '''   @i_WaitForBrokerToClear bit=0
+        '''   @i_WaitForBrokerToClear bit=0,
+        '''   @i_TruncateStageOnSuccess bit=1
         ''' ) with execute as N&apos;psa_sb_manager&apos;
         '''as
         '''-- do not alter/add/extend this stored procedure, or any psa stored procedure
@@ -1402,7 +1404,7 @@ Namespace My.Resources
         '''   from
         '''      sys.dm_broker_queue_monitors
         '''   where
-        '''      object_name([queue_id])=N&apos;{{{entity} [rest of string was truncated]&quot;;.
+        '''      [rest of string was truncated]&quot;;.
         '''</summary>
         Friend ReadOnly Property PSA_ProcessUpsertDefinition() As String
             Get
