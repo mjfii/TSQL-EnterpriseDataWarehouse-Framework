@@ -2641,10 +2641,10 @@ as
 with [entities] as
  (
    select
-      e.[psa_schema], 
-      e.[psa_entity], 
-      e.[source_schema], 
-      e.[source_entity], 
+      e.[psa_schema],
+      e.[psa_entity],
+      e.[source_schema],
+      e.[source_entity],
       e.[etl_build_group],
       e.[etl_max_record_count],
       e.[etl_sequence_order],
@@ -2696,7 +2696,7 @@ with [entities] as
       N''select ''+char(13)+char(10)+
       replace(right(sq.[cols],len(sq.[cols])-11),N''{{{crlf}}}'',char(13)+char(10))+char(13)+char(10)+
       N''from''+char(13)+char(10)+N''   ''+
-      quotename([source_schema],''"'')+N''.''+quotename([source_entity],''"'')+char(13)+char(10)+
+      case when [source_schema]=N'''' then N'''' else (quotename([source_schema],''"'')+N''.'') end+quotename([source_entity],''"'')+char(13)+char(10)+
       N''where''+char(13)+char(10)+N''   1=1''+
       case when e.[etl_fixed_predicate] is null then N'''' else char(13)+char(10)+N''   and ''+e.[etl_fixed_predicate] end [source_query]
    from
@@ -2723,6 +2723,12 @@ with [entities] as
       N''select ''+char(13)+char(10)+
       replace(right(sq.[cols],len(sq.[cols])-11),N''{{{crlf}}}'',char(13)+char(10))+char(13)+char(10)+
       N''from''+char(13)+char(10)+N''   ''+
+      quotename([psa_schema],''"'')+N''.''+quotename([psa_entity]+N''.AsIs'',''"'')+char(13)+char(10)+      
+      N''where''+char(13)+char(10)+N''   1=1''+
+      case when e.[etl_fixed_predicate] is null then N'''' else char(13)+char(10)+N''   and ''+e.[etl_fixed_predicate] end [dest_query_no_var],
+      N''select ''+char(13)+char(10)+
+      replace(right(sq.[cols],len(sq.[cols])-11),N''{{{crlf}}}'',char(13)+char(10))+char(13)+char(10)+
+      N''from''+char(13)+char(10)+N''   ''+
       quotename([psa_schema],''"'')+N''.''+quotename([psa_entity]+N''.AsIs'',''"'')+char(13)+char(10)+
       N''where''+char(13)+char(10)+N''   1=1''+
       case when e.[etl_fixed_predicate] is null then N'''' else char(13)+char(10)+N''   and ''+e.[etl_fixed_predicate] end+
@@ -2745,6 +2751,106 @@ with [entities] as
             x.[psa_attribute_ordinal]
          for xml path(N'''')
        ) sq(cols)
+ ), [delete_staging] as
+ (
+   select
+      e.[psa_schema], 
+      e.[psa_entity],
+
+      N''with [existing_set_19841104] as''+char(13)+char(10)+
+      N'' (''+char(13)+char(10)+char(13)+char(10)+
+      N''select ''+char(13)+char(10)+
+      replace(right(sq.[cols],len(sq.[cols])-11),N''{{{crlf}}}'',char(13)+char(10)) +char(13)+char(10)+
+      N''from''+char(13)+char(10)+N''   ''+
+      quotename([psa_schema])+N''.''+quotename([psa_entity]+N''.AsIs'')+N'' a''+char(13)+char(10)+
+      N''where''+char(13)+char(10)+N''   1=1''+
+      case when e.[etl_fixed_predicate] is null then N'''' else char(13)+char(10)+N''   and ''+e.[etl_fixed_predicate] end+char(13)+char(10)+char(13)+char(10)+   
+      N'' )''+char(13)+char(10)+
+      N''insert ''+quotename([psa_schema])+N''.''+quotename([psa_entity]+N''.DeleteStage'')+char(13)+char(10)+
+      N'' (''+char(13)+char(10)+
+      replace(replace(right(sq.[cols],len(sq.[cols])-11),N''{{{crlf}}}'',char(13)+char(10)),N''   a.['',N''   ['')   +char(13)+char(10)+
+      N'' )''+char(13)+char(10)+
+      N''select ''+char(13)+char(10)+
+      replace(right(sq.[cols],len(sq.[cols])-11),N''{{{crlf}}}'',char(13)+char(10))+char(13)+char(10)+
+      N''from''+char(13)+char(10)+N''   ''+
+      N''[existing_set_19841104] a''+char(13)+char(10)+N''   ''+
+      N''left join''+char(13)+char(10)+N''   ''+
+      quotename([psa_schema])+N''.''+quotename([psa_entity]+N''.UpsertStage'')+N'' b on ''+stuff(j.[cols],1,4,N'''')+char(13)+char(10)+
+      N''where''+char(13)+char(10)+N''   ''+
+      n.[cols]+N'';'' [infer_delete_query_no_var],
+
+      N''with [existing_set_19841104] as''+char(13)+char(10)+
+      N'' (''+char(13)+char(10)+char(13)+char(10)+
+      N''select ''+char(13)+char(10)+
+      replace(right(sq.[cols],len(sq.[cols])-11),N''{{{crlf}}}'',char(13)+char(10)) +char(13)+char(10)+
+      N''from''+char(13)+char(10)+N''   ''+
+      quotename([psa_schema])+N''.''+quotename([psa_entity]+N''.AsIs'')+N'' a''+char(13)+char(10)+
+      N''where''+char(13)+char(10)+N''   1=1''+
+      case when e.[etl_fixed_predicate] is null then N'''' else char(13)+char(10)+N''   and ''+e.[etl_fixed_predicate] end+
+      case when e.[etl_variable_predicate] is null then N'''' else char(13)+char(10)+N''   and ''+e.[etl_variable_predicate]+N'''' end+char(13)+char(10)+char(13)+char(10)+      
+      N'' )''+char(13)+char(10)+
+      N''insert ''+quotename([psa_schema])+N''.''+quotename([psa_entity]+N''.DeleteStage'')+char(13)+char(10)+
+      N'' (''+char(13)+char(10)+
+      replace(replace(right(sq.[cols],len(sq.[cols])-11),N''{{{crlf}}}'',char(13)+char(10)),N''   a.['',N''   ['')   +char(13)+char(10)+
+      N'' )''+char(13)+char(10)+
+      N''select ''+char(13)+char(10)+
+      replace(right(sq.[cols],len(sq.[cols])-11),N''{{{crlf}}}'',char(13)+char(10))+char(13)+char(10)+
+      N''from''+char(13)+char(10)+N''   ''+
+      N''[existing_set_19841104] a''+char(13)+char(10)+N''   ''+
+      N''left join''+char(13)+char(10)+N''   ''+
+      quotename([psa_schema])+N''.''+quotename([psa_entity]+N''.UpsertStage'')+N'' b on ''+stuff(j.[cols],1,4,N'''')+char(13)+char(10)+
+      N''where''+char(13)+char(10)+N''   ''+
+      n.[cols]+N'';'' [infer_delete_query]
+   from
+      [dbo].[psa_entity_definition] e
+      cross apply
+       (
+         select
+            N'',{{{crlf}}}   a.''+quotename(x.[psa_attribute])
+         from
+            [dbo].[psa_attribute_definition] x
+         where
+            x.[psa_attribute_business_id]=N''Yes''
+            and
+            e.[psa_schema]=x.[psa_schema]
+            and
+            e.[psa_entity]=x.[psa_entity]
+         order by
+            x.[psa_attribute_ordinal]
+         for xml path(N'''')
+       ) sq(cols)
+      cross apply
+       (
+         select
+            N''and a.''+quotename(x.[psa_attribute])+N'' = b.''+quotename(x.[psa_attribute])+N'' ''
+         from
+            [dbo].[psa_attribute_definition] x
+         where
+            x.[psa_attribute_business_id]=N''Yes''
+            and
+            e.[psa_schema]=x.[psa_schema]
+            and
+            e.[psa_entity]=x.[psa_entity]
+         order by
+            x.[psa_attribute_ordinal]
+         for xml path(N'''')
+       ) j(cols)
+      cross apply
+       (
+         select top 1
+            N''b.''+quotename(x.[psa_attribute])+N'' is null''
+         from
+            [dbo].[psa_attribute_definition] x
+         where
+            x.[psa_attribute_business_id]=N''Yes''
+            and
+            e.[psa_schema]=x.[psa_schema]
+            and
+            e.[psa_entity]=x.[psa_entity]
+         order by
+            x.[psa_attribute_ordinal]
+         for xml path(N'''')
+       ) n(cols)
  ), [packages] as
  (
    select
@@ -2800,13 +2906,14 @@ select
    e.[source_schema],
    e.[source_entity],
 
-   case  
+   case
       when e.[etl_query_variable_count]&gt;0 and e.[variables] is null 
       then s.[source_query]
       else s.[source_query]+case when e.[etl_variable_predicate] is null then N'''' else char(13)+char(10)+N''   and ''+e.[etl_variable_predicate]+N'''' end
    end [source_query],
    
-   d.[dest_query],
+   case when e.[etl_full_load_package]=N''Yes'' then d.[dest_query_no_var] else d.[dest_query] end [dest_query],
+   case when e.[etl_full_load_package]=N''Yes'' then f.[infer_delete_query_no_var] else f.[infer_delete_query] end [infer_delete_query],
    e.[etl_package],
    e.[etl_build_group],
    e.[etl_max_record_count],
@@ -2815,7 +2922,7 @@ select
    e.[etl_full_load],
    e.[etl_full_load_package],
    e.[etl_fixed_predicate],
-   case  
+   case
       when e.[etl_query_variable_count]&gt;0 and e.[variables] is null then null
       else e.[etl_variable_predicate]
    end [etl_variable_predicate],
@@ -2828,7 +2935,10 @@ from
                    and e.[psa_entity]=s.[psa_entity]
    left join
    [dest_query] d on e.[psa_schema]=d.[psa_schema]
-                 and e.[psa_entity]=d.[psa_entity];';
+                 and e.[psa_entity]=d.[psa_entity]
+   left join
+   [delete_staging] f on e.[psa_schema]=f.[psa_schema]
+                     and e.[psa_entity]=f.[psa_entity];';
 
 exec sp_executesql N'create view [dbo].[psa_etl_package_variable] with encryption
 as
