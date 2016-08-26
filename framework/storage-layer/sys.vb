@@ -404,6 +404,7 @@ Namespace Common
             ' alert the tables arent there and make them
             ExecuteDDLCommand(My.Resources.SYS_MetadataDefinition, SqlCnn)
             PrintClientMessage(vbCrLf)
+            PrintClientMessage("The metadata framework was not ready for use. The required system tables and views have NOW been built; you can now use the [ara | psa | oda]")
             PrintClientMessage("system tables in the [master] database to add the metadata construct elements to build each of the objects.")
 
         End Sub
