@@ -376,7 +376,23 @@ Namespace Common
 
             If oid = 0 Then Common.InstanceSettings.AddMetadataObjects(SqlCnn) : Return False
 
+            cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'psa_etl_package' and [schema_id]=1;select @x;", SqlCnn)
+            oid = CInt(cmd.ExecuteScalar())
+
+            If oid = 0 Then Common.InstanceSettings.AddMetadataObjects(SqlCnn) : Return False
+
+            cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'psa_etl_package_variable' and [schema_id]=1;select @x;", SqlCnn)
+            oid = CInt(cmd.ExecuteScalar())
+
+            If oid = 0 Then Common.InstanceSettings.AddMetadataObjects(SqlCnn) : Return False
+
+            cmd = New SqlCommand("declare @x int=0;select @x=[object_id] from sys.objects where [name]=N'psa_etl_parent_package' and [schema_id]=1;select @x;", SqlCnn)
+            oid = CInt(cmd.ExecuteScalar())
+
+            If oid = 0 Then Common.InstanceSettings.AddMetadataObjects(SqlCnn) : Return False
+
             Return True
+
         End Function
 
         ''' <summary>
@@ -388,7 +404,7 @@ Namespace Common
             ' alert the tables arent there and make them
             ExecuteDDLCommand(My.Resources.SYS_MetadataDefinition, SqlCnn)
             PrintClientMessage(vbCrLf)
-            PrintClientMessage("The metadata framework was not ready for use. The required system tables have NOW been built; you can now use the [ara | psa | oda]")
+            PrintClientMessage("The metadata framework was not ready for use. The required system tables and views have NOW been built; you can now use the [ara | psa | oda]")
             PrintClientMessage("system tables in the [master] database to add the metadata construct elements to build each of the objects.")
 
         End Sub
