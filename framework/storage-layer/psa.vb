@@ -1980,7 +1980,6 @@ nextc:
                             Else
                                 rstr += spacer & "("
                                 rstr += "(s.[" & bia.Name & "]=t.[" & bia.Name & "]) or "
-                                rstr += "(s.[" & bia.Name & "] is not null and t.[" & bia.Name & "] is not null) or "
                                 rstr += "(s.[" & bia.Name & "] is null and t.[" & bia.Name & "] is null)"
                                 rstr += ") and" & vbCrLf
                             End If
